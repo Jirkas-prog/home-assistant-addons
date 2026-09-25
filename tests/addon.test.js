@@ -161,6 +161,9 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
     const czechUi = await (await fetch(`http://127.0.0.1:${uiPort}/`)).text();
     assert.match(czechUi, /Hledat v knihovně nebo na webu/);
     assert.match(czechUi, /Jazyk rozhraní/);
+    assert.match(czechUi, /\['logs','Logy'\]/);
+    assert.match(czechUi, /xhr\.responseType='json'/);
+    assert.match(czechUi, /uploadFileInChunks/);
     assert.equal((await api('state')).settings.language, 'cs');
     await api('settings/language', json('PATCH', { language: 'en' }));
 

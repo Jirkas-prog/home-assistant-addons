@@ -2,6 +2,7 @@
 
 const CS_REPLACEMENTS = [
   ["Logs", "Logy"],
+  ["Search", "Hledat"],
   ["${entries.length} of ${currentFileEntries.length} items", "${entries.length} z ${currentFileEntries.length} položek"],
   ["aria-label=\"Select ${esc(entry.name)}\"", "aria-label=\"Vybrat ${esc(entry.name)}\""],
   ["Change the storage and limit values on the add-on Configuration tab, then restart MyBrowser.", "Hodnoty úložiště a limitů změňte na kartě Konfigurace add-onu a restartujte MyBrowser."],
