@@ -1,7 +1,7 @@
 name: MyBrowser
 slug: mybrowser
-description: Web library, offline archive, and hosting for static, npm, and Bun projects
-version: 0.7.0
+description: Brave browser, web library, offline archive, and hosting for static, npm, and Bun projects
+version: 0.8.0
 url: https://github.com/Jirkas-prog/home-assistant-addons
 arch:
   - amd64
@@ -9,6 +9,10 @@ arch:
 startup: application
 boot: auto
 init: false
+audio: true
+video: true
+tmpfs: true
+udev: true
 host_network: true
 ingress: true
 ingress_port: 8099
@@ -24,15 +28,20 @@ map:
     read_only: false
   - type: addon_config
     read_only: false
+privileged:
+  - SYS_ADMIN
+  - DAC_READ_SEARCH
 options:
   default_root: /share/Websites
   gateway_port: 3000
   startup_delay: 2
   max_upload_mb: 250
   max_archive_mb: 100
+  allow_private_links: true
 schema:
   default_root: str
   gateway_port: int(1024,65535)
   startup_delay: int(0,60)
   max_upload_mb: int(1,4096)
   max_archive_mb: int(10,2048)
+  allow_private_links: bool

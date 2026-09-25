@@ -1,0 +1,3 @@
+build_from:
+  amd64: lscr.io/linuxserver/brave:amd64-latest
+  aarch64: lscr.io/linuxserver/brave:arm64v8-latest

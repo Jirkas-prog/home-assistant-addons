@@ -156,12 +156,13 @@ function rewriteLiveHtml(input, baseUrl, blockAds) {
 }
 
 class RemoteManager {
-  constructor({ dataDir, state, save, maxArchiveBytes, appendLog }) {
+  constructor({ dataDir, state, save, maxArchiveBytes, appendLog, allowPrivateFetch = false }) {
     this.dataDir = dataDir;
     this.state = state;
     this.save = save;
     this.maxArchiveBytes = maxArchiveBytes;
     this.appendLog = appendLog || (() => {});
+    this.allowPrivateFetch = Boolean(allowPrivateFetch);
     this.linksDir = path.join(dataDir, 'links');
     fs.mkdirSync(this.linksDir, { recursive: true });
   }
@@ -172,7 +173,7 @@ class RemoteManager {
     catch { throw httpError(400, 'Enter a valid absolute website URL'); }
     if (!['http:', 'https:'].includes(url.protocol)) throw httpError(400, 'Only HTTP and HTTPS URLs are allowed');
     if (url.username || url.password) throw httpError(400, 'The URL must not contain credentials');
-    if (process.env.ALLOW_PRIVATE_FETCH === '1') return url;
+    if (this.allowPrivateFetch || process.env.ALLOW_PRIVATE_FETCH === '1') return url;
     const host = url.hostname.toLowerCase();
     if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) throw httpError(403, 'Internal network addresses are not allowed');
     let addresses;

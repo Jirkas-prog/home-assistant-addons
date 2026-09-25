@@ -11,7 +11,7 @@ Custom add-ons for Home Assistant. This repository currently contains **MyBrowse
 
 ## MyBrowser
 
-MyBrowser is a personal website library, historical offline archive, Chromium browser, and manager for small web servers. Its card-based home page presents hosted websites and saved links with previews, favorites, ordering, and visit statistics.
+MyBrowser is a personal website library, historical offline archive, full Brave desktop, and manager for small web servers. Its card-based home page presents hosted websites and saved links with previews, favorites, ordering, and visit statistics.
 
 English is the default language. Open **Server Management → Add-on Settings → Interface language** to switch the entire MyBrowser interface to Czech. The preference is stored in the add-on data and survives restarts and upgrades.
 
@@ -21,7 +21,7 @@ English is the default language. Open **Server Management → Add-on Settings �
 - website previews, view counters, and last-visit timestamps;
 - favorites with drag-and-drop ordering;
 - automatic alphabetical ordering for other items;
-- a full Chromium session for external links, hosted websites, and web searches;
+- a persistent full Brave desktop for external links, hosted websites, and web searches;
 - optional blocking of known advertising sources for each link;
 - immutable historical offline versions with common images, styles, fonts, and scripts;
 - static/SPA servers and npm or Bun projects;
@@ -54,13 +54,13 @@ The star adds an item to Favorites. Favorite cards can be reordered by dragging 
 
 The three-dot menu can hide an item from Home without deleting it, open settings, copy its address, open it separately, save it offline, or remove it completely. Hidden items remain available under **Hosted** or **Links**.
 
-## Chromium browser and ad blocking
+## Brave browser and ad blocking
 
-External links and hosted websites open inside a real Chromium session. Original CSS, images, JavaScript, forms, cookies, browser security rules, and navigation remain available. The remote page does not receive direct access to the add-on management interface.
+External links and hosted websites open inside a complete Brave desktop streamed by Selkies. This is the normal browser UI with tabs, its own address bar, browser settings, extensions, cookies, sign-ins, downloads, clipboard, audio, and standard Chromium rendering. The desktop is embedded behind Home Assistant Ingress; its internal streaming and DevTools ports are loopback-only.
 
-The browser supports address and search input, back/forward history, reload, mouse input, scrolling, keyboard input, JavaScript dialogs, and website file pickers. Its persistent profile allows normal cookies and sign-ins. Downloads are stored in `MyBrowser/Downloads` next to the default `Websites` directory; the exact path is shown in MyBrowser settings.
+MyBrowser can open cards and searches directly in the active Brave tab through the local DevTools interface. The Brave profile is persistent. Downloads are stored in `/share/MyBrowser/Downloads`; the exact path is shown in MyBrowser settings.
 
-The **Block ads** option blocks several known advertising domains in Chromium and filters common advertising resources and containers while creating an offline version. This is a practical filter rather than a complete replacement for a dedicated content blocker. A website may serve advertising from the same domain as its primary content.
+Brave provides its normal Shields protection while browsing. The **Block ads** option also filters known advertising resources and containers when MyBrowser creates an offline version. This is a practical filter rather than a guarantee that every advertisement is removed.
 
 ## Offline archive
 
@@ -90,7 +90,9 @@ Accessible storage roots are `/share`, `/media`, and the add-on's public `/confi
 
 ## Network and security
 
-MyBrowser uses `host_network: true`. The shared public gateway uses port `3000` by default and can be changed with `gateway_port`. Port `8099` is reserved for the management Ingress. Websites using dedicated ports can listen on user-selected ports from 1024 through 65535.
+MyBrowser uses `host_network: true`. The shared public gateway uses port `3000` by default and can be changed with `gateway_port`. Port `8099` is reserved for the management Ingress. Websites using dedicated ports can listen on user-selected ports from 1024 through 65535. Brave uses internal loopback ports `6080`–`6082` and `9221`; they are not exposed as public add-on ports.
+
+Private and local links are allowed by default so addresses on LAN, Tailscale/VPN, localhost, and Home Assistant itself can be added, previewed, and archived. Set `allow_private_links: false` on the add-on Configuration tab to restore public-internet-only metadata and offline fetching. Keep MyBrowser limited to trusted Home Assistant users while private access is enabled.
 
 Hosted websites do not automatically receive authentication or HTTPS. Expose them only inside a trusted LAN/VPN or place your own reverse proxy in front of them. npm and Bun projects are executable code with access to the add-on's mapped folders; run only trusted projects.
 
@@ -104,4 +106,4 @@ cd ..
 .\package.ps1
 ```
 
-The test suite covers static, npm, and Bun hosting; uploads; file operations; favorites and ordering; ad filtering; view counters; link metadata; multiple preserved offline versions; Ingress icon loading; localization preference persistence; and one-time guide installation.
+The test suite covers static, npm, and Bun hosting; uploads; file operations; favorites and ordering; private-link metadata; ad filtering; view counters; preserved offline versions; Brave Ingress path rewriting; icon loading; localization preference persistence; and one-time guide installation.

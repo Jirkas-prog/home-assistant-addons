@@ -1,6 +1,17 @@
 'use strict';
 
 const CS_REPLACEMENTS = [
+  ["The full Brave desktop is starting. The first launch may take a moment.", "Spouští se plná plocha Brave. První spuštění může chvíli trvat."],
+  ["Private and local addresses", "Soukromé a místní adresy"],
+  ["change this on the add-on Configuration tab", "změňte na kartě Konfigurace add-onu"],
+  ["The Brave desktop is still starting", "Plocha Brave se ještě spouští"],
+  ["Full Brave browser", "Plnohodnotný prohlížeč Brave"],
+  ["Brave desktop", "Plocha Brave"],
+  ["Starting Brave…", "Spouštím Brave…"],
+  ["Brave reported an error", "Brave hlásí chybu"],
+  ["Private and local addresses are allowed", "Soukromé a místní adresy jsou povolené"],
+  ["blocked", "blokované"],
+  ["allowed", "povolené"],
   ["Logs", "Logy"],
   ["Search", "Hledat"],
   ["${entries.length} of ${currentFileEntries.length} items", "${entries.length} z ${currentFileEntries.length} položek"],

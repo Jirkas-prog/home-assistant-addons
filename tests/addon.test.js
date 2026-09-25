@@ -66,6 +66,7 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
   const npmPort = await freePort();
   const bunPort = await freePort();
   const remotePort = await freePort();
+  const bravePort = await freePort();
   const remoteServer = http.createServer((req, res) => {
     const route = new URL(req.url, 'http://localhost').pathname;
     if (route === '/') {
@@ -78,12 +79,19 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
     const body=Buffer.from('<!doctype html><title>Next</title>'); res.writeHead(200,{'content-type':'text/html','content-length':body.length}); res.end(body);
   });
   await new Promise((resolve, reject) => { remoteServer.once('error', reject); remoteServer.listen(remotePort, '127.0.0.1', resolve); });
+  const braveServer = http.createServer((req, res) => {
+    const route = new URL(req.url, 'http://localhost').pathname;
+    const body = Buffer.from(route === '/brave/' ? '<!doctype html><script src="/brave/app.js"></script><h1>Brave desktop</h1>' : 'window.braveProxyWorks=true');
+    res.writeHead(200, { 'content-type': route === '/brave/' ? 'text/html; charset=utf-8' : 'text/javascript', 'content-length': body.length });
+    res.end(body);
+  });
+  await new Promise((resolve, reject) => { braveServer.once('error', reject); braveServer.listen(bravePort, '127.0.0.1', resolve); });
   const output = [];
   const child = spawn(process.execPath, [serverFile], {
     cwd: path.dirname(serverFile),
     windowsHide: true,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, DATA_DIR: dataDir, UI_PORT: String(uiPort), UI_HOST: '127.0.0.1', GATEWAY_PORT: String(gatewayPort), GATEWAY_HOST: '127.0.0.1', ALLOW_LOCAL_UI: '1', ALLOW_PRIVATE_FETCH: '1', DISABLE_BUNDLED_GUIDE: '1' }
+    env: { ...process.env, DATA_DIR: dataDir, UI_PORT: String(uiPort), UI_HOST: '127.0.0.1', GATEWAY_PORT: String(gatewayPort), GATEWAY_HOST: '127.0.0.1', BRAVE_PORT: String(bravePort), ALLOW_LOCAL_UI: '1', DISABLE_BUNDLED_GUIDE: '1' }
   });
   child.stdout.on('data', chunk => output.push(chunk.toString()));
   child.stderr.on('data', chunk => output.push(chunk.toString()));
@@ -105,6 +113,7 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
       ]);
     }
     await new Promise(resolve => remoteServer.close(resolve));
+    await new Promise(resolve => braveServer.close(resolve));
     fs.rmSync(temp, { recursive: true, force: true });
   });
 
@@ -130,9 +139,9 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
     assert.match(uiHtml, /showOnHome/);
     assert.match(uiHtml, /Search your library or the web/);
     assert.match(uiHtml, /Make available offline/);
-    assert.match(uiHtml, /browserCanvas/);
-    assert.match(uiHtml, /browser\/sessions/);
-    assert.match(uiHtml, /Starting Chromium/);
+    assert.match(uiHtml, /id=\"braveFrame\"/);
+    assert.match(uiHtml, /brave\/open/);
+    assert.match(uiHtml, /Starting Brave/);
     assert.match(uiHtml, /fileSelectAll/);
     assert.match(uiHtml, /New folder/);
     assert.match(uiHtml, /pendingFileOperation/);
@@ -155,8 +164,13 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
     assert.equal(initial.settings.nextManagedPath, path.join(managedDir, '001_WebsiteName'));
     assert.equal(initial.settings.gatewayPort, gatewayPort);
     assert.equal(initial.settings.language, 'en');
-    assert.equal(typeof initial.settings.chromiumBrowser, 'boolean');
+    assert.equal(initial.settings.braveBrowser, true);
+    assert.equal(initial.settings.allowPrivateLinks, true);
     assert.match(initial.settings.browserDownloadDir, /MyBrowser[\\/]Downloads$/);
+    const braveIngress = await fetch(`http://127.0.0.1:${uiPort}/api/hassio_ingress/test-token/brave/`);
+    assert.equal(braveIngress.status, 200);
+    assert.match(await braveIngress.text(), /api\/hassio_ingress\/test-token\/brave\/app\.js/);
+    assert.match(await (await fetch(`http://127.0.0.1:${uiPort}/api/hassio_ingress/test-token/brave/app.js`)).text(), /braveProxyWorks/);
     await api('settings/language', json('PATCH', { language: 'cs' }));
     const czechUi = await (await fetch(`http://127.0.0.1:${uiPort}/`)).text();
     assert.match(czechUi, /Hledat v knihovně nebo na webu/);

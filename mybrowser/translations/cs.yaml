@@ -14,3 +14,6 @@ configuration:
   max_archive_mb:
     name: Limit jedné offline verze
     description: Nejvyšší celková velikost jedné historické offline verze externí stránky v MB.
+  allow_private_links:
+    name: Povolit soukromé a místní adresy
+    description: Povolí odkazy, metadata a offline kopie z LAN, VPN, localhostu a adres Home Assistantu.

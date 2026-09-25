@@ -10,6 +10,7 @@ const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { RemoteManager } = require('./remote');
 const { ChromiumBrowser } = require('./chromium');
+const { BraveDesktop, safeUrl: safeBrowserUrl } = require('./brave');
 const { localizeUi } = require('./locales');
 
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '.data');
@@ -49,6 +50,9 @@ const defaultRoot = path.resolve(String(addonOptions.default_root || process.env
 const startupDelay = clampInteger(addonOptions.startup_delay, 0, 60, 2);
 const maxUploadBytes = clampInteger(addonOptions.max_upload_mb, 1, 4096, 250) * 1024 * 1024;
 const maxArchiveBytes = clampInteger(addonOptions.max_archive_mb, 10, 2048, 100) * 1024 * 1024;
+const allowPrivateLinks = addonOptions.allow_private_links !== false;
+const bravePort = clampInteger(process.env.BRAVE_PORT, 1024, 65535, 6080);
+const braveDebugPort = clampInteger(process.env.BRAVE_DEBUG_PORT, 1024, 65535, 9221);
 const allowedRoots = (Array.isArray(addonOptions.allowed_roots) && addonOptions.allowed_roots.length
   ? addonOptions.allowed_roots
   : ['/share', '/media', '/config'])
@@ -183,6 +187,8 @@ function appendLog(id, level, text) {
 function chromiumExecutable() {
   const candidates = [
     process.env.CHROMIUM_BIN,
+    '/usr/bin/brave-browser',
+    '/usr/bin/brave-browser-stable',
     '/usr/bin/chromium-browser',
     '/usr/bin/chromium',
     process.env.PROGRAMFILES && path.join(process.env.PROGRAMFILES, 'Google', 'Chrome', 'Application', 'chrome.exe'),
@@ -192,9 +198,11 @@ function chromiumExecutable() {
 }
 
 const chromiumBin = chromiumExecutable();
+const sharedBrowserDownloadDir = path.resolve('/share/MyBrowser/Downloads');
 const adjacentBrowserDownloadDir = path.join(path.dirname(defaultRoot), 'MyBrowser', 'Downloads');
-const browserDownloadDir = isAllowedPath(adjacentBrowserDownloadDir) ? adjacentBrowserDownloadDir : path.join(defaultRoot, '_MyBrowser', 'Downloads');
+const browserDownloadDir = isAllowedPath(sharedBrowserDownloadDir) ? sharedBrowserDownloadDir : isAllowedPath(adjacentBrowserDownloadDir) ? adjacentBrowserDownloadDir : path.join(defaultRoot, '_MyBrowser', 'Downloads');
 const browser = new ChromiumBrowser({ executable: chromiumBin, dataDir, downloadDir: browserDownloadDir });
+const brave = new BraveDesktop({ port: braveDebugPort });
 
 function localSiteUrl(site) {
   return usesGateway(site) ? `http://127.0.0.1:${gatewayPort}/${encodeURIComponent(site.slug)}/` : `http://127.0.0.1:${site.port}/`;
@@ -253,7 +261,9 @@ async function captureSitePreview(id) {
   const temp = path.join(sitePreviewDir, `${id}.${crypto.randomUUID()}.png`);
   try {
     await new Promise((resolve, reject) => {
-      const args = ['--headless', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', '--window-size=1900,1069', '--virtual-time-budget=5000', `--screenshot=${temp}`, localSiteUrl(site)];
+      const previewProfile = path.join(dataDir, 'preview-browser');
+      fs.mkdirSync(previewProfile, { recursive: true });
+      const args = ['--headless', '--no-sandbox', '--disable-gpu', '--hide-scrollbars', `--user-data-dir=${previewProfile}`, '--window-size=1900,1069', '--virtual-time-budget=5000', `--screenshot=${temp}`, localSiteUrl(site)];
       const child = spawn(chromiumBin, args, { windowsHide: true, stdio: ['ignore', 'ignore', 'pipe'] });
       let errors = '';
       child.stderr.on('data', chunk => { if (errors.length < 4000) errors += chunk.toString(); });
@@ -282,7 +292,7 @@ async function captureSitePreview(id) {
   }
 }
 
-const remote = new RemoteManager({ dataDir, state, save: saveState, maxArchiveBytes, appendLog });
+const remote = new RemoteManager({ dataDir, state, save: saveState, maxArchiveBytes, appendLog, allowPrivateFetch: allowPrivateLinks });
 
 function slugify(value) {
   const slug = String(value || '')
@@ -1294,10 +1304,95 @@ function serveLocalFile(res, file, extraHeaders = {}) {
   fs.createReadStream(file).pipe(res);
 }
 
+function braveRoute(pathname) {
+  const marker = pathname.endsWith('/brave') ? pathname.length - '/brave'.length : pathname.lastIndexOf('/brave/');
+  if (marker < 0) return null;
+  return { prefix: pathname.slice(0, marker), upstreamPath: pathname.slice(marker) || '/brave/' };
+}
+
+function proxyBraveRequest(req, res, url) {
+  const target = braveRoute(url.pathname);
+  if (!target) return false;
+  const headers = {
+    ...req.headers,
+    host: `127.0.0.1:${bravePort}`,
+    'accept-encoding': 'identity',
+    'x-forwarded-prefix': `${target.prefix}/brave`
+  };
+  delete headers.connection;
+  delete headers.upgrade;
+  const upstream = http.request({
+    hostname: '127.0.0.1', port: bravePort, method: req.method,
+    path: `${target.upstreamPath}${url.search}`, headers
+  }, response => {
+    const responseHeaders = { ...response.headers };
+    const externalBase = `${target.prefix}/brave/`;
+    if (typeof responseHeaders.location === 'string' && /^\/brave\/?/.test(responseHeaders.location)) {
+      responseHeaders.location = responseHeaders.location.replace(/^\/brave\/?/, externalBase);
+    }
+    if (Array.isArray(responseHeaders['set-cookie'])) {
+      responseHeaders['set-cookie'] = responseHeaders['set-cookie'].map(cookie => cookie.replace(/Path=\/brave\//i, `Path=${externalBase}`));
+    }
+    const contentType = String(responseHeaders['content-type'] || '');
+    const textual = /(?:text\/|javascript|json|xml|svg|manifest)/i.test(contentType);
+    if (!textual) {
+      res.writeHead(response.statusCode || 502, responseHeaders);
+      response.pipe(res);
+      return;
+    }
+    const chunks = [];
+    response.on('data', chunk => chunks.push(chunk));
+    response.on('end', () => {
+      const body = Buffer.from(Buffer.concat(chunks).toString('utf8').replaceAll('/brave/', externalBase));
+      delete responseHeaders['content-length'];
+      delete responseHeaders['content-encoding'];
+      responseHeaders['content-length'] = body.length;
+      res.writeHead(response.statusCode || 502, responseHeaders);
+      res.end(body);
+    });
+  });
+  upstream.on('error', error => {
+    if (res.headersSent) return res.destroy(error);
+    sendJson(res, 503, { error: `The Brave desktop is still starting: ${error.message}` });
+  });
+  req.pipe(upstream);
+  return true;
+}
+
+function proxyBraveUpgrade(req, socket, head) {
+  const url = new URL(req.url, 'http://localhost');
+  const target = braveRoute(url.pathname);
+  if (!target) return false;
+  const headers = { ...req.headers, host: `127.0.0.1:${bravePort}`, connection: 'Upgrade' };
+  const upstream = http.request({
+    hostname: '127.0.0.1', port: bravePort, method: req.method,
+    path: `${target.upstreamPath}${url.search}`, headers
+  });
+  upstream.on('upgrade', (response, upstreamSocket, upstreamHead) => {
+    const lines = [`HTTP/1.1 ${response.statusCode} ${response.statusMessage}`];
+    for (let index = 0; index < response.rawHeaders.length; index += 2) lines.push(`${response.rawHeaders[index]}: ${response.rawHeaders[index + 1]}`);
+    socket.write(`${lines.join('\r\n')}\r\n\r\n`);
+    if (head?.length) upstreamSocket.write(head);
+    if (upstreamHead?.length) socket.write(upstreamHead);
+    upstreamSocket.pipe(socket).pipe(upstreamSocket);
+  });
+  upstream.on('response', response => {
+    socket.write(`HTTP/1.1 ${response.statusCode || 502} ${response.statusMessage || 'Bad Gateway'}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  });
+  upstream.on('error', () => {
+    try { socket.write('HTTP/1.1 503 Service Unavailable\r\nConnection: close\r\n\r\n'); } catch {}
+    socket.destroy();
+  });
+  upstream.end();
+  return true;
+}
+
 const uiServer = http.createServer(async (req, res) => {
   try {
     if (!isUiRequestAllowed(req)) return sendJson(res, 403, { error: 'Management is available only through Home Assistant Ingress' });
     const url = new URL(req.url, 'http://localhost');
+    if (braveRoute(url.pathname)) return proxyBraveRequest(req, res, url);
     const route = routeFromPathname(url.pathname);
 
     const embeddedSiteRoute = /^\/api\/gateway\/([^/]+)(\/.*)?$/.exec(route);
@@ -1423,6 +1518,8 @@ const uiServer = http.createServer(async (req, res) => {
           gatewayPort,
           automaticPreviews: Boolean(chromiumBin),
           chromiumBrowser: browser.available,
+          braveBrowser: true,
+          allowPrivateLinks,
           browserDownloadDir,
           versions
         }
@@ -1435,6 +1532,25 @@ const uiServer = http.createServer(async (req, res) => {
       state.language = body.language;
       saveState();
       return sendJson(res, 200, { language: state.language });
+    }
+
+    if (req.method === 'GET' && route === '/api/brave/state') {
+      return sendJson(res, 200, await brave.state());
+    }
+    if (req.method === 'POST' && route === '/api/brave/open') {
+      const body = await readJson(req);
+      let target = body.url;
+      if (body.siteId) {
+        const site = state.sites[String(body.siteId)];
+        if (!site) throw httpError(404, 'Website not found');
+        if (runtimeFor(String(body.siteId)).status !== 'running') throw httpError(503, `Website ${site.name} is stopped`);
+        target = localSiteUrl(site);
+      }
+      return sendJson(res, 200, await brave.open(safeBrowserUrl(target)));
+    }
+    if (req.method === 'POST' && route === '/api/brave/action') {
+      const body = await readJson(req);
+      return sendJson(res, 200, await brave.action(body.action));
     }
 
     if (req.method === 'POST' && route === '/api/browser/sessions') {
@@ -1760,6 +1876,10 @@ const gatewayServer = http.createServer((req, res) => {
       res.end(body);
     }
   });
+});
+
+uiServer.on('upgrade', (req, socket, head) => {
+  if (!isUiRequestAllowed(req) || !proxyBraveUpgrade(req, socket, head)) socket.destroy();
 });
 
 try {

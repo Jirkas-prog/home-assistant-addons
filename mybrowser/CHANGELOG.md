@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.0
+
+- replaced the streamed screenshot session with a full Brave desktop powered by LinuxServer Brave and Selkies;
+- embedded the persistent Brave interface behind Home Assistant Ingress, including tabs, downloads, clipboard, audio, and normal browser rendering;
+- added navigation control through Brave DevTools while keeping the full native browser interface interactive;
+- allowed private, LAN, VPN, localhost, and Home Assistant links by default, with a configuration switch to restore public-only fetching;
+- kept the internal Brave, Selkies, and DevTools ports bound to loopback instead of exposing them on the LAN;
+- stored Brave downloads in `/share/MyBrowser/Downloads` and kept automatic site previews separate from the interactive profile.
+
 ## 0.7.0
 
 - changed the default and all public repository documentation to English;

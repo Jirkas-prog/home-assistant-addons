@@ -14,3 +14,6 @@ configuration:
   max_archive_mb:
     name: Offline version limit
     description: Maximum total size in MB for one historical offline copy of an external page.
+  allow_private_links:
+    name: Allow private and local addresses
+    description: Allow links, metadata, and offline copies from LAN, VPN, localhost, and Home Assistant addresses.
