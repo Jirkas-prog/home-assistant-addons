@@ -1,0 +1,7 @@
+configuration:
+  remote_enabled:
+    name: Paired-device synchronization
+    description: Enable the HTTPS endpoint on port 8443 for paired standalone applications.
+  backup_folder:
+    name: Automatic backup folder
+    description: Folder under /share where Fakturocel stores managed automatic backups.

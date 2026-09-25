@@ -2,5 +2,6 @@ mybrowser/.data/
 artifacts/
 releases/
 node_modules/
+fakturocel/build/
 *.zip
 *.tmp

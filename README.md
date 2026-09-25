@@ -1,13 +1,19 @@
 # Home Assistant Add-ons
 
-Custom add-ons for Home Assistant. This repository currently contains **MyBrowser**.
+Custom add-ons for Home Assistant. This repository contains **Fakturocel** and **MyBrowser**.
 
 ## Add this repository to Home Assistant
 
 1. Open **Settings → Add-ons → Add-on Store**.
 2. Open the menu and select **Repositories**.
 3. Add `https://github.com/Jirkas-prog/home-assistant-addons`.
-4. Select and install **MyBrowser** from the store.
+4. Select the add-on you want to install.
+
+## Fakturocel
+
+Fakturocel is a self-hosted invoicing application with invoices and quotes, annual reports, PDF and encrypted Excel export, archived-document reprinting, encrypted backups, calculators, review tasks, and a visual invoice-template editor.
+
+It starts with an empty database and contains no personal business data. English is the default interface language; Czech can be selected under **Settings and data → Language**, and the preference is stored with the application data. See the [Fakturocel documentation](fakturocel/DOCS.md) for installation, configuration, backup, recovery, and security details.
 
 ## MyBrowser
 

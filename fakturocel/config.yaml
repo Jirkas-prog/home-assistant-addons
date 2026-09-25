@@ -1,0 +1,30 @@
+name: Fakturocel
+version: "3.8.0"
+slug: fakturocel
+description: Invoicing with a visual template editor, document checks, encrypted storage, and complete backups
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: true
+ingress: true
+ingress_port: 8099
+ingress_stream: true
+panel_icon: mdi:receipt-text
+panel_title: Fakturocel
+panel_admin: true
+backup: cold
+ports:
+  8443/tcp: 8443
+ports_description:
+  8443/tcp: HTTPS for paired desktop and mobile applications
+map:
+  - type: share
+    read_only: false
+options:
+  remote_enabled: true
+  backup_folder: /share/fakturocel/backups
+schema:
+  remote_enabled: bool
+  backup_folder: str
