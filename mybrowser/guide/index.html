@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Průvodce MyBrowserem</title>
+  <style>
+    :root{color-scheme:dark;--bg:#111317;--panel:#20242b;--panel2:#292e37;--line:#3b424d;--text:#f6f8fb;--muted:#b8c0ce;--blue:#2799e6;--blue2:#73c8ff;--green:#52d78d;--yellow:#ffbf57}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 12% 2%,#126aa64d,transparent 30%),var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--blue2)}
+    .top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:14px clamp(18px,4vw,58px);background:#171a1fe8;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.top img{width:46px;height:46px}.top strong{font-size:20px}.top span{display:block;color:var(--muted);font-size:12px}.top nav{margin-left:auto;display:flex;gap:18px}.top nav a{text-decoration:none;color:#d9deea;font-size:14px}
+    main{width:min(1180px,calc(100% - 32px));margin:auto;padding:72px 0 90px}.hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);align-items:center;gap:42px;padding-bottom:58px}.hero>*{min-width:0}.eyebrow{color:var(--blue2);font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:12px}.hero h1{font-size:clamp(42px,7vw,82px);line-height:1.02;margin:10px 0 20px}.hero p{font-size:20px;color:var(--muted);max-width:720px}.hero-card{min-width:0;background:linear-gradient(145deg,#26323e,#1b1e24);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 25px 70px #0006}.hero-card img{width:92px}.address{max-width:100%;margin-top:20px;background:#101216;border:1px solid #3d4857;border-radius:10px;padding:12px 14px;font:14px ui-monospace,monospace;color:#9fdbff;overflow-wrap:anywhere;word-break:break-word}
+    section{scroll-margin-top:92px;margin-top:48px}h2{font-size:30px;margin:0 0 8px}.lead{color:var(--muted);margin:0 0 22px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}.card .number{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:var(--blue);font-weight:900}.card h3{margin:16px 0 8px;font-size:19px}.card p{color:var(--muted);margin:0}.wide{grid-column:span 2}.tip{border-left:4px solid var(--yellow);background:#2b261e;padding:18px 20px;border-radius:0 12px 12px 0;color:#e9ddc8}.status{display:inline-flex;align-items:center;gap:8px;color:var(--green);font-weight:800}.dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 14px currentColor}.footer{margin-top:70px;padding-top:28px;border-top:1px solid var(--line);color:var(--muted)}code{background:#0c0e11;border:1px solid #343b45;padding:2px 6px;border-radius:5px;color:#b9e4ff}
+    @media(max-width:800px){.top nav{display:none}.hero{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}main{padding-top:42px}}
+  </style>
+</head>
+<body>
+  <header class="top"><img src="./icon.png" alt="Ikona MyBrowseru"><div><strong>MyBrowser</strong><span>Vestavěný průvodce</span></div><nav><a href="#zacatek">Začínáme</a><a href="#nahledy">Náhledy</a><a href="#sprava">Správa</a></nav></header>
+  <main>
+    <div class="hero">
+      <div><div class="eyebrow">Vítejte v MyBrowseru</div><h1>Všechny vaše weby na jednom místě.</h1><p>Tato stránka je skutečný hostovaný web uvnitř add-onu. Současně ukazuje, jak přidat vlastní projekt, nahrát soubory a otevřít jej přímo v hlavní ploše.</p></div>
+      <aside class="hero-card"><img src="./icon.png" alt=""><h2>Průvodce běží</h2><div class="status"><span class="dot"></span> Statický web přes bránu</div><div class="address">http://IP_HOME_ASSISTANTU:3000/pruvodce-mybrowserem/</div></aside>
+    </div>
+
+    <section id="zacatek"><h2>První vlastní web ve třech krocích</h2><p class="lead">V horní liště MyBrowseru zvolte <strong>＋ Přidat → Hostovaný web</strong>.</p><div class="grid">
+      <article class="card"><span class="number">1</span><h3>Pojmenujte web</h3><p>Cesta se automaticky připraví ve tvaru <code>/share/Weby/001_Názevwebu</code>. Výchozí přístup vede přes společnou bránu.</p></article>
+      <article class="card"><span class="number">2</span><h3>Přetáhněte soubory</h3><p>Do levé plochy vložte jednotlivé soubory nebo celou složku. Upload začne hned a po vytvoření webu bezpečně doběhne na pozadí.</p></article>
+      <article class="card"><span class="number">3</span><h3>Otevřete kartu</h3><p>Kliknutí otevře web v pravé hlavní ploše MyBrowseru. Tlačítko „Otevřít zvlášť“ zůstává jako doplňková možnost.</p></article>
+    </div></section>
+
+    <section id="nahledy"><h2>Úvodní obrázek a automatický náhled</h2><div class="grid"><article class="card wide"><h3>Vlastní obrázek má přednost</h3><p>Do pravé plochy dialogu lze přetáhnout JPG, PNG, WebP, GIF nebo AVIF. Když vlastní obrázek nepřidáte, MyBrowser jednou vykreslí úvodní stránku v desktopovém rozlišení 1900 × 1069 px a uloží ji jako statický PNG náhled.</p></article><article class="card"><h3>Bez zbytečného obnovování</h3><p>Náhled se nevykresluje živě. Znovu se vytvoří teprve tehdy, když se změní soubory webu.</p></article></div></section>
+
+    <section id="sprava"><h2>Brána a správa serverů</h2><div class="grid">
+      <article class="card"><h3>Jedna veřejná brána</h3><p>Výchozí port je <code>3000</code>. Každý web dostane vlastní cestu, například <code>/moje-stranka/</code>.</p></article>
+      <article class="card"><h3>Tři způsoby přístupu</h3><p>Vedle výchozí brány lze zadat veřejnou URL vlastní reverzní brány nebo projektu ponechat konkrétní vlastní port.</p></article>
+      <article class="card"><h3>Technická správa a soubory</h3><p>Část „Správa serverů“ obsahuje spuštění, restart, logy a nastavení. Záložka Soubory umí vytvářet složky, hromadný výběr, kopírování, přesun, přejmenování, stažení i mazání.</p></article>
+    </div><p class="tip"><strong>Tip:</strong> Nabídka se třemi tečkami u každé karty umí zkopírovat adresu, otevřít nastavení nebo kartu pouze skrýt z Domů. Hledání v horní liště navíc umí otevřít webové výsledky přímo v MyBrowseru a tlačítkem „Zpřístupnit offline“ je přidat do knihovny.</p><p class="tip"><strong>Průvodce je obyčejný spravovaný web.</strong> Můžete si prohlédnout jeho soubory, upravit je, nebo jej odstranit. Po odstranění se automaticky znovu nevytvoří.</p></section>
+
+    <div class="footer">MyBrowser · vestavěný průvodce add-onem</div>
+  </main>
+</body>
+</html>

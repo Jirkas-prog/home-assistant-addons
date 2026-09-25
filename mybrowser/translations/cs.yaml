@@ -1,0 +1,16 @@
+configuration:
+  default_root:
+    name: Výchozí složka webů
+    description: Nové spravované weby se vytvoří v této složce. Použijte cestu v /share, /media nebo /config.
+  gateway_port:
+    name: Port veřejné brány
+    description: Společný LAN port pro adresy webů ve tvaru http://IP:port/nazev-webu/.
+  startup_delay:
+    name: Prodleva automatického spuštění
+    description: Počet sekund po startu add-onu před spuštěním webů označených Automaticky spustit.
+  max_upload_mb:
+    name: Limit jednoho souboru
+    description: Nejvyšší povolená velikost jednoho souboru nahraného přes drag and drop v MB.
+  max_archive_mb:
+    name: Limit jedné offline verze
+    description: Nejvyšší celková velikost jedné historické offline verze externí stránky v MB.

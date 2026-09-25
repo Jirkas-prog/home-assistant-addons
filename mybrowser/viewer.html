@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <link rel="icon" type="image/png" href="api/assets/icon.png">
+  <link rel="apple-touch-icon" href="api/assets/icon.png">
+  <title>MyBrowser</title>
+  <style>
+    :root{color-scheme:dark;--bg:#18191c;--panel:#26282d;--line:#42454d;--text:#f6f6f7;--muted:#adb0b8;--blue:#2289db;--green:#55cf89}*{box-sizing:border-box}html,body{height:100%;margin:0;background:var(--bg);color:var(--text);font:14px system-ui,"Segoe UI",sans-serif}.shell{height:100%;display:grid;grid-template-rows:auto 1fr}.bar{min-height:58px;display:flex;align-items:center;gap:12px;padding:9px 13px;background:var(--panel);border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:8px;font-weight:800}.mark{width:34px;height:34px;display:block;object-fit:contain;filter:drop-shadow(0 5px 8px #2289db4a)}.title{min-width:0;flex:1}.title strong,.title small{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.title small{color:var(--muted)}.pill{border-radius:20px;padding:4px 9px;background:#164934;color:#94efbe;font-size:12px}.btn{border:1px solid var(--line);background:#373940;color:var(--text);border-radius:8px;padding:8px 11px;text-decoration:none;white-space:nowrap}.btn.primary{background:var(--blue);border-color:var(--blue)}iframe{width:100%;height:100%;border:0;background:white}.error{display:grid;place-items:center;padding:30px;text-align:center;color:#ff9fa8}@media(max-width:650px){.brand span,.pill{display:none}.bar{gap:7px}.btn{padding:8px}.title small{max-width:180px}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="bar">
+      <div class="brand"><img class="mark" src="api/assets/icon.png" alt=""><span>MyBrowser</span></div>
+      <div class="title"><strong id="name">Načítám…</strong><small id="address"></small></div>
+      <span class="pill" id="adState"></span>
+      <button class="btn" id="reload">Obnovit</button>
+      <a class="btn primary" id="original" target="_blank" rel="noopener noreferrer">Originál ↗</a>
+    </header>
+    <iframe id="frame" title="Webová stránka" sandbox="allow-scripts allow-forms allow-popups allow-downloads" referrerpolicy="no-referrer"></iframe>
+  </div>
+  <script>
+    'use strict';
+    const params=new URLSearchParams(location.search),id=params.get('id'),archive=params.get('archive');
+    const base=new URL(location.href);base.search='';base.hash='';base.pathname=base.pathname.replace(/viewer\/?$/,'');
+    const endpoint=route=>new URL(`api/${route}`,base),content=route=>new URL(route,base);
+    async function api(route,options={}){const response=await fetch(endpoint(route),options);const value=await response.json();if(!response.ok)throw Error(value.error||response.statusText);return value;}
+    async function load(){
+      if(!id)throw Error('Chybí ID odkazu');
+      const state=await api('state'),link=state.links.find(item=>item.id===id);if(!link)throw Error('Odkaz nebyl nalezen');
+      document.title=`${link.name} – MyBrowser`;document.getElementById('name').textContent=link.name;document.getElementById('address').textContent=archive?`Offline verze ${archive}`:link.url;
+      document.getElementById('adState').textContent=archive?'Offline archiv':link.blockAds?'Reklamy omezeny':'Reklamy povoleny';document.getElementById('original').href=link.url;
+      await api(`library/link/${id}/view`,{method:'POST'});
+      const src=archive?content(`offline/${id}/${archive}/index.html`):content(`view/${id}/`);document.getElementById('frame').src=src;
+      document.getElementById('reload').onclick=()=>{const frame=document.getElementById('frame');frame.src=frame.src;};
+    }
+    load().catch(error=>{document.getElementById('frame').remove();const box=document.createElement('div');box.className='error';box.textContent=error.message;document.querySelector('.shell').append(box);});
+  </script>
+</body>
+</html>

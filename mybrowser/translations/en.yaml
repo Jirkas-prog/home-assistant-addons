@@ -1,0 +1,16 @@
+configuration:
+  default_root:
+    name: Default website folder
+    description: New managed sites are created here. Use a path under /share, /media or /config.
+  gateway_port:
+    name: Public gateway port
+    description: Shared LAN port for site addresses in the form http://IP:port/site-name/.
+  startup_delay:
+    name: Autostart delay
+    description: Seconds to wait before starting sites marked for automatic startup.
+  max_upload_mb:
+    name: Per-file upload limit
+    description: Maximum size in MB for one file uploaded by drag and drop.
+  max_archive_mb:
+    name: Offline version limit
+    description: Maximum total size in MB for one historical offline copy of an external page.

@@ -1,0 +1,38 @@
+name: MyBrowser
+slug: mybrowser
+description: Knihovna webů, offline archiv a hostování statických, npm a Bun projektů
+version: 0.6.0
+url: https://github.com/Jirkas-prog/home-assistant-addons
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+host_network: true
+ingress: true
+ingress_port: 8099
+ingress_stream: true
+panel_icon: mdi:web-box
+panel_title: MyBrowser
+panel_admin: true
+backup: cold
+map:
+  - type: share
+    read_only: false
+  - type: media
+    read_only: false
+  - type: addon_config
+    read_only: false
+options:
+  default_root: /share/Weby
+  gateway_port: 3000
+  startup_delay: 2
+  max_upload_mb: 250
+  max_archive_mb: 100
+schema:
+  default_root: str
+  gateway_port: int(1024,65535)
+  startup_delay: int(0,60)
+  max_upload_mb: int(1,4096)
+  max_archive_mb: int(10,2048)

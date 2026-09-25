@@ -1,0 +1,6 @@
+mybrowser/.data/
+artifacts/
+releases/
+node_modules/
+*.zip
+*.tmp
