@@ -169,16 +169,16 @@ class RemoteManager {
   async assertPublicUrl(value) {
     let url;
     try { url = new URL(String(value || '').trim()); }
-    catch { throw httpError(400, 'Zadejte platnou úplnou adresu webu'); }
-    if (!['http:', 'https:'].includes(url.protocol)) throw httpError(400, 'Povolené jsou pouze adresy HTTP a HTTPS');
-    if (url.username || url.password) throw httpError(400, 'Adresa nesmí obsahovat přihlašovací údaje');
+    catch { throw httpError(400, 'Enter a valid absolute website URL'); }
+    if (!['http:', 'https:'].includes(url.protocol)) throw httpError(400, 'Only HTTP and HTTPS URLs are allowed');
+    if (url.username || url.password) throw httpError(400, 'The URL must not contain credentials');
     if (process.env.ALLOW_PRIVATE_FETCH === '1') return url;
     const host = url.hostname.toLowerCase();
-    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) throw httpError(403, 'Interní síťové adresy nejsou povoleny');
+    if (host === 'localhost' || host.endsWith('.localhost') || host.endsWith('.local') || host.endsWith('.internal')) throw httpError(403, 'Internal network addresses are not allowed');
     let addresses;
     try { addresses = await dns.lookup(host, { all: true, verbatim: true }); }
-    catch { throw httpError(400, 'Doménu se nepodařilo přeložit'); }
-    if (!addresses.length || addresses.some(item => isPrivateIp(item.address))) throw httpError(403, 'Adresa míří do privátní nebo lokální sítě');
+    catch { throw httpError(400, 'The domain could not be resolved'); }
+    if (!addresses.length || addresses.some(item => isPrivateIp(item.address))) throw httpError(403, 'The URL points to a private or local network');
     return url;
   }
 
@@ -192,21 +192,21 @@ class RemoteManager {
           signal: AbortSignal.timeout(15000),
           headers: { 'user-agent': 'MyBrowser/0.2 (Home Assistant offline library)', accept }
         });
-      } catch (error) { throw httpError(502, `Web se nepodařilo načíst: ${error.message}`); }
+      } catch (error) { throw httpError(502, `Could not load the website: ${error.message}`); }
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
-        if (!location) throw httpError(502, 'Přesměrování nemá cílovou adresu');
+        if (!location) throw httpError(502, 'The redirect has no destination URL');
         url = await this.assertPublicUrl(new URL(location, url).href);
         continue;
       }
-      if (!response.ok) throw httpError(response.status, `Vzdálený web vrátil HTTP ${response.status}`);
+      if (!response.ok) throw httpError(response.status, `The remote website returned HTTP ${response.status}`);
       const declared = Number(response.headers.get('content-length') || 0);
-      if (declared > maximum) throw httpError(413, 'Vzdálený soubor překračuje povolenou velikost');
+      if (declared > maximum) throw httpError(413, 'The remote file exceeds the allowed size');
       const chunks = []; let size = 0;
       if (response.body) {
         for await (const chunk of response.body) {
           size += chunk.length;
-          if (size > maximum) throw httpError(413, 'Vzdálený soubor překračuje povolenou velikost');
+          if (size > maximum) throw httpError(413, 'The remote file exceeds the allowed size');
           chunks.push(chunk);
         }
       }
@@ -218,16 +218,16 @@ class RemoteManager {
         cacheControl: response.headers.get('cache-control') || 'no-cache'
       };
     }
-    throw httpError(508, 'Příliš mnoho přesměrování');
+    throw httpError(508, 'Too many redirects');
   }
 
   async refreshMetadata(id) {
     const link = this.state.links[id];
-    if (!link) throw httpError(404, 'Odkaz nebyl nalezen');
+    if (!link) throw httpError(404, 'Link not found');
     link.metadataStatus = 'loading'; this.save();
     try {
       const page = await this.safeFetch(link.url, { maximum: 8 * 1024 * 1024, accept: 'text/html,application/xhtml+xml' });
-      if (!/text\/html|application\/xhtml\+xml/i.test(page.contentType)) throw new Error('Odkaz nevede na HTML stránku');
+      if (!/text\/html|application\/xhtml\+xml/i.test(page.contentType)) throw new Error('The link does not point to an HTML page');
       const html = page.body.toString('utf8');
       const title = stripTags((/<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html) || [])[1]);
       const description = metaContent(html, 'property', 'og:description') || metaContent(html, 'name', 'description');
@@ -273,7 +273,7 @@ class RemoteManager {
 
   async proxy(id, target, resource = false) {
     const link = this.state.links[id];
-    if (!link) throw httpError(404, 'Odkaz nebyl nalezen');
+    if (!link) throw httpError(404, 'Link not found');
     return this.proxyUrl(target || link.url, resource, link.blockAds);
   }
 
@@ -294,8 +294,8 @@ class RemoteManager {
 
   startArchive(id) {
     const link = this.state.links[id];
-    if (!link) throw httpError(404, 'Odkaz nebyl nalezen');
-    if ((link.archives || []).some(item => item.status === 'downloading')) throw new Error('Stažení offline verze už probíhá');
+    if (!link) throw httpError(404, 'Link not found');
+    if ((link.archives || []).some(item => item.status === 'downloading')) throw new Error('An offline version is already downloading');
     const archive = {
       id: `${new Date().toISOString().replace(/[-:.TZ]/g, '').slice(0, 14)}-${crypto.randomBytes(3).toString('hex')}`,
       createdAt: new Date().toISOString(), status: 'downloading', url: link.url, bytes: 0, files: 0,
@@ -316,7 +316,7 @@ class RemoteManager {
     try {
       fs.mkdirSync(path.join(tempDirectory, 'assets'), { recursive: true });
       const page = await this.safeFetch(link.url, { maximum: Math.min(this.maxArchiveBytes, 10 * 1024 * 1024), accept: 'text/html,application/xhtml+xml' });
-      if (!/text\/html|application\/xhtml\+xml/i.test(page.contentType)) throw new Error('Offline archiv podporuje HTML stránky');
+      if (!/text\/html|application\/xhtml\+xml/i.test(page.contentType)) throw new Error('The offline archive supports HTML pages');
       let html = page.body.toString('utf8');
       let total = page.body.length;
       let blocked = 0;
@@ -339,7 +339,7 @@ class RemoteManager {
         let resource;
         try { resource = await this.safeFetch(url, { maximum: Math.min(20 * 1024 * 1024, this.maxArchiveBytes - total) }); }
         catch { resources.set(url, ''); return ''; }
-        if (total + resource.body.length > this.maxArchiveBytes) throw new Error('Offline verze překročila nastavený limit');
+        if (total + resource.body.length > this.maxArchiveBytes) throw new Error('The offline version exceeded the configured limit');
         const filename = `${crypto.createHash('sha256').update(resource.url).digest('hex').slice(0, 24)}${extensionFor(resource.url, resource.contentType)}`;
         const relative = `assets/${filename}`;
         resources.set(url, relative); resources.set(resource.url, relative);
@@ -375,7 +375,7 @@ class RemoteManager {
       const policy = "default-src 'self' data:; img-src 'self' data:; media-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'none'; frame-src 'none'";
       html = injectIntoHead(html, `<meta http-equiv="Content-Security-Policy" content="${policy}"><meta name="referrer" content="no-referrer">${link.blockAds ? '<style>[class*="advert" i],[class*="ad-container" i],[id^="ad-" i]{display:none!important}</style>' : ''}`);
       const index = Buffer.from(html);
-      if (total + index.length > this.maxArchiveBytes) throw new Error('Offline verze překročila nastavený limit');
+      if (total + index.length > this.maxArchiveBytes) throw new Error('The offline version exceeded the configured limit');
       fs.writeFileSync(path.join(tempDirectory, 'index.html'), index);
       total += index.length;
       fs.mkdirSync(archiveRoot, { recursive: true });
@@ -394,25 +394,25 @@ class RemoteManager {
   offlineFile(linkId, archiveId, relative = 'index.html') {
     const link = this.state.links[linkId];
     const archive = link?.archives?.find(item => item.id === archiveId && item.status === 'ready');
-    if (!archive) throw httpError(404, 'Offline verze nebyla nalezena');
+    if (!archive) throw httpError(404, 'Offline version not found');
     const root = path.resolve(this.linksDir, linkId, 'archives', archiveId);
     const clean = String(relative || 'index.html').replace(/\\/g, '/').replace(/^\/+/, '');
-    if (!clean || clean.split('/').some(part => part === '..' || part === '.')) throw httpError(400, 'Neplatná cesta');
+    if (!clean || clean.split('/').some(part => part === '..' || part === '.')) throw httpError(400, 'Invalid path');
     const file = path.resolve(root, clean);
     const relation = path.relative(root, file);
-    if (relation.startsWith('..') || path.isAbsolute(relation) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw httpError(404, 'Offline soubor nebyl nalezen');
+    if (relation.startsWith('..') || path.isAbsolute(relation) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw httpError(404, 'Offline file not found');
     return file;
   }
 
   deleteArchive(linkId, archiveId) {
     const link = this.state.links[linkId];
-    if (!link) throw httpError(404, 'Odkaz nebyl nalezen');
+    if (!link) throw httpError(404, 'Link not found');
     const index = (link.archives || []).findIndex(item => item.id === archiveId);
-    if (index < 0) throw httpError(404, 'Offline verze nebyla nalezena');
-    if (link.archives[index].status === 'downloading') throw new Error('Probíhající stažení nelze odstranit');
+    if (index < 0) throw httpError(404, 'Offline version not found');
+    if (link.archives[index].status === 'downloading') throw new Error('An active download cannot be deleted');
     const directory = path.resolve(this.linksDir, linkId, 'archives', archiveId);
     const root = path.resolve(this.linksDir, linkId, 'archives');
-    if (!directory.startsWith(`${root}${path.sep}`)) throw new Error('Neplatná cesta archivu');
+    if (!directory.startsWith(`${root}${path.sep}`)) throw new Error('Invalid archive path');
     fs.rmSync(directory, { recursive: true, force: true });
     link.archives.splice(index, 1); this.save();
   }
@@ -420,7 +420,7 @@ class RemoteManager {
   deleteLinkData(id) {
     const directory = path.resolve(this.linksDir, id);
     const root = path.resolve(this.linksDir);
-    if (!directory.startsWith(`${root}${path.sep}`)) throw new Error('Neplatná cesta odkazu');
+    if (!directory.startsWith(`${root}${path.sep}`)) throw new Error('Invalid link path');
     fs.rmSync(directory, { recursive: true, force: true });
   }
 }

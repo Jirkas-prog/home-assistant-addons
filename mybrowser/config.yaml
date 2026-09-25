@@ -1,7 +1,7 @@
 name: MyBrowser
 slug: mybrowser
-description: Knihovna webů, offline archiv a hostování statických, npm a Bun projektů
-version: 0.6.0
+description: Web library, offline archive, and hosting for static, npm, and Bun projects
+version: 0.7.0
 url: https://github.com/Jirkas-prog/home-assistant-addons
 arch:
   - amd64
@@ -25,7 +25,7 @@ map:
   - type: addon_config
     read_only: false
 options:
-  default_root: /share/Weby
+  default_root: /share/Websites
   gateway_port: 3000
   startup_delay: 2
   max_upload_mb: 250

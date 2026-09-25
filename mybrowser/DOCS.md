@@ -1,24 +1,27 @@
 # MyBrowser
 
-MyBrowser spojuje osobní knihovnu webů, historický offline archiv a správu statických, npm a Bun serverů.
+MyBrowser combines a personal website library, historical offline archive, full Chromium browser, and management for static, npm, and Bun servers.
 
-Po prvním spuštění se v knihovně objeví **Průvodce MyBrowserem**. Jde o skutečný hostovaný web s krátkým návodem k nahrávání, náhledům, bráně a správě serverů. Lze jej upravit nebo trvale odstranit.
+English is used by default. To use Czech, open **Server Management → Add-on Settings** and change **Interface language** to **Czech**. The preference is saved immediately and the interface reloads automatically.
 
-## Rychlý start
+On a fresh installation, **MyBrowser Guide** appears in the library. It is a real hosted website with a short introduction to uploads, previews, the public gateway, and server management. You can edit or permanently remove it.
 
-1. Klikněte na **Přidat** a vyberte hostovaný web nebo externí odkaz. U hostovaného webu se nabídne číslovaná cesta `/share/Weby/001_Názevwebu` a přístup přes bránu `http://IP:3000/nazev-webu/`; do levé zóny přetáhněte soubory webu a do pravé volitelný vlastní obrázek. Velké soubory se nahrávají po částech a průběh ukazuje přesné procento.
-2. Kliknutím na kartu otevřete web přímo v hlavní ploše v plnohodnotné relaci Chromia. Fungují styly, JavaScript, formuláře, cookies, historie, klávesnice, posun i výběr souboru. Hvězdičkou nastavte oblíbené položky a přetažením změňte jejich pořadí.
-3. U externího odkazu lze omezit reklamy a kdykoli vytvořit novou offline verzi. Starší verze se nepřepisují.
-4. Hostované weby nastavujte v části **Správa serverů**. Po jejím otevření se běžný postranní panel nahradí seznamem serverů; detail vybraného serveru zůstane vpravo. Spravovaná složka je standardně `/share/Weby`.
-5. Záložka **Soubory** je zároveň file browser. Umožňuje vytvářet složky, filtrovat obsah, stahovat a přejmenovávat soubory a hromadně kopírovat, přesouvat nebo mazat vybrané položky. Při kopírování a přesunu otevřete cílovou složku a klikněte na **Vložit sem**.
+## Quick start
 
-Statický server očekává `index.html`. npm/Bun projekt očekává `package.json` a zadaný skript. Externí i hostované weby se otevírají ve skutečném Chromiu odděleném od ovládacího rozhraní. Stažené soubory najdete ve složce `MyBrowser/Stazene` vedle složky `Weby`.
+1. Select **Add**, then choose a hosted website or an external link. A hosted website receives a numbered path such as `/share/Websites/001_WebsiteName` and a gateway address such as `http://IP:3000/website-name/`. Drop website files into the left panel and an optional custom cover image into the right panel.
+2. Click a card to open the website inside a full Chromium session in the main workspace. CSS, JavaScript, forms, cookies, history, keyboard input, scrolling, and file selection remain available. Use the star to mark favorites and drag favorite cards to reorder them.
+3. External links can block known advertising sources and create any number of immutable offline versions. Older versions are never overwritten.
+4. Configure hosted websites under **Server Management**. The regular sidebar is replaced with a website list while the selected server remains visible in the main workspace.
+5. Use the **Files** tab to create folders, filter content, download or rename files, and copy, move, or delete multiple selected items.
 
-## Důležité
+A static server expects `index.html`. An npm or Bun project expects `package.json` and a configured script. Downloads from Chromium are stored in `MyBrowser/Downloads` next to the default `Websites` folder.
 
-- Reklamní filtr je praktické omezení známých zdrojů, nikoli záruka odstranění každé reklamy.
-- Dynamické a přihlašované weby nemusí být v offline verzi kompletní.
-- Veřejná brána i volitelné vlastní porty používají HTTP a jsou dostupné přímo v LAN.
-- Port 3000 používá ve výchozím nastavení veřejná brána; port 8099 je vyhrazen pro správu. Spouštějte pouze důvěryhodné npm/Bun projekty.
+## Important notes
 
-Podrobný návod je v kořenovém `README.md` projektu.
+- Ad blocking targets known sources but cannot guarantee removal of every advertisement.
+- Dynamic or authenticated websites may not be complete in an offline version.
+- The public gateway and optional dedicated ports use HTTP and are directly available on the LAN.
+- Port 3000 is the default public gateway; port 8099 is reserved for management.
+- Run only trusted npm and Bun projects.
+
+See the repository `README.md` for full documentation.

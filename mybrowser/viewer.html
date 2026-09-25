@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="cs">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -15,24 +15,25 @@
   <div class="shell">
     <header class="bar">
       <div class="brand"><img class="mark" src="api/assets/icon.png" alt=""><span>MyBrowser</span></div>
-      <div class="title"><strong id="name">Načítám…</strong><small id="address"></small></div>
+      <div class="title"><strong id="name">Loading…</strong><small id="address"></small></div>
       <span class="pill" id="adState"></span>
-      <button class="btn" id="reload">Obnovit</button>
-      <a class="btn primary" id="original" target="_blank" rel="noopener noreferrer">Originál ↗</a>
+      <button class="btn" id="reload">Reload</button>
+      <a class="btn primary" id="original" target="_blank" rel="noopener noreferrer">Original ↗</a>
     </header>
-    <iframe id="frame" title="Webová stránka" sandbox="allow-scripts allow-forms allow-popups allow-downloads" referrerpolicy="no-referrer"></iframe>
+    <iframe id="frame" title="Website" sandbox="allow-scripts allow-forms allow-popups allow-downloads" referrerpolicy="no-referrer"></iframe>
   </div>
   <script>
     'use strict';
     const params=new URLSearchParams(location.search),id=params.get('id'),archive=params.get('archive');
+    const labels={en:{missingId:'Link ID is missing',missingLink:'Link not found',offline:'Offline version',archive:'Offline archive',adsBlocked:'Ads blocked',adsAllowed:'Ads allowed',reload:'Reload',original:'Original ↗',frame:'Website'},cs:{missingId:'Chybí ID odkazu',missingLink:'Odkaz nebyl nalezen',offline:'Offline verze',archive:'Offline archiv',adsBlocked:'Reklamy omezeny',adsAllowed:'Reklamy povoleny',reload:'Obnovit',original:'Originál ↗',frame:'Webová stránka'}};let language='en';const t=key=>labels[language][key];
     const base=new URL(location.href);base.search='';base.hash='';base.pathname=base.pathname.replace(/viewer\/?$/,'');
     const endpoint=route=>new URL(`api/${route}`,base),content=route=>new URL(route,base);
     async function api(route,options={}){const response=await fetch(endpoint(route),options);const value=await response.json();if(!response.ok)throw Error(value.error||response.statusText);return value;}
     async function load(){
-      if(!id)throw Error('Chybí ID odkazu');
-      const state=await api('state'),link=state.links.find(item=>item.id===id);if(!link)throw Error('Odkaz nebyl nalezen');
-      document.title=`${link.name} – MyBrowser`;document.getElementById('name').textContent=link.name;document.getElementById('address').textContent=archive?`Offline verze ${archive}`:link.url;
-      document.getElementById('adState').textContent=archive?'Offline archiv':link.blockAds?'Reklamy omezeny':'Reklamy povoleny';document.getElementById('original').href=link.url;
+      if(!id)throw Error(t('missingId'));
+      const state=await api('state');language=state.settings.language==='cs'?'cs':'en';document.documentElement.lang=language;document.getElementById('reload').textContent=t('reload');document.getElementById('original').textContent=t('original');document.getElementById('frame').title=t('frame');const link=state.links.find(item=>item.id===id);if(!link)throw Error(t('missingLink'));
+      document.title=`${link.name} – MyBrowser`;document.getElementById('name').textContent=link.name;document.getElementById('address').textContent=archive?`${t('offline')} ${archive}`:link.url;
+      document.getElementById('adState').textContent=archive?t('archive'):link.blockAds?t('adsBlocked'):t('adsAllowed');document.getElementById('original').href=link.url;
       await api(`library/link/${id}/view`,{method:'POST'});
       const src=archive?content(`offline/${id}/${archive}/index.html`):content(`view/${id}/`);document.getElementById('frame').src=src;
       document.getElementById('reload').onclick=()=>{const frame=document.getElementById('frame');frame.src=frame.src;};

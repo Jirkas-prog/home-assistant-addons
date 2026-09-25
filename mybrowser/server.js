@@ -10,6 +10,7 @@ const { Transform } = require('node:stream');
 const { pipeline } = require('node:stream/promises');
 const { RemoteManager } = require('./remote');
 const { ChromiumBrowser } = require('./chromium');
+const { localizeUi } = require('./locales');
 
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '.data');
 const stateFile = path.join(dataDir, 'state.json');
@@ -37,13 +38,14 @@ for (const entry of fs.readdirSync(uploadStageDir, { withFileTypes: true })) {
 function readJsonFile(file, fallback) {
   if (!fs.existsSync(file)) return fallback;
   try { return JSON.parse(fs.readFileSync(file, 'utf8')); }
-  catch (error) { throw new Error(`Nelze načíst ${file}: ${error.message}`); }
+  catch (error) { throw new Error(`Cannot read ${file}: ${error.message}`); }
 }
 
 const addonOptions = readJsonFile(optionsFile, {});
+const defaultLanguage = ['en', 'cs'].includes(addonOptions.language) ? addonOptions.language : 'en';
 const gatewayPort = clampInteger(addonOptions.gateway_port ?? process.env.GATEWAY_PORT, 1024, 65535, 3000);
 const gatewayHost = process.env.GATEWAY_HOST || '0.0.0.0';
-const defaultRoot = path.resolve(String(addonOptions.default_root || process.env.DEFAULT_ROOT || '/share/Weby'));
+const defaultRoot = path.resolve(String(addonOptions.default_root || process.env.DEFAULT_ROOT || '/share/Websites'));
 const startupDelay = clampInteger(addonOptions.startup_delay, 0, 60, 2);
 const maxUploadBytes = clampInteger(addonOptions.max_upload_mb, 1, 4096, 250) * 1024 * 1024;
 const maxArchiveBytes = clampInteger(addonOptions.max_archive_mb, 10, 2048, 100) * 1024 * 1024;
@@ -52,7 +54,7 @@ const allowedRoots = (Array.isArray(addonOptions.allowed_roots) && addonOptions.
   : ['/share', '/media', '/config'])
   .map(value => path.resolve(String(value)));
 
-if (gatewayPort === uiPort) throw new Error('Port veřejné brány se nesmí shodovat s portem správy');
+if (gatewayPort === uiPort) throw new Error('The public gateway port must differ from the management port');
 
 function clampInteger(value, minimum, maximum, fallback) {
   const number = Number(value);
@@ -67,8 +69,8 @@ function usesGateway(value) {
 function normalizeCustomGatewayUrl(value) {
   let url;
   try { url = new URL(String(value || '').trim()); }
-  catch { throw new Error('Vlastní brána musí být platná HTTP nebo HTTPS adresa'); }
-  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('Vlastní brána musí používat HTTP nebo HTTPS');
+  catch { throw new Error('The custom gateway must be a valid HTTP or HTTPS URL'); }
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('The custom gateway must use HTTP or HTTPS');
   url.hash = '';
   url.search = '';
   if (!url.pathname.endsWith('/')) url.pathname += '/';
@@ -86,17 +88,18 @@ function isAllowedPath(candidate) {
 }
 
 if (!isAllowedPath(defaultRoot)) {
-  throw new Error(`Výchozí složka ${defaultRoot} musí být uvnitř: ${allowedRoots.join(', ')}`);
+  throw new Error(`Default folder ${defaultRoot} must be inside: ${allowedRoots.join(', ')}`);
 }
 fs.mkdirSync(defaultRoot, { recursive: true });
 
-let state = readJsonFile(stateFile, { version: 4, sites: {}, links: {}, guideInstalled: false });
-if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('state.json nemá platný formát');
-state.version = 4;
+let state = readJsonFile(stateFile, { version: 5, sites: {}, links: {}, guideInstalled: false, language: defaultLanguage });
+if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('state.json has an invalid format');
+state.version = 5;
 state.sites ||= {};
 state.links ||= {};
 state.guideInstalled = Boolean(state.guideInstalled);
-if (typeof state.sites !== 'object' || Array.isArray(state.sites) || typeof state.links !== 'object' || Array.isArray(state.links)) throw new Error('state.json nemá platný seznam webů');
+state.language = ['en', 'cs'].includes(state.language) ? state.language : defaultLanguage;
+if (typeof state.sites !== 'object' || Array.isArray(state.sites) || typeof state.links !== 'object' || Array.isArray(state.links)) throw new Error('state.json has an invalid website list');
 
 for (const [id, site] of Object.entries(state.sites)) {
   if (!site || typeof site !== 'object' || !/^[0-9a-f-]{36}$/.test(id)) delete state.sites[id];
@@ -132,7 +135,7 @@ function saveState() {
   const temp = `${stateFile}.${process.pid}.tmp`;
   const handle = fs.openSync(temp, 'w', 0o600);
   try {
-    fs.writeFileSync(handle, JSON.stringify({ version: 4, sites: state.sites, links: state.links, guideInstalled: state.guideInstalled }, null, 2));
+    fs.writeFileSync(handle, JSON.stringify({ version: 5, sites: state.sites, links: state.links, guideInstalled: state.guideInstalled, language: state.language }, null, 2));
     fs.fsyncSync(handle);
   } finally { fs.closeSync(handle); }
   fs.renameSync(temp, stateFile);
@@ -189,8 +192,8 @@ function chromiumExecutable() {
 }
 
 const chromiumBin = chromiumExecutable();
-const adjacentBrowserDownloadDir = path.join(path.dirname(defaultRoot), 'MyBrowser', 'Stazene');
-const browserDownloadDir = isAllowedPath(adjacentBrowserDownloadDir) ? adjacentBrowserDownloadDir : path.join(defaultRoot, '_MyBrowser', 'Stazene');
+const adjacentBrowserDownloadDir = path.join(path.dirname(defaultRoot), 'MyBrowser', 'Downloads');
+const browserDownloadDir = isAllowedPath(adjacentBrowserDownloadDir) ? adjacentBrowserDownloadDir : path.join(defaultRoot, '_MyBrowser', 'Downloads');
 const browser = new ChromiumBrowser({ executable: chromiumBin, dataDir, downloadDir: browserDownloadDir });
 
 function localSiteUrl(site) {
@@ -205,7 +208,7 @@ function scheduleSitePreview(id, delay = 1600) {
   clearTimeout(runtime.previewTimer);
   runtime.previewTimer = setTimeout(() => {
     runtime.previewTimer = null;
-    captureSitePreview(id).catch(error => appendLog(id, 'stderr', `Náhled se nepodařilo vytvořit: ${error.message}`));
+    captureSitePreview(id).catch(error => appendLog(id, 'stderr', `Could not create preview: ${error.message}`));
   }, delay);
   runtime.previewTimer.unref();
 }
@@ -232,12 +235,12 @@ function ensureSiteWatcher(id) {
       markSiteFilesChanged(id);
     });
     runtime.watcher.on('error', error => {
-      appendLog(id, 'stderr', `Sledování souborů: ${error.message}`);
+      appendLog(id, 'stderr', `File watcher: ${error.message}`);
       runtime.watcher?.close();
       runtime.watcher = null;
     });
   } catch (error) {
-    appendLog(id, 'stderr', `Sledování souborů není dostupné: ${error.message}`);
+    appendLog(id, 'stderr', `File watching is unavailable: ${error.message}`);
   }
 }
 
@@ -259,7 +262,7 @@ async function captureSitePreview(id) {
       child.once('close', code => {
         clearTimeout(timeout);
         if (code === 0 && fs.existsSync(temp) && fs.statSync(temp).size > 1000) resolve();
-        else reject(new Error(errors.trim().split('\n').pop() || `Chromium skončil s kódem ${code}`));
+        else reject(new Error(errors.trim().split('\n').pop() || `Chromium exited with code ${code}`));
       });
     });
     fs.rmSync(destination, { force: true });
@@ -268,7 +271,7 @@ async function captureSitePreview(id) {
     site.previewUpdatedAt = new Date().toISOString();
     runtime.previewAttempts = 0;
     saveState();
-    appendLog(id, 'system', 'Automatický náhled byl aktualizován (1900 × 1069 px)');
+    appendLog(id, 'system', 'Automatic preview was updated (1900 × 1069 px)');
   } catch (error) {
     fs.rmSync(temp, { force: true });
     runtime.previewAttempts += 1;
@@ -298,13 +301,13 @@ function uniqueSlug(value, ignoredId = null) {
 }
 
 function managedFolderName(value) {
-  const name = String(value || 'Názevwebu')
+  const name = String(value || 'WebsiteName')
     .normalize('NFC')
     .replace(/\s+/g, '')
     .replace(/[^\p{L}\p{N}._-]+/gu, '')
     .replace(/^\.+|\.+$/g, '')
     .slice(0, 80);
-  return name || 'Názevwebu';
+  return name || 'WebsiteName';
 }
 
 function nextManagedNumber() {
@@ -330,27 +333,27 @@ function suggestedManagedPath(name) {
 function resolveManagedDirectory(value, name) {
   const requested = path.resolve(String(value || suggestedManagedPath(name)));
   if (!isInside(defaultRoot, requested) || requested === defaultRoot) {
-    throw new Error(`Nová složka musí být uvnitř ${defaultRoot}`);
+    throw new Error(`The new folder must be inside ${defaultRoot}`);
   }
   const collision = Object.values(state.sites).find(site => path.resolve(site.path) === requested);
-  if (collision) throw new Error(`Složku už používá web ${collision.name}`);
+  if (collision) throw new Error(`The folder is already used by website ${collision.name}`);
   fs.mkdirSync(requested, { recursive: true });
   return requested;
 }
 
 function validScript(value, fallback) {
   const script = String(value || fallback || '').trim();
-  if (!/^[A-Za-z0-9:_-]{1,80}$/.test(script)) throw new Error('Název skriptu obsahuje nepovolené znaky');
+  if (!/^[A-Za-z0-9:_-]{1,80}$/.test(script)) throw new Error('The script name contains unsupported characters');
   return script;
 }
 
 function validatePort(value, ignoredId = null) {
   const port = Number(value);
-  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('Port musí být celé číslo od 1024 do 65535');
-  if (port === uiPort) throw new Error(`Port ${port} používá správa add-onu`);
-  if (port === gatewayPort) throw new Error(`Port ${port} používá veřejná brána MyBrowseru`);
+  if (!Number.isInteger(port) || port < 1024 || port > 65535) throw new Error('The port must be an integer from 1024 to 65535');
+  if (port === uiPort) throw new Error(`Port ${port} is used by add-on management`);
+  if (port === gatewayPort) throw new Error(`Port ${port} is used by the MyBrowser public gateway`);
   const collision = Object.entries(state.sites).find(([id, site]) => id !== ignoredId && site.port === port);
-  if (collision) throw new Error(`Port ${port} už používá web ${collision[1].name}`);
+  if (collision) throw new Error(`Port ${port} is already used by website ${collision[1].name}`);
   return port;
 }
 
@@ -359,24 +362,24 @@ function nextBackendPort(ignoredId = null) {
   used.add(uiPort);
   used.add(gatewayPort);
   for (let port = 31000; port <= 60999; port++) if (!used.has(port)) return port;
-  throw new Error('Není k dispozici žádný interní port pro web');
+  throw new Error('No internal website port is available');
 }
 
 function resolveExistingDirectory(value) {
   const requested = path.resolve(String(value || ''));
-  if (!isAllowedPath(requested)) throw new Error(`Složka musí být uvnitř: ${allowedRoots.join(', ')}`);
-  if (!fs.existsSync(requested) || !fs.statSync(requested).isDirectory()) throw new Error('Zadaná složka neexistuje nebo není adresář');
+  if (!isAllowedPath(requested)) throw new Error(`The folder must be inside: ${allowedRoots.join(', ')}`);
+  if (!fs.existsSync(requested) || !fs.statSync(requested).isDirectory()) throw new Error('The selected folder does not exist or is not a directory');
   const real = fs.realpathSync(requested);
   const allowedRealRoots = allowedRoots.filter(fs.existsSync).map(root => fs.realpathSync(root));
-  if (!allowedRealRoots.some(root => isInside(root, real))) throw new Error('Složka přes symbolický odkaz míří mimo povolené úložiště');
+  if (!allowedRealRoots.some(root => isInside(root, real))) throw new Error('The symlinked folder points outside allowed storage');
   return requested;
 }
 
 function createSite(body) {
   const name = String(body.name || '').trim().slice(0, 80);
-  if (!name) throw new Error('Zadejte název webu');
+  if (!name) throw new Error('Enter a website name');
   const runtime = String(body.runtime || 'static');
-  if (!allowedRuntimeNames.has(runtime)) throw new Error('Neznámý typ webu');
+  if (!allowedRuntimeNames.has(runtime)) throw new Error('Unknown website type');
   const slug = uniqueSlug(body.slug || name);
   const accessMode = ['gateway', 'custom_gateway'].includes(body.accessMode) ? body.accessMode : 'port';
   const rootMode = body.rootMode === 'existing' ? 'existing' : 'managed';
@@ -409,24 +412,24 @@ function createSite(body) {
   const id = crypto.randomUUID();
   state.sites[id] = site;
   saveState();
-  appendLog(id, 'system', `Web byl vytvořen ve složce ${site.path}`);
+  appendLog(id, 'system', `Website was created in ${site.path}`);
   ensureSiteWatcher(id);
   return { id, site };
 }
 
 function installBundledGuide() {
   if (process.env.DISABLE_BUNDLED_GUIDE === '1' || state.guideInstalled) return null;
-  const existing = Object.entries(state.sites).find(([, site]) => site.bundledGuide || site.slug === 'pruvodce-mybrowserem');
+  const existing = Object.entries(state.sites).find(([, site]) => site.bundledGuide || ['mybrowser-guide', 'pruvodce-mybrowserem'].includes(site.slug));
   if (existing) {
     existing[1].bundledGuide = true;
     state.guideInstalled = true;
     saveState();
     return existing[0];
   }
-  if (!fs.existsSync(path.join(bundledGuideDir, 'index.html'))) throw new Error('V balíčku chybí vestavěný průvodce');
+  if (!fs.existsSync(path.join(bundledGuideDir, 'index.html'))) throw new Error('The bundled guide is missing from the package');
   const result = createSite({
-    name: 'Průvodce MyBrowserem',
-    slug: 'pruvodce-mybrowserem',
+    name: 'MyBrowser Guide',
+    slug: 'mybrowser-guide',
     runtime: 'static',
     accessMode: 'gateway',
     rootMode: 'managed',
@@ -442,7 +445,7 @@ function installBundledGuide() {
     state.guideInstalled = true;
     saveState();
     markSiteFilesChanged(result.id, 400);
-    appendLog(result.id, 'system', 'Vestavěný průvodce byl připraven');
+    appendLog(result.id, 'system', 'The bundled guide was prepared');
     return result.id;
   } catch (error) {
     runtimeFor(result.id).watcher?.close();
@@ -507,17 +510,17 @@ async function createLink(body) {
   };
   state.links[id] = link;
   saveState();
-  remote.refreshMetadata(id).catch(error => console.error(`Metadata odkazu ${id}:`, error.message));
+  remote.refreshMetadata(id).catch(error => console.error(`Link metadata ${id}:`, error.message));
   return publicLink(id, link);
 }
 
 async function updateLink(id, body) {
   const link = state.links[id];
-  if (!link) throw httpError(404, 'Odkaz nebyl nalezen');
+  if (!link) throw httpError(404, 'Link not found');
   let refresh = false;
   if (body.name !== undefined) {
     const name = String(body.name || '').trim().slice(0, 100);
-    if (!name) throw new Error('Zadejte název odkazu');
+    if (!name) throw new Error('Enter a link name');
     link.name = name;
     link.autoTitle = false;
   }
@@ -528,7 +531,7 @@ async function updateLink(id, body) {
   if (body.blockAds !== undefined) link.blockAds = Boolean(body.blockAds);
   link.updatedAt = new Date().toISOString();
   saveState();
-  if (refresh || body.refreshMetadata) remote.refreshMetadata(id).catch(error => console.error(`Metadata odkazu ${id}:`, error.message));
+  if (refresh || body.refreshMetadata) remote.refreshMetadata(id).catch(error => console.error(`Link metadata ${id}:`, error.message));
   return publicLink(id, link);
 }
 
@@ -540,7 +543,7 @@ function libraryEntity(kind, id) {
 
 function updateLibraryItem(kind, id, body) {
   const entity = libraryEntity(kind, id);
-  if (!entity) throw httpError(404, 'Položka nebyla nalezena');
+  if (!entity) throw httpError(404, 'Item not found');
   if (body.favorite !== undefined) {
     const favorite = Boolean(body.favorite);
     if (favorite && !entity.item.favorite) entity.item.favoriteOrder = nextFavoriteOrder();
@@ -554,7 +557,7 @@ function updateLibraryItem(kind, id, body) {
 
 function recordView(kind, id) {
   const entity = libraryEntity(kind, id);
-  if (!entity) throw httpError(404, 'Položka nebyla nalezena');
+  if (!entity) throw httpError(404, 'Item not found');
   entity.item.views = (Number(entity.item.views) || 0) + 1;
   entity.item.lastViewedAt = new Date().toISOString();
   saveState();
@@ -562,27 +565,27 @@ function recordView(kind, id) {
 }
 
 function reorderFavorites(order) {
-  if (!Array.isArray(order)) throw new Error('Pořadí musí být seznam');
+  if (!Array.isArray(order)) throw new Error('Order must be an array');
   const favorites = [
     ...Object.entries(state.sites).filter(([, item]) => item.favorite).map(([id]) => `site:${id}`),
     ...Object.entries(state.links).filter(([, item]) => item.favorite).map(([id]) => `link:${id}`)
   ];
   const keys = order.map(entry => `${entry.kind}:${entry.id}`);
-  if (new Set(keys).size !== keys.length || keys.length !== favorites.length || favorites.some(key => !keys.includes(key))) throw new Error('Pořadí musí obsahovat právě všechny oblíbené položky');
+  if (new Set(keys).size !== keys.length || keys.length !== favorites.length || favorites.some(key => !keys.includes(key))) throw new Error('Order must contain every favorite item exactly once');
   order.forEach((entry, index) => { libraryEntity(entry.kind, entry.id).item.favoriteOrder = index; });
   saveState();
 }
 
 function updateSite(id, body) {
   const site = state.sites[id];
-  if (!site) throw httpError(404, 'Web nebyl nalezen');
+  if (!site) throw httpError(404, 'Website not found');
   const next = { ...site };
   if (body.name !== undefined) {
     next.name = String(body.name || '').trim().slice(0, 80);
-    if (!next.name) throw new Error('Zadejte název webu');
+    if (!next.name) throw new Error('Enter a website name');
   }
   if (body.accessMode !== undefined) {
-    if (!['gateway', 'custom_gateway', 'port'].includes(body.accessMode)) throw new Error('Neznámý způsob přístupu k webu');
+    if (!['gateway', 'custom_gateway', 'port'].includes(body.accessMode)) throw new Error('Unknown website access mode');
     if (body.accessMode !== next.accessMode) {
       next.accessMode = body.accessMode;
       if (usesGateway(next.accessMode)) next.port = nextBackendPort(id);
@@ -593,7 +596,7 @@ function updateSite(id, body) {
   if (next.accessMode === 'port' && body.port !== undefined) next.port = validatePort(body.port, id);
   if (body.runtime !== undefined) {
     next.runtime = String(body.runtime);
-    if (!allowedRuntimeNames.has(next.runtime)) throw new Error('Neznámý typ webu');
+    if (!allowedRuntimeNames.has(next.runtime)) throw new Error('Unknown website type');
   }
   if (body.path !== undefined && String(body.path) !== site.path) {
     next.path = resolveExistingDirectory(body.path);
@@ -650,16 +653,16 @@ function portIsAvailable(port) {
   return new Promise((resolve, reject) => {
     const probe = net.createServer();
     probe.unref();
-    probe.once('error', error => reject(new Error(error.code === 'EADDRINUSE' ? `Port ${port} už používá jiná služba` : error.message)));
+    probe.once('error', error => reject(new Error(error.code === 'EADDRINUSE' ? `Port ${port} is already used by another service` : error.message)));
     probe.listen(port, '0.0.0.0', () => probe.close(resolve));
   });
 }
 
-async function startSite(id, reason = 'ručně') {
+async function startSite(id, reason = 'manually') {
   const site = state.sites[id];
-  if (!site) throw httpError(404, 'Web nebyl nalezen');
+  if (!site) throw httpError(404, 'Website not found');
   const runtime = runtimeFor(id);
-  if (runtime.operation?.state === 'running') throw new Error('Právě probíhá instalace nebo sestavení');
+  if (runtime.operation?.state === 'running') throw new Error('An installation or build is already running');
   if (runtime.status === 'running' || runtime.status === 'starting') return;
   resolveExistingDirectory(site.path);
   runtime.status = 'starting';
@@ -667,13 +670,13 @@ async function startSite(id, reason = 'ručně') {
   runtime.exitCode = null;
   runtime.signal = null;
   runtime.stopping = false;
-  appendLog(id, 'system', usesGateway(site) ? `Spouštím (${reason}) pod cestou /${site.slug}/` : `Spouštím (${reason}) na portu ${site.port}`);
+  appendLog(id, 'system', usesGateway(site) ? `Starting (${reason}) at /${site.slug}/` : `Starting (${reason}) on port ${site.port}`);
   try {
     if (site.runtime === 'static' && usesGateway(site)) {
       runtime.status = 'running';
       runtime.startedAt = new Date().toISOString();
       runtime.pid = process.pid;
-      appendLog(id, 'system', `Statický web je dostupný přes bránu na /${site.slug}/`);
+      appendLog(id, 'system', `Static website is available through the gateway at /${site.slug}/`);
       ensureSiteWatcher(id);
       scheduleSitePreview(id, 1200);
       return;
@@ -698,14 +701,14 @@ async function startSite(id, reason = 'ručně') {
       runtime.status = 'running';
       runtime.startedAt = new Date().toISOString();
       runtime.pid = process.pid;
-      appendLog(id, 'system', `Statický web naslouchá na 0.0.0.0:${site.port}`);
+      appendLog(id, 'system', `Static website is listening on 0.0.0.0:${site.port}`);
       ensureSiteWatcher(id);
       scheduleSitePreview(id, 1200);
       return;
     }
 
     const packageFile = path.join(site.path, 'package.json');
-    if (!fs.existsSync(packageFile)) throw new Error('Ve složce chybí package.json');
+    if (!fs.existsSync(packageFile)) throw new Error('package.json is missing from the folder');
     const child = spawn(executableFor(site.runtime), ['run', site.script], {
       cwd: site.path,
       shell: process.platform === 'win32' && site.runtime === 'npm',
@@ -738,11 +741,11 @@ async function startSite(id, reason = 'ručně') {
       runtime.signal = signal;
       runtime.stoppedAt = new Date().toISOString();
       runtime.status = runtime.stopping || code === 0 ? 'stopped' : 'failed';
-      if (!runtime.stopping && code !== 0) runtime.error = `Proces skončil s kódem ${code}${signal ? ` (${signal})` : ''}`;
-      appendLog(id, runtime.status === 'failed' ? 'stderr' : 'system', `Proces skončil: kód ${code ?? '—'}${signal ? `, signál ${signal}` : ''}`);
+      if (!runtime.stopping && code !== 0) runtime.error = `Process exited with code ${code}${signal ? ` (${signal})` : ''}`;
+      appendLog(id, runtime.status === 'failed' ? 'stderr' : 'system', `Process exited: code ${code ?? '—'}${signal ? `, signal ${signal}` : ''}`);
       runtime.stopping = false;
     });
-    appendLog(id, 'system', `${site.runtime} run ${site.script} byl spuštěn (PID ${child.pid})`);
+    appendLog(id, 'system', `${site.runtime} run ${site.script} started (PID ${child.pid})`);
     ensureSiteWatcher(id);
     scheduleSitePreview(id, 2500);
   } catch (error) {
@@ -759,9 +762,9 @@ async function startSite(id, reason = 'ručně') {
   }
 }
 
-async function stopSite(id, reason = 'ručně') {
+async function stopSite(id, reason = 'manually') {
   const runtime = runtimeFor(id);
-  if (!state.sites[id]) throw httpError(404, 'Web nebyl nalezen');
+  if (!state.sites[id]) throw httpError(404, 'Website not found');
   clearTimeout(runtime.previewTimer);
   runtime.previewTimer = null;
   if (runtime.status === 'stopped') return;
@@ -777,7 +780,7 @@ async function stopSite(id, reason = 'ručně') {
     runtime.pid = null;
     runtime.stoppedAt = new Date().toISOString();
     runtime.stopping = false;
-    appendLog(id, 'system', 'Statický web byl zastaven');
+    appendLog(id, 'system', 'Static website was stopped');
     return;
   }
   if (runtime.process) {
@@ -796,7 +799,7 @@ async function stopSite(id, reason = 'ručně') {
         child.once('close', done);
         try { child.kill('SIGTERM'); } catch { done(); }
         const force = setTimeout(() => {
-          appendLog(id, 'stderr', 'Proces nereagoval, ukončuji ho násilně');
+          appendLog(id, 'stderr', 'The process did not respond and will be terminated');
           try { child.kill('SIGKILL'); } catch {}
           setTimeout(done, 1000).unref();
         }, 8000);
@@ -817,11 +820,11 @@ async function restartSite(id) {
 
 function runOperation(id, kind) {
   const site = state.sites[id];
-  if (!site) throw httpError(404, 'Web nebyl nalezen');
-  if (site.runtime === 'static') throw new Error('Statický web nepotřebuje balíčky ani sestavení');
+  if (!site) throw httpError(404, 'Website not found');
+  if (site.runtime === 'static') throw new Error('A static website does not need packages or a build');
   const runtime = runtimeFor(id);
-  if (runtime.status === 'running' || runtime.status === 'starting' || runtime.status === 'stopping') throw new Error('Před touto akcí web zastavte');
-  if (runtime.operation?.state === 'running') throw new Error('Jiná úloha už probíhá');
+  if (runtime.status === 'running' || runtime.status === 'starting' || runtime.status === 'stopping') throw new Error('Stop the website before this action');
+  if (runtime.operation?.state === 'running') throw new Error('Another task is already running');
   resolveExistingDirectory(site.path);
   const executable = executableFor(site.runtime);
   let args;
@@ -829,11 +832,11 @@ function runOperation(id, kind) {
     if (site.runtime === 'npm') args = [fs.existsSync(path.join(site.path, 'package-lock.json')) ? 'ci' : 'install'];
     else args = ['install'];
   } else if (kind === 'build') args = ['run', site.buildScript];
-  else throw new Error('Neznámá úloha');
+  else throw new Error('Unknown task');
 
   const operation = { kind, state: 'running', startedAt: new Date().toISOString(), finishedAt: null, exitCode: null };
   runtime.operation = operation;
-  appendLog(id, 'system', `Spouštím: ${executable} ${args.join(' ')}`);
+  appendLog(id, 'system', `Starting: ${executable} ${args.join(' ')}`);
   const child = spawn(executable, args, {
     cwd: site.path,
     shell: process.platform === 'win32' && site.runtime === 'npm',
@@ -854,31 +857,31 @@ function runOperation(id, kind) {
     operation.exitCode = code;
     operation.finishedAt = new Date().toISOString();
     delete operation.child;
-    appendLog(id, code === 0 ? 'system' : 'stderr', `${kind === 'install' ? 'Instalace' : 'Sestavení'} skončilo s kódem ${code}`);
+    appendLog(id, code === 0 ? 'system' : 'stderr', `${kind === 'install' ? 'Installation' : 'Build'} exited with code ${code}`);
   });
   return operation;
 }
 
 function normalizedRelative(value, allowEmpty = true) {
   const decoded = String(value || '').replace(/\\/g, '/').replace(/^\/+/, '');
-  if (decoded.includes('\0')) throw new Error('Neplatná cesta');
+  if (decoded.includes('\0')) throw new Error('Invalid path');
   const parts = decoded.split('/').filter(Boolean);
-  if (parts.some(part => part === '.' || part === '..')) throw new Error('Cesta nesmí obsahovat . ani ..');
-  if (parts.some(part => /[\x00-\x1f]/.test(part))) throw new Error('Cesta obsahuje nepovolené řídicí znaky');
+  if (parts.some(part => part === '.' || part === '..')) throw new Error('The path must not contain . or ..');
+  if (parts.some(part => /[\x00-\x1f]/.test(part))) throw new Error('The path contains unsupported control characters');
   const result = parts.join(path.sep);
-  if (!allowEmpty && !result) throw new Error('Kořenovou složku nelze touto akcí použít');
+  if (!allowEmpty && !result) throw new Error('This action cannot target the root folder');
   return result;
 }
 
 function safeExisting(site, relative, expected = null) {
   const root = fs.realpathSync(resolveExistingDirectory(site.path));
   const candidate = path.resolve(site.path, normalizedRelative(relative));
-  if (!isInside(path.resolve(site.path), candidate) || !fs.existsSync(candidate)) throw httpError(404, 'Soubor nebo složka nebyly nalezeny');
+  if (!isInside(path.resolve(site.path), candidate) || !fs.existsSync(candidate)) throw httpError(404, 'File or folder not found');
   const real = fs.realpathSync(candidate);
-  if (!isInside(root, real)) throw new Error('Cesta míří mimo kořen webu');
+  if (!isInside(root, real)) throw new Error('The path points outside the website root');
   const stat = fs.statSync(real);
-  if (expected === 'file' && !stat.isFile()) throw new Error('Cesta není soubor');
-  if (expected === 'directory' && !stat.isDirectory()) throw new Error('Cesta není složka');
+  if (expected === 'file' && !stat.isFile()) throw new Error('The path is not a file');
+  if (expected === 'directory' && !stat.isDirectory()) throw new Error('The path is not a folder');
   return { root, candidate, real, stat };
 }
 
@@ -887,25 +890,25 @@ function safeDestination(site, relative) {
   const root = fs.realpathSync(rootPath);
   const rel = normalizedRelative(relative, false);
   const candidate = path.resolve(rootPath, rel);
-  if (!isInside(path.resolve(rootPath), candidate)) throw new Error('Cesta míří mimo kořen webu');
+  if (!isInside(path.resolve(rootPath), candidate)) throw new Error('The path points outside the website root');
   let ancestor = path.dirname(candidate);
   while (!fs.existsSync(ancestor)) {
     const parent = path.dirname(ancestor);
-    if (parent === ancestor) throw new Error('Nelze určit bezpečnou cílovou složku');
+    if (parent === ancestor) throw new Error('Could not determine a safe destination folder');
     ancestor = parent;
   }
-  if (!isInside(root, fs.realpathSync(ancestor))) throw new Error('Cesta přes symbolický odkaz míří mimo kořen webu');
+  if (!isInside(root, fs.realpathSync(ancestor))) throw new Error('The symlinked path points outside the website root');
   fs.mkdirSync(path.dirname(candidate), { recursive: true });
-  if (!isInside(root, fs.realpathSync(path.dirname(candidate)))) throw new Error('Cílová složka míří mimo kořen webu');
+  if (!isInside(root, fs.realpathSync(path.dirname(candidate)))) throw new Error('The destination folder points outside the website root');
   return candidate;
 }
 
 function uploadSessionRoot(id, create = false) {
-  if (!/^[0-9a-f-]{36}$/i.test(id)) throw httpError(400, 'Neplatná upload relace');
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw httpError(400, 'Invalid upload session');
   const root = path.resolve(uploadStageDir, id);
-  if (!isInside(uploadStageDir, root) || root === uploadStageDir) throw httpError(400, 'Neplatná upload relace');
+  if (!isInside(uploadStageDir, root) || root === uploadStageDir) throw httpError(400, 'Invalid upload session');
   if (create) fs.mkdirSync(root, { recursive: false });
-  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw httpError(404, 'Upload relace nebyla nalezena');
+  if (!fs.existsSync(root) || !fs.statSync(root).isDirectory()) throw httpError(404, 'Upload session not found');
   return root;
 }
 
@@ -913,7 +916,7 @@ function uploadSessionDestination(id, relative) {
   const root = uploadSessionRoot(id);
   const rel = normalizedRelative(relative, false);
   const candidate = path.resolve(root, rel);
-  if (!isInside(root, candidate)) throw new Error('Cesta míří mimo upload relaci');
+  if (!isInside(root, candidate)) throw new Error('The path points outside the upload session');
   fs.mkdirSync(path.dirname(candidate), { recursive: true });
   return candidate;
 }
@@ -921,7 +924,7 @@ function uploadSessionDestination(id, relative) {
 function commitUploadSession(id, siteId) {
   const root = uploadSessionRoot(id);
   const site = state.sites[siteId];
-  if (!site) throw httpError(404, 'Web nebyl nalezen');
+  if (!site) throw httpError(404, 'Website not found');
   resolveExistingDirectory(site.path);
   fs.cpSync(root, site.path, {
     recursive: true,
@@ -929,7 +932,7 @@ function commitUploadSession(id, siteId) {
     filter: source => !source.endsWith('.uploading')
   });
   fs.rmSync(root, { recursive: true, force: true });
-  appendLog(siteId, 'system', 'Nahrávání na pozadí bylo dokončeno');
+  appendLog(siteId, 'system', 'Background upload completed');
   markSiteFilesChanged(siteId, 500);
 }
 
@@ -949,13 +952,13 @@ function listFiles(site, relative) {
 
 function simpleFileName(value) {
   const name = String(value || '').trim();
-  if (!name || name === '.' || name === '..' || /[\\/\x00-\x1f]/.test(name)) throw new Error('Zadejte platný název bez lomítek');
+  if (!name || name === '.' || name === '..' || /[\\/\x00-\x1f]/.test(name)) throw new Error('Enter a valid name without slashes');
   return name;
 }
 
 function fileOperationEntries(site, paths) {
-  if (!Array.isArray(paths) || !paths.length) throw new Error('Vyberte alespoň jednu položku');
-  if (paths.length > 2000) throw new Error('Najednou lze zpracovat nejvýše 2000 položek');
+  if (!Array.isArray(paths) || !paths.length) throw new Error('Select at least one item');
+  if (paths.length > 2000) throw new Error('At most 2,000 items can be processed at once');
   const normalized = [...new Set(paths.map(value => normalizedRelative(value, false)))];
   return normalized.map(relative => {
     const entry = safeExisting(site, relative);
@@ -965,19 +968,19 @@ function fileOperationEntries(site, paths) {
 
 function newFileDestination(site, relative) {
   const destination = safeDestination(site, relative);
-  if (fs.existsSync(destination)) throw new Error(`Cílová položka už existuje: ${normalizedRelative(relative)}`);
+  if (fs.existsSync(destination)) throw new Error(`Destination item already exists: ${normalizedRelative(relative)}`);
   return destination;
 }
 
 function runFileOperation(id, body) {
   const site = state.sites[id];
-  if (!site) throw httpError(404, 'Web nebyl nalezen');
+  if (!site) throw httpError(404, 'Website not found');
   const action = String(body.action || '');
   if (action === 'mkdir') {
     const relative = normalizedRelative(body.path, false);
     const destination = newFileDestination(site, relative);
     fs.mkdirSync(destination, { recursive: false });
-    appendLog(id, 'system', `Vytvořena složka: ${relative}`);
+    appendLog(id, 'system', `Created folder: ${relative}`);
     markSiteFilesChanged(id);
     return { ok: true, affected: 1 };
   }
@@ -987,31 +990,31 @@ function runFileOperation(id, body) {
     const relative = path.join(path.dirname(normalizedRelative(body.path, false)), name);
     const destination = newFileDestination(site, relative);
     fs.renameSync(source.candidate, destination);
-    appendLog(id, 'system', `Přejmenováno: ${normalizedRelative(body.path, false)} → ${relative}`);
+    appendLog(id, 'system', `Renamed: ${normalizedRelative(body.path, false)} → ${relative}`);
     markSiteFilesChanged(id);
     return { ok: true, affected: 1, path: relative.replace(/\\/g, '/') };
   }
   if (action === 'delete') {
     const entries = fileOperationEntries(site, body.paths).sort((a, b) => b.relative.length - a.relative.length);
     for (const entry of entries) fs.rmSync(entry.candidate, { recursive: true, force: false });
-    appendLog(id, 'system', `Hromadně odstraněno: ${entries.length} položek`);
+    appendLog(id, 'system', `Bulk deleted: ${entries.length} items`);
     markSiteFilesChanged(id);
     return { ok: true, affected: entries.length };
   }
   if (action === 'move' || action === 'copy') {
     const entries = fileOperationEntries(site, body.paths);
     for (const parent of entries.filter(entry => entry.lstat.isDirectory())) {
-      if (entries.some(entry => entry !== parent && isInside(parent.real, entry.real))) throw new Error('Nelze současně zpracovat složku i položku uvnitř ní');
+      if (entries.some(entry => entry !== parent && isInside(parent.real, entry.real))) throw new Error('A folder and an item inside it cannot be processed together');
     }
     const destinationDirectory = safeExisting(site, normalizedRelative(body.destination || ''), 'directory');
     const targets = entries.map(entry => {
-      if (entry.lstat.isDirectory() && isInside(entry.real, destinationDirectory.real)) throw new Error('Složku nelze vložit do ní samotné ani do její podsložky');
+      if (entry.lstat.isDirectory() && isInside(entry.real, destinationDirectory.real)) throw new Error('A folder cannot be placed inside itself or one of its subfolders');
       const relative = path.join(normalizedRelative(body.destination || ''), path.basename(entry.relative));
       const target = newFileDestination(site, relative);
       return { entry, relative, target };
     });
     const uniqueTargets = new Set(targets.map(item => path.resolve(item.target)));
-    if (uniqueTargets.size !== targets.length) throw new Error('Vybrané položky mají v cíli stejný název');
+    if (uniqueTargets.size !== targets.length) throw new Error('Selected items have the same destination name');
     for (const item of targets) {
       if (action === 'copy') fs.cpSync(item.entry.candidate, item.target, { recursive: item.entry.lstat.isDirectory(), errorOnExist: true, force: false });
       else {
@@ -1023,22 +1026,22 @@ function runFileOperation(id, body) {
         }
       }
     }
-    appendLog(id, 'system', `${action === 'copy' ? 'Zkopírováno' : 'Přesunuto'}: ${entries.length} položek do ${normalizedRelative(body.destination || '').replace(/\\/g, '/') || 'kořene'}`);
+    appendLog(id, 'system', `${action === 'copy' ? 'Copied' : 'Moved'}: ${entries.length} items to ${normalizedRelative(body.destination || '').replace(/\\/g, '/') || 'root'}`);
     markSiteFilesChanged(id);
     return { ok: true, affected: entries.length };
   }
-  throw new Error('Neznámá souborová operace');
+  throw new Error('Unknown file operation');
 }
 
 async function receiveUpload(req, destination) {
   const declared = Number(req.headers['content-length'] || 0);
-  if (declared > maxUploadBytes) throw httpError(413, `Soubor překračuje limit ${Math.round(maxUploadBytes / 1024 / 1024)} MB`);
+  if (declared > maxUploadBytes) throw httpError(413, `File exceeds the ${Math.round(maxUploadBytes / 1024 / 1024)} MB limit`);
   const temp = `${destination}.${crypto.randomUUID()}.uploading`;
   let size = 0;
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
       size += chunk.length;
-      callback(size > maxUploadBytes ? httpError(413, 'Soubor je příliš velký') : null, chunk);
+      callback(size > maxUploadBytes ? httpError(413, 'File is too large') : null, chunk);
     }
   });
   try {
@@ -1052,29 +1055,29 @@ async function receiveUpload(req, destination) {
 }
 
 async function receiveUploadChunk(req, destination, uploadId, offset, total) {
-  if (!/^[0-9a-f-]{36}$/i.test(uploadId)) throw httpError(400, 'Neplatný identifikátor nahrávání');
-  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(total) || total < 0 || offset > total) throw httpError(400, 'Neplatný rozsah nahrávání');
-  if (total > maxUploadBytes) throw httpError(413, `Soubor překračuje limit ${Math.round(maxUploadBytes / 1024 / 1024)} MB`);
+  if (!/^[0-9a-f-]{36}$/i.test(uploadId)) throw httpError(400, 'Invalid upload identifier');
+  if (!Number.isSafeInteger(offset) || offset < 0 || !Number.isSafeInteger(total) || total < 0 || offset > total) throw httpError(400, 'Invalid upload range');
+  if (total > maxUploadBytes) throw httpError(413, `File exceeds the ${Math.round(maxUploadBytes / 1024 / 1024)} MB limit`);
   const declared = Number(req.headers['content-length'] || 0);
   const maxChunkBytes = Math.min(maxUploadBytes, 8 * 1024 * 1024);
-  if (!Number.isFinite(declared) || declared < 0 || declared > maxChunkBytes || offset + declared > total) throw httpError(413, 'Část souboru je příliš velká');
+  if (!Number.isFinite(declared) || declared < 0 || declared > maxChunkBytes || offset + declared > total) throw httpError(413, 'File chunk is too large');
   const temp = `${destination}.${uploadId}.uploading`;
   if (offset > 0 && !fs.existsSync(temp)) {
     if (fs.existsSync(destination) && fs.statSync(destination).size === total && offset + declared === total) {
-      for await (const _chunk of req) { /* dokončená část byla potvrzena až po přerušení spojení */ }
+      for await (const _chunk of req) { /* The completed chunk was acknowledged only after the connection ended. */ }
       return { bytes: 0, received: total, total, complete: true, replayed: true };
     }
-    throw httpError(409, 'Nahrávání nelze navázat; zkuste soubor nahrát znovu');
+    throw httpError(409, 'The upload cannot be resumed; upload the file again');
   }
   if (offset === 0) fs.rmSync(temp, { force: true });
   const current = fs.existsSync(temp) ? fs.statSync(temp).size : 0;
-  if (current < offset) throw httpError(409, 'Části souboru dorazily v nesprávném pořadí');
+  if (current < offset) throw httpError(409, 'File chunks arrived in the wrong order');
   if (current > offset) fs.truncateSync(temp, offset);
   let size = 0;
   const limiter = new Transform({
     transform(chunk, _encoding, callback) {
       size += chunk.length;
-      callback(size > maxChunkBytes || offset + size > total ? httpError(413, 'Část souboru je příliš velká') : null, chunk);
+      callback(size > maxChunkBytes || offset + size > total ? httpError(413, 'File chunk is too large') : null, chunk);
     }
   });
   try {
@@ -1112,7 +1115,7 @@ async function serveStaticSite(site, req, res) {
     const url = new URL(req.url, 'http://localhost');
     let relative;
     try { relative = normalizedRelative(decodeURIComponent(url.pathname)); }
-    catch { throw httpError(400, 'Neplatná URL'); }
+    catch { throw httpError(400, 'Invalid URL'); }
     let candidate = path.resolve(site.path, relative);
     if (fs.existsSync(candidate) && fs.statSync(candidate).isDirectory()) candidate = path.join(candidate, site.indexFile || 'index.html');
     let found = fs.existsSync(candidate) && fs.statSync(candidate).isFile();
@@ -1120,10 +1123,10 @@ async function serveStaticSite(site, req, res) {
       candidate = path.join(site.path, site.indexFile || 'index.html');
       found = fs.existsSync(candidate) && fs.statSync(candidate).isFile();
     }
-    if (!found) throw httpError(404, 'Nenalezeno');
+    if (!found) throw httpError(404, 'Not found');
     const root = fs.realpathSync(site.path);
     const real = fs.realpathSync(candidate);
-    if (!isInside(root, real)) throw httpError(403, 'Přístup mimo složku webu je zakázán');
+    if (!isInside(root, real)) throw httpError(403, 'Access outside the website folder is forbidden');
     const stat = fs.statSync(real);
     const headers = {
       'content-type': mimeTypes[path.extname(real).toLowerCase()] || 'application/octet-stream',
@@ -1139,7 +1142,7 @@ async function serveStaticSite(site, req, res) {
     if (res.headersSent) return res.destroy();
     const code = error.statusCode || 500;
     res.writeHead(code, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' });
-    res.end(code === 404 ? '404 – stránka nebyla nalezena' : error.message);
+    res.end(code === 404 ? '404 – page not found' : error.message);
   }
 }
 
@@ -1160,9 +1163,9 @@ function gatewayIndex(res) {
   const sites = Object.entries(state.sites).filter(([, site]) => usesGateway(site));
   const rows = sites.map(([id, site]) => {
     const running = runtimeFor(id).status === 'running';
-    return `<li><a href="/${encodeURIComponent(site.slug)}/">${escapeHtml(site.name)}</a> <small>${running ? 'běží' : 'zastaven'}</small></li>`;
+    return `<li><a href="/${encodeURIComponent(site.slug)}/">${escapeHtml(site.name)}</a> <small>${running ? 'running' : 'stopped'}</small></li>`;
   }).join('');
-  const body = Buffer.from(`<!doctype html><html lang="cs"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>MyBrowser</title><style>body{margin:0;background:#17181b;color:#f7f7f8;font:16px system-ui;padding:48px}main{max-width:760px;margin:auto}a{color:#5db8f4}li{margin:14px 0}small{color:#aeb2bc}</style><main><h1>MyBrowser</h1><p>Weby dostupné přes veřejnou bránu:</p><ul>${rows || '<li>Zatím tu není žádný web.</li>'}</ul></main></html>`);
+  const body = Buffer.from(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>MyBrowser</title><style>body{margin:0;background:#17181b;color:#f7f7f8;font:16px system-ui;padding:48px}main{max-width:760px;margin:auto}a{color:#5db8f4}li{margin:14px 0}small{color:#aeb2bc}</style><main><h1>MyBrowser</h1><p>Websites available through the public gateway:</p><ul>${rows || '<li>No websites are available yet.</li>'}</ul></main></html>`);
   res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': body.length, 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
   res.end(body);
 }
@@ -1180,7 +1183,7 @@ function proxyGatewayRequest(target, req, res, forwardedPath) {
   });
   upstream.on('error', error => {
     if (res.headersSent) return res.destroy(error);
-    const body = Buffer.from(`Web ${target.site.name} není momentálně dostupný.`);
+    const body = Buffer.from(`Website ${target.site.name} is currently unavailable.`);
     res.writeHead(502, { 'content-type': 'text/plain; charset=utf-8', 'content-length': body.length, 'cache-control': 'no-store' });
     res.end(body);
   });
@@ -1192,7 +1195,7 @@ async function serveGateway(req, res) {
   if (url.pathname === '/') return gatewayIndex(res);
   const target = gatewayTarget(url.pathname);
   if (!target) {
-    const body = Buffer.from('404 – web nebyl nalezen');
+    const body = Buffer.from('404 – website not found');
     res.writeHead(404, { 'content-type': 'text/plain; charset=utf-8', 'content-length': body.length, 'cache-control': 'no-store' });
     return res.end(body);
   }
@@ -1201,7 +1204,7 @@ async function serveGateway(req, res) {
     return res.end();
   }
   if (runtimeFor(target.id).status !== 'running') {
-    const body = Buffer.from(`Web ${target.site.name} je zastaven.`);
+    const body = Buffer.from(`Website ${target.site.name} is stopped.`);
     res.writeHead(503, { 'content-type': 'text/plain; charset=utf-8', 'content-length': body.length, 'cache-control': 'no-store' });
     return res.end(body);
   }
@@ -1237,12 +1240,12 @@ async function readJson(req, maximum = 1024 * 1024) {
   let size = 0;
   for await (const chunk of req) {
     size += chunk.length;
-    if (size > maximum) throw httpError(413, 'Požadavek je příliš velký');
+    if (size > maximum) throw httpError(413, 'Request is too large');
     chunks.push(chunk);
   }
   if (!size) return {};
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-  catch { throw httpError(400, 'Neplatná JSON data'); }
+  catch { throw httpError(400, 'Invalid JSON data'); }
 }
 
 function isUiRequestAllowed(req) {
@@ -1261,7 +1264,7 @@ function toolVersion(command, args = ['--version']) {
 
 const versions = { node: process.version.replace(/^v/, ''), npm: toolVersion(process.platform === 'win32' ? 'npm.cmd' : 'npm'), bun: toolVersion('bun') };
 const iconDataUrl = `data:image/png;base64,${fs.readFileSync(path.join(__dirname, 'icon.png')).toString('base64')}`;
-const ui = Buffer.from(fs.readFileSync(path.join(__dirname, 'ui.html'), 'utf8').replace('__MYBROWSER_ICON_DATA__', iconDataUrl));
+const uiTemplate = fs.readFileSync(path.join(__dirname, 'ui.html'), 'utf8').replace('__MYBROWSER_ICON_DATA__', iconDataUrl);
 const viewer = fs.readFileSync(path.join(__dirname, 'viewer.html'));
 const brandAssets = new Map([
   ['/api/assets/icon.png', path.join(__dirname, 'icon.png')],
@@ -1293,18 +1296,18 @@ function serveLocalFile(res, file, extraHeaders = {}) {
 
 const uiServer = http.createServer(async (req, res) => {
   try {
-    if (!isUiRequestAllowed(req)) return sendJson(res, 403, { error: 'Správa je dostupná pouze přes Home Assistant Ingress' });
+    if (!isUiRequestAllowed(req)) return sendJson(res, 403, { error: 'Management is available only through Home Assistant Ingress' });
     const url = new URL(req.url, 'http://localhost');
     const route = routeFromPathname(url.pathname);
 
     const embeddedSiteRoute = /^\/api\/gateway\/([^/]+)(\/.*)?$/.exec(route);
     if (embeddedSiteRoute) {
       let slug;
-      try { slug = decodeURIComponent(embeddedSiteRoute[1]); } catch { throw httpError(400, 'Neplatná adresa webu'); }
+      try { slug = decodeURIComponent(embeddedSiteRoute[1]); } catch { throw httpError(400, 'Invalid website address'); }
       const entry = Object.entries(state.sites).find(([, site]) => site.slug === slug);
-      if (!entry) throw httpError(404, 'Web nebyl nalezen');
+      if (!entry) throw httpError(404, 'Website not found');
       const [id, site] = entry;
-      if (runtimeFor(id).status !== 'running') throw httpError(503, `Web ${site.name} je zastaven`);
+      if (runtimeFor(id).status !== 'running') throw httpError(503, `Website ${site.name} is stopped`);
       const marker = url.pathname.lastIndexOf('/api/gateway/');
       const actualPrefix = `${url.pathname.slice(0, marker)}/api/gateway/${encodeURIComponent(site.slug)}`;
       const target = { id, site, prefix: actualPrefix, remainder: embeddedSiteRoute[2] || '/' };
@@ -1339,7 +1342,7 @@ const uiServer = http.createServer(async (req, res) => {
     const liveResource = /^\/view\/([0-9a-f-]{36})\/resource$/.exec(route);
     if (req.method === 'GET' && liveResource) {
       const target = url.searchParams.get('url');
-      if (!target) throw new Error('Chybí adresa vzdáleného souboru');
+      if (!target) throw new Error('Remote file URL is missing');
       const result = await remote.proxy(liveResource[1], target, true);
       res.writeHead(result.status || 200, {
         'content-type': result.contentType,
@@ -1352,7 +1355,7 @@ const uiServer = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && route === '/browse') {
       const target = url.searchParams.get('url');
-      if (!target) throw new Error('Chybí adresa webu');
+      if (!target) throw new Error('Website URL is missing');
       const result = await remote.proxyUrl(target, false, true);
       const headers = {
         'content-type': result.contentType,
@@ -1367,7 +1370,7 @@ const uiServer = http.createServer(async (req, res) => {
     }
     if (req.method === 'GET' && route === '/browse/resource') {
       const target = url.searchParams.get('url');
-      if (!target) throw new Error('Chybí adresa vzdáleného souboru');
+      if (!target) throw new Error('Remote file URL is missing');
       const result = await remote.proxyUrl(target, true, true);
       res.writeHead(result.status || 200, {
         'content-type': result.contentType,
@@ -1394,6 +1397,7 @@ const uiServer = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && (route === '/' || (!route.startsWith('/api/') && !route.startsWith('/view/') && !route.startsWith('/offline/')))) {
+      const ui = Buffer.from(localizeUi(uiTemplate, state.language));
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         'content-length': ui.length,
@@ -1408,8 +1412,9 @@ const uiServer = http.createServer(async (req, res) => {
         sites: Object.entries(state.sites).map(([id, site]) => publicSite(id, site)),
         links: Object.entries(state.links).map(([id, link]) => publicLink(id, link)),
         settings: {
+          language: state.language,
           defaultRoot,
-          nextManagedPath: suggestedManagedPath('Názevwebu'),
+          nextManagedPath: suggestedManagedPath('WebsiteName'),
           allowedRoots,
           startupDelay,
           maxUploadMb: Math.round(maxUploadBytes / 1024 / 1024),
@@ -1424,13 +1429,21 @@ const uiServer = http.createServer(async (req, res) => {
       });
     }
 
+    if (req.method === 'PATCH' && route === '/api/settings/language') {
+      const body = await readJson(req);
+      if (!['en', 'cs'].includes(body.language)) throw httpError(400, 'Language must be en or cs');
+      state.language = body.language;
+      saveState();
+      return sendJson(res, 200, { language: state.language });
+    }
+
     if (req.method === 'POST' && route === '/api/browser/sessions') {
       const body = await readJson(req);
       let target = body.url;
       if (body.siteId) {
         const site = state.sites[String(body.siteId)];
-        if (!site) throw httpError(404, 'Web nebyl nalezen');
-        if (runtimeFor(String(body.siteId)).status !== 'running') throw httpError(503, `Web ${site.name} je zastaven`);
+        if (!site) throw httpError(404, 'Website not found');
+        if (runtimeFor(String(body.siteId)).status !== 'running') throw httpError(503, `Website ${site.name} is stopped`);
         target = localSiteUrl(site);
       }
       return sendJson(res, 201, await browser.create({
@@ -1515,8 +1528,8 @@ const uiServer = http.createServer(async (req, res) => {
     if (linkRoute && req.method === 'DELETE') {
       const id = linkRoute[1];
       const link = state.links[id];
-      if (!link) throw httpError(404, 'Odkaz nebyl nalezen');
-      if ((link.archives || []).some(item => item.status === 'downloading')) throw new Error('Odkaz nelze odebrat během stahování offline verze');
+      if (!link) throw httpError(404, 'Link not found');
+      if ((link.archives || []).some(item => item.status === 'downloading')) throw new Error('A link cannot be removed while an offline version is downloading');
       remote.deleteLinkData(id);
       delete state.links[id];
       saveState();
@@ -1530,7 +1543,7 @@ const uiServer = http.createServer(async (req, res) => {
     const coverRoute = /^\/api\/links\/([0-9a-f-]{36})\/cover$/.exec(route);
     if (coverRoute && req.method === 'GET') {
       const cover = remote.coverFor(coverRoute[1]);
-      if (!cover) throw httpError(404, 'Náhled není dostupný');
+      if (!cover) throw httpError(404, 'Preview is unavailable');
       const stat = fs.statSync(cover.file);
       res.writeHead(200, { 'content-type': cover.mime, 'content-length': stat.size, 'cache-control': 'private, max-age=3600', 'x-content-type-options': 'nosniff' });
       return fs.createReadStream(cover.file).pipe(res);
@@ -1583,13 +1596,13 @@ const uiServer = http.createServer(async (req, res) => {
     if (siteRoute && req.method === 'DELETE') {
       const id = siteRoute[1];
       const site = state.sites[id];
-      if (!site) throw httpError(404, 'Web nebyl nalezen');
-      await stopSite(id, 'odebrání');
+      if (!site) throw httpError(404, 'Website not found');
+      await stopSite(id, 'removal');
       const deleteFiles = url.searchParams.get('deleteFiles') === '1';
       if (deleteFiles) {
-        if (site.rootMode !== 'managed') throw new Error('Soubory odkazované existující složky se z bezpečnostních důvodů nemažou');
+        if (site.rootMode !== 'managed') throw new Error('Files in a referenced existing folder are not deleted for safety');
         const managed = path.resolve(site.path);
-        if (!isInside(defaultRoot, managed) || managed === defaultRoot) throw new Error('Složka není bezpečná pro odstranění');
+        if (!isInside(defaultRoot, managed) || managed === defaultRoot) throw new Error('The folder is not safe to delete');
         fs.rmSync(managed, { recursive: true, force: true });
       }
       fs.rmSync(path.join(siteCoverDir, id), { force: true });
@@ -1608,7 +1621,7 @@ const uiServer = http.createServer(async (req, res) => {
     if (sitePreviewRoute && req.method === 'GET') {
       const id = sitePreviewRoute[1];
       const file = path.join(sitePreviewDir, `${id}.png`);
-      if (!state.sites[id] || !fs.existsSync(file)) throw httpError(404, 'Automatický náhled není dostupný');
+      if (!state.sites[id] || !fs.existsSync(file)) throw httpError(404, 'Automatic preview is unavailable');
       const stat = fs.statSync(file);
       res.writeHead(200, { 'content-type': 'image/png', 'content-length': stat.size, 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' });
       return fs.createReadStream(file).pipe(res);
@@ -1617,7 +1630,7 @@ const uiServer = http.createServer(async (req, res) => {
       const id = siteCoverRoute[1];
       const site = state.sites[id];
       const file = path.join(siteCoverDir, id);
-      if (!site || !site.coverMime || !fs.existsSync(file)) throw httpError(404, 'Úvodní obrázek není dostupný');
+      if (!site || !site.coverMime || !fs.existsSync(file)) throw httpError(404, 'Cover image is unavailable');
       const stat = fs.statSync(file);
       res.writeHead(200, { 'content-type': site.coverMime, 'content-length': stat.size, 'cache-control': 'private, max-age=300', 'x-content-type-options': 'nosniff' });
       return fs.createReadStream(file).pipe(res);
@@ -1625,21 +1638,21 @@ const uiServer = http.createServer(async (req, res) => {
     if (siteCoverRoute && req.method === 'PUT') {
       const id = siteCoverRoute[1];
       const site = state.sites[id];
-      if (!site) throw httpError(404, 'Web nebyl nalezen');
+      if (!site) throw httpError(404, 'Website not found');
       const mime = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
-      if (!new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']).has(mime)) throw httpError(415, 'Úvodní obrázek musí být JPG, PNG, WebP, GIF nebo AVIF');
+      if (!new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']).has(mime)) throw httpError(415, 'The cover image must be JPG, PNG, WebP, GIF, or AVIF');
       const bytes = await receiveUpload(req, path.join(siteCoverDir, id));
       site.coverMime = mime;
       site.coverUpdatedAt = new Date().toISOString();
       site.updatedAt = site.coverUpdatedAt;
       saveState();
-      appendLog(id, 'system', `Nahrán úvodní obrázek (${bytes} B)`);
+      appendLog(id, 'system', `Uploaded cover image (${bytes} B)`);
       return sendJson(res, 201, { ok: true, bytes, hasCover: true });
     }
     if (siteCoverRoute && req.method === 'DELETE') {
       const id = siteCoverRoute[1];
       const site = state.sites[id];
-      if (!site) throw httpError(404, 'Web nebyl nalezen');
+      if (!site) throw httpError(404, 'Website not found');
       fs.rmSync(path.join(siteCoverDir, id), { force: true });
       delete site.coverMime;
       delete site.coverUpdatedAt;
@@ -1657,17 +1670,17 @@ const uiServer = http.createServer(async (req, res) => {
       else if (body.action === 'stop') await stopSite(id);
       else if (body.action === 'restart') await restartSite(id);
       else if (body.action === 'install' || body.action === 'build') runOperation(id, body.action);
-      else throw new Error('Neznámá akce');
+      else throw new Error('Unknown action');
       return sendJson(res, 202, { ok: true, site: publicSite(id, state.sites[id]) });
     }
 
     const logsRoute = /^\/api\/sites\/([0-9a-f-]{36})\/logs$/.exec(route);
     if (logsRoute && req.method === 'GET') {
-      if (!state.sites[logsRoute[1]]) throw httpError(404, 'Web nebyl nalezen');
+      if (!state.sites[logsRoute[1]]) throw httpError(404, 'Website not found');
       return sendJson(res, 200, { logs: runtimeFor(logsRoute[1]).logs });
     }
     if (logsRoute && req.method === 'DELETE') {
-      if (!state.sites[logsRoute[1]]) throw httpError(404, 'Web nebyl nalezen');
+      if (!state.sites[logsRoute[1]]) throw httpError(404, 'Website not found');
       runtimeFor(logsRoute[1]).logs = [];
       return sendJson(res, 200, { ok: true });
     }
@@ -1675,7 +1688,7 @@ const uiServer = http.createServer(async (req, res) => {
     const filesRoute = /^\/api\/sites\/([0-9a-f-]{36})\/files$/.exec(route);
     if (filesRoute && req.method === 'GET') {
       const site = state.sites[filesRoute[1]];
-      if (!site) throw httpError(404, 'Web nebyl nalezen');
+      if (!site) throw httpError(404, 'Website not found');
       const relative = url.searchParams.get('path') || '';
       if (url.searchParams.get('download') === '1') {
         const file = safeExisting(site, relative, 'file');
@@ -1696,40 +1709,40 @@ const uiServer = http.createServer(async (req, res) => {
     if (filesRoute && req.method === 'PUT') {
       const id = filesRoute[1];
       const site = state.sites[id];
-      if (!site) throw httpError(404, 'Web nebyl nalezen');
+      if (!site) throw httpError(404, 'Website not found');
       const relative = url.searchParams.get('path') || '';
       const destination = safeDestination(site, relative);
       const uploadId = url.searchParams.get('upload');
       if (uploadId) {
         const result = await receiveUploadChunk(req, destination, uploadId, Number(url.searchParams.get('offset')), Number(url.searchParams.get('total')));
         if (result.complete) {
-          appendLog(id, 'system', `Nahrán soubor ${normalizedRelative(relative)} (${result.total} B po částech)`);
+          appendLog(id, 'system', `Uploaded ${normalizedRelative(relative)} (${result.total} B in chunks)`);
           markSiteFilesChanged(id);
         }
         return sendJson(res, result.complete ? 201 : 202, { ok: true, ...result });
       }
       const bytes = await receiveUpload(req, destination);
-      appendLog(id, 'system', `Nahrán soubor ${normalizedRelative(relative)} (${bytes} B)`);
+      appendLog(id, 'system', `Uploaded ${normalizedRelative(relative)} (${bytes} B)`);
       markSiteFilesChanged(id);
       return sendJson(res, 201, { ok: true, bytes });
     }
     if (filesRoute && req.method === 'DELETE') {
       const id = filesRoute[1];
       const site = state.sites[id];
-      if (!site) throw httpError(404, 'Web nebyl nalezen');
+      if (!site) throw httpError(404, 'Website not found');
       const relative = normalizedRelative(url.searchParams.get('path') || '', false);
       const target = path.resolve(site.path, relative);
-      if (!isInside(path.resolve(site.path), target)) throw new Error('Cesta míří mimo kořen webu');
+      if (!isInside(path.resolve(site.path), target)) throw new Error('The path points outside the website root');
       const parent = fs.realpathSync(path.dirname(target));
       const root = fs.realpathSync(site.path);
-      if (!isInside(root, parent)) throw new Error('Cesta míří mimo kořen webu');
+      if (!isInside(root, parent)) throw new Error('The path points outside the website root');
       fs.rmSync(target, { recursive: true, force: false });
-      appendLog(id, 'system', `Odstraněno: ${relative}`);
+      appendLog(id, 'system', `Deleted: ${relative}`);
       markSiteFilesChanged(id);
       return sendJson(res, 200, { ok: true });
     }
 
-    throw httpError(404, 'Neznámý požadavek');
+    throw httpError(404, 'Unknown request');
   } catch (error) {
     console.error(error);
     if (res.headersSent) res.destroy();
@@ -1739,10 +1752,10 @@ const uiServer = http.createServer(async (req, res) => {
 
 const gatewayServer = http.createServer((req, res) => {
   serveGateway(req, res).catch(error => {
-    console.error('Chyba veřejné brány:', error);
+    console.error('Public gateway error:', error);
     if (res.headersSent) res.destroy(error);
     else {
-      const body = Buffer.from(error.message || 'Chyba veřejné brány');
+      const body = Buffer.from(error.message || 'Public gateway error');
       res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8', 'content-length': body.length, 'cache-control': 'no-store' });
       res.end(body);
     }
@@ -1751,9 +1764,9 @@ const gatewayServer = http.createServer((req, res) => {
 
 try {
   const guideId = installBundledGuide();
-  if (guideId) console.log('Vestavěný průvodce MyBrowserem byl přidán do knihovny');
+  if (guideId) console.log('The bundled MyBrowser Guide was added to the library');
 } catch (error) {
-  console.error(`Vestavěný průvodce se nepodařilo připravit: ${error.message}`);
+  console.error(`Could not prepare the bundled guide: ${error.message}`);
 }
 
 gatewayServer.on('upgrade', (req, socket, head) => {
@@ -1777,17 +1790,17 @@ gatewayServer.on('upgrade', (req, socket, head) => {
 });
 
 gatewayServer.listen(gatewayPort, gatewayHost, () => {
-  console.log(`Veřejná brána MyBrowseru naslouchá na ${gatewayHost}:${gatewayPort}`);
+  console.log(`MyBrowser public gateway is listening on ${gatewayHost}:${gatewayPort}`);
 });
 
 uiServer.listen(uiPort, uiHost, () => {
-  console.log(`MyBrowser naslouchá na ${uiHost}:${uiPort}`);
-  console.log(`Výchozí složka webů: ${defaultRoot}`);
+  console.log(`MyBrowser is listening on ${uiHost}:${uiPort}`);
+  console.log(`Default website folder: ${defaultRoot}`);
   for (const id of Object.keys(state.sites)) ensureSiteWatcher(id);
   setTimeout(() => {
     for (const [id, site] of Object.entries(state.sites)) {
       if (!site.autostart) continue;
-      startSite(id, 'automaticky po startu add-onu').catch(error => console.error(`Autostart ${site.name}:`, error.message));
+      startSite(id, 'automatically after add-on startup').catch(error => console.error(`Autostart ${site.name}:`, error.message));
     }
   }, startupDelay * 1000).unref();
 });
@@ -1796,11 +1809,11 @@ let shuttingDown = false;
 async function shutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  console.log(`Přijat ${signal}, zastavuji weby…`);
+  console.log(`Received ${signal}; stopping websites…`);
   const operations = [];
   for (const id of Object.keys(state.sites)) {
     runtimeFor(id).watcher?.close();
-    operations.push(stopSite(id, 'ukončení add-onu').catch(error => console.error(error)));
+    operations.push(stopSite(id, 'add-on shutdown').catch(error => console.error(error)));
   }
   await Promise.all(operations);
   await browser.close();

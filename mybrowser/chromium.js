@@ -15,14 +15,14 @@ function httpError(statusCode, message) {
 function safeUrl(value) {
   let url;
   try { url = new URL(String(value || '').trim()); }
-  catch { throw httpError(400, 'Zadejte platnou webovou adresu'); }
-  if (!['http:', 'https:'].includes(url.protocol)) throw httpError(400, 'Prohlížeč podporuje HTTP a HTTPS adresy');
+  catch { throw httpError(400, 'Enter a valid website URL'); }
+  if (!['http:', 'https:'].includes(url.protocol)) throw httpError(400, 'The browser supports HTTP and HTTPS URLs');
   return url.href;
 }
 
 function safeFileName(value) {
-  const name = path.basename(String(value || 'soubor')).replace(/[\x00-\x1f<>:"/\\|?*]+/g, '_').slice(0, 180);
-  return name && name !== '.' && name !== '..' ? name : 'soubor';
+  const name = path.basename(String(value || 'file')).replace(/[\x00-\x1f<>:"/\\|?*]+/g, '_').slice(0, 180);
+  return name && name !== '.' && name !== '..' ? name : 'file';
 }
 
 class CdpConnection {
@@ -38,7 +38,7 @@ class CdpConnection {
     await new Promise((resolve, reject) => {
       const socket = new WebSocket(this.url);
       this.socket = socket;
-      const fail = event => reject(new Error(event?.message || 'Spojení s Chromiem se nepodařilo otevřít'));
+      const fail = event => reject(new Error(event?.message || 'Could not open a Chromium connection'));
       socket.addEventListener('open', resolve, { once: true });
       socket.addEventListener('error', fail, { once: true });
       socket.addEventListener('message', event => this.message(event.data));
@@ -55,7 +55,7 @@ class CdpConnection {
       if (!pending) return;
       this.pending.delete(message.id);
       clearTimeout(pending.timer);
-      if (message.error) pending.reject(new Error(message.error.message || 'Chromium odmítlo požadavek'));
+      if (message.error) pending.reject(new Error(message.error.message || 'Chromium rejected the request'));
       else pending.resolve(message.result || {});
       return;
     }
@@ -63,14 +63,14 @@ class CdpConnection {
   }
 
   call(method, params = {}, sessionId = null, timeout = 20000) {
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Chromium není připojené'));
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) return Promise.reject(new Error('Chromium is not connected'));
     const id = this.nextId++;
     const payload = { id, method, params };
     if (sessionId) payload.sessionId = sessionId;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(`Chromium neodpovědělo na ${method}`));
+        reject(new Error(`Chromium did not respond to ${method}`));
       }, timeout);
       this.pending.set(id, { resolve, reject, timer });
       this.socket.send(JSON.stringify(payload));
@@ -80,7 +80,7 @@ class CdpConnection {
   closed() {
     for (const pending of this.pending.values()) {
       clearTimeout(pending.timer);
-      pending.reject(new Error('Chromium ukončilo spojení'));
+      pending.reject(new Error('Chromium closed the connection'));
     }
     this.pending.clear();
   }
@@ -125,7 +125,7 @@ class ChromiumBrowser {
   }
 
   async start() {
-    if (!this.available) throw httpError(503, 'Chromium není v add-onu dostupné');
+    if (!this.available) throw httpError(503, 'Chromium is not available in the add-on');
     if (this.cdp) return;
     if (this.startPromise) return this.startPromise;
     this.startPromise = this.startNow().finally(() => { this.startPromise = null; });
@@ -149,13 +149,13 @@ class ChromiumBrowser {
       if (this.process === child) this.process = null;
       this.cdp?.close();
       this.cdp = null;
-      for (const session of this.sessions.values()) this.failSession(session, 'Chromium bylo ukončeno');
+      for (const session of this.sessions.values()) this.failSession(session, 'Chromium was terminated');
     });
 
     const deadline = Date.now() + 20000;
     let version;
     while (Date.now() < deadline) {
-      if (child.exitCode !== null) throw new Error(errors.trim().split('\n').pop() || `Chromium skončilo s kódem ${child.exitCode}`);
+      if (child.exitCode !== null) throw new Error(errors.trim().split('\n').pop() || `Chromium exited with code ${child.exitCode}`);
       try {
         const response = await fetch(`http://127.0.0.1:${port}/json/version`);
         if (response.ok) { version = await response.json(); break; }
@@ -164,7 +164,7 @@ class ChromiumBrowser {
     }
     if (!version?.webSocketDebuggerUrl) {
       try { child.kill('SIGKILL'); } catch {}
-      throw new Error(errors.trim().split('\n').pop() || 'Chromium se nepodařilo spustit');
+      throw new Error(errors.trim().split('\n').pop() || 'Chromium could not be started');
     }
     const connection = new CdpConnection(version.webSocketDebuggerUrl, message => this.onEvent(message));
     await connection.connect();
@@ -182,7 +182,7 @@ class ChromiumBrowser {
     const id = crypto.randomUUID();
     const session = {
       id, targetId: null, cdpSessionId: null, width: this.dimension(width, 320, 1920, 1400),
-      height: this.dimension(height, 240, 1200, 780), url: 'about:blank', title: 'Nová karta',
+      height: this.dimension(height, 240, 1200, 780), url: 'about:blank', title: 'New tab',
       loading: true, error: null, canGoBack: false, canGoForward: false, dialog: null,
       fileChooser: null, frame: null, frameSequence: 0, waiters: new Set(), touchedAt: Date.now(),
       uploadDir: path.join(this.sessionRoot, id), blockAds: Boolean(blockAds), metadataTimer: null
@@ -238,7 +238,7 @@ class ChromiumBrowser {
 
   require(id) {
     const session = this.sessions.get(String(id));
-    if (!session) throw httpError(404, 'Relace prohlížeče už neexistuje');
+    if (!session) throw httpError(404, 'The browser session no longer exists');
     session.touchedAt = Date.now();
     return session;
   }
@@ -296,7 +296,7 @@ class ChromiumBrowser {
     const type = String(body.type || '');
     if (type === 'mouse') {
       const allowed = new Set(['mousePressed', 'mouseReleased', 'mouseMoved', 'mouseWheel']);
-      if (!allowed.has(body.event)) throw httpError(400, 'Neplatná událost myši');
+      if (!allowed.has(body.event)) throw httpError(400, 'Invalid mouse event');
       const params = {
         type: body.event,
         x: Math.min(session.width, Math.max(0, Number(body.x) || 0)),
@@ -324,7 +324,7 @@ class ChromiumBrowser {
       });
     } else if (type === 'text') {
       await this.callSession(session, 'Input.insertText', { text: String(body.text || '').slice(0, 10000) });
-    } else throw httpError(400, 'Neplatný vstup prohlížeče');
+    } else throw httpError(400, 'Invalid browser input');
     return { ok: true };
   }
 
@@ -343,10 +343,10 @@ class ChromiumBrowser {
 
   async chooseFiles(id, files) {
     const session = this.require(id);
-    if (!session.fileChooser) throw httpError(409, 'Web právě nečeká na výběr souboru');
+    if (!session.fileChooser) throw httpError(409, 'The website is not waiting for a file selection');
     const candidates = (Array.isArray(files) ? files : []).map(value => path.join(session.uploadDir, safeFileName(value)));
     for (const file of candidates) {
-      if (!file.startsWith(`${session.uploadDir}${path.sep}`) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw httpError(400, 'Nahraný soubor nebyl nalezen');
+      if (!file.startsWith(`${session.uploadDir}${path.sep}`) || !fs.existsSync(file) || !fs.statSync(file).isFile()) throw httpError(400, 'The uploaded file was not found');
     }
     await this.callSession(session, 'DOM.setFileInputFiles', {
       files: session.fileChooser.mode === 'selectSingle' ? candidates.slice(0, 1) : candidates,
@@ -358,7 +358,7 @@ class ChromiumBrowser {
 
   async dialog(id, accept, promptText = '') {
     const session = this.require(id);
-    if (!session.dialog) throw httpError(409, 'Web právě nezobrazuje dialog');
+    if (!session.dialog) throw httpError(409, 'The website is not displaying a dialog');
     await this.callSession(session, 'Page.handleJavaScriptDialog', { accept: Boolean(accept), promptText: String(promptText || '') });
     session.dialog = null;
     return { ok: true };
@@ -414,7 +414,7 @@ class ChromiumBrowser {
       } else if (message.method === 'Page.javascriptDialogClosed') session.dialog = null;
       else if (message.method === 'Page.fileChooserOpened') {
         session.fileChooser = { backendNodeId: message.params.backendNodeId, mode: message.params.mode || 'selectSingle', token: crypto.randomUUID() };
-      } else if (message.method === 'Inspector.targetCrashed') this.failSession(session, 'Karta Chromia přestala odpovídat');
+      } else if (message.method === 'Inspector.targetCrashed') this.failSession(session, 'The Chromium tab stopped responding');
     }
 
     if (message.method === 'Target.targetInfoChanged') {
@@ -435,7 +435,7 @@ class ChromiumBrowser {
   }
 
   failSession(session, message) {
-    session.error = String(message || 'Chyba Chromia');
+    session.error = String(message || 'Chromium error');
     session.loading = false;
     for (const resolve of session.waiters) resolve();
     session.waiters.clear();

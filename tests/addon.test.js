@@ -44,11 +44,11 @@ async function waitFor(url, timeout = 15000) {
   throw lastError || new Error(`Timeout: ${url}`);
 }
 
-test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offline verze', { timeout: 60000 }, async t => {
+test('MyBrowser manages hosted websites, links, favorites, and historical offline versions', { timeout: 60000 }, async t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ha-mybrowser-'));
   const dataDir = path.join(temp, 'data');
   const shareDir = path.join(temp, 'share');
-  const managedDir = path.join(shareDir, 'Weby');
+  const managedDir = path.join(shareDir, 'Websites');
   const existingDir = path.join(shareDir, 'npm-app');
   fs.mkdirSync(dataDir, { recursive: true });
   fs.mkdirSync(existingDir, { recursive: true });
@@ -69,13 +69,13 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
   const remoteServer = http.createServer((req, res) => {
     const route = new URL(req.url, 'http://localhost').pathname;
     if (route === '/') {
-      const body = Buffer.from('<!doctype html><html><head><title>Testovací katalog</title><meta name="description" content="Archivovatelná stránka"><meta property="og:image" content="/cover.png"><link rel="stylesheet" href="/style.css"></head><body><h1>Offline funguje</h1><img src="/image.png"><script src="/ads/banner.js"></script><a href="/dalsi">Další</a></body></html>');
+      const body = Buffer.from('<!doctype html><html><head><title>Test catalog</title><meta name="description" content="Archivable page"><meta property="og:image" content="/cover.png"><link rel="stylesheet" href="/style.css"></head><body><h1>Offline works</h1><img src="/image.png"><script src="/ads/banner.js"></script><a href="/next">Next</a></body></html>');
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'content-length': body.length }); return res.end(body);
     }
     if (route === '/style.css') { const body=Buffer.from('body{background-image:url("/bg.png")}'); res.writeHead(200,{'content-type':'text/css','content-length':body.length}); return res.end(body); }
     if (route === '/ads/banner.js') { const body=Buffer.from('document.body.dataset.ad="shown"'); res.writeHead(200,{'content-type':'text/javascript','content-length':body.length}); return res.end(body); }
     if (['/cover.png','/image.png','/bg.png'].includes(route)) { const body=Buffer.from([137,80,78,71,13,10,26,10]); res.writeHead(200,{'content-type':'image/png','content-length':body.length}); return res.end(body); }
-    const body=Buffer.from('<!doctype html><title>Další</title>'); res.writeHead(200,{'content-type':'text/html','content-length':body.length}); res.end(body);
+    const body=Buffer.from('<!doctype html><title>Next</title>'); res.writeHead(200,{'content-type':'text/html','content-length':body.length}); res.end(body);
   });
   await new Promise((resolve, reject) => { remoteServer.once('error', reject); remoteServer.listen(remotePort, '127.0.0.1', resolve); });
   const output = [];
@@ -123,18 +123,18 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.match(uiHtml, /<strong>0 %<\/strong>/);
     assert.match(uiHtml, /siteEmbedUrl/);
     assert.match(uiHtml, /hasGeneratedPreview/);
-    assert.match(uiHtml, /Vlastní brána/);
+    assert.match(uiHtml, /Custom gateway/);
     assert.match(uiHtml, /queueImmediateSiteUploads/);
     assert.match(uiHtml, /data-more/);
     assert.match(uiHtml, /card-side-actions/);
     assert.match(uiHtml, /showOnHome/);
-    assert.match(uiHtml, /Hledat v knihovně nebo na webu/);
-    assert.match(uiHtml, /Zpřístupnit offline/);
+    assert.match(uiHtml, /Search your library or the web/);
+    assert.match(uiHtml, /Make available offline/);
     assert.match(uiHtml, /browserCanvas/);
     assert.match(uiHtml, /browser\/sessions/);
-    assert.match(uiHtml, /Spouštím Chromium/);
+    assert.match(uiHtml, /Starting Chromium/);
     assert.match(uiHtml, /fileSelectAll/);
-    assert.match(uiHtml, /Nová složka/);
+    assert.match(uiHtml, /New folder/);
     assert.match(uiHtml, /pendingFileOperation/);
     assert.doesNotMatch(uiHtml, /else if\(isSite&&running\)preview/);
     for (const asset of ['icon.png', 'logo.png', 'sidebar-icon.png']) {
@@ -152,17 +152,24 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.equal(initial.sites.length, 0);
     assert.equal(initial.links.length, 0);
     assert.equal(initial.settings.defaultRoot, path.resolve(managedDir));
-    assert.equal(initial.settings.nextManagedPath, path.join(managedDir, '001_Názevwebu'));
+    assert.equal(initial.settings.nextManagedPath, path.join(managedDir, '001_WebsiteName'));
     assert.equal(initial.settings.gatewayPort, gatewayPort);
+    assert.equal(initial.settings.language, 'en');
     assert.equal(typeof initial.settings.chromiumBrowser, 'boolean');
-    assert.match(initial.settings.browserDownloadDir, /MyBrowser[\\/]Stazene$/);
+    assert.match(initial.settings.browserDownloadDir, /MyBrowser[\\/]Downloads$/);
+    await api('settings/language', json('PATCH', { language: 'cs' }));
+    const czechUi = await (await fetch(`http://127.0.0.1:${uiPort}/`)).text();
+    assert.match(czechUi, /Hledat v knihovně nebo na webu/);
+    assert.match(czechUi, /Jazyk rozhraní/);
+    assert.equal((await api('state')).settings.language, 'cs');
+    await api('settings/language', json('PATCH', { language: 'en' }));
 
     const created = await api('sites', json('POST', {
-      name: 'Rodinný web', slug: 'rodinny-web', port: staticPort, runtime: 'static',
+      name: 'Family website', slug: 'family-website', port: staticPort, runtime: 'static',
       rootMode: 'managed', autostart: true, spaFallback: true
     }));
     assert.equal(created.runtime, 'static');
-    assert.equal(created.path, path.join(managedDir, '001_Rodinnýweb'));
+    assert.equal(created.path, path.join(managedDir, '001_Familywebsite'));
     assert.ok(fs.existsSync(created.path));
 
     const coverBytes = Buffer.from([137,80,78,71,13,10,26,10]);
@@ -181,13 +188,13 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.equal(siteCover.headers.get('content-type'), 'image/png');
     assert.deepEqual(Buffer.from(await siteCover.arrayBuffer()), coverBytes);
 
-    const html = '<!doctype html><title>Rodinný web</title><h1>Funguje</h1>';
+    const html = '<!doctype html><title>Family website</title><h1>It works</h1>';
     const upload = await fetch(`http://127.0.0.1:${uiPort}/api/sites/${created.id}/files?path=index.html`, {
       method: 'PUT', headers: { 'content-type': 'text/html' }, body: html
     });
     assert.equal(upload.status, 201);
 
-    const chunkedBytes = Buffer.from('část-1|část-2|část-3');
+    const chunkedBytes = Buffer.from('part-1|part-2|part-3');
     const chunkUploadId = crypto.randomUUID();
     const sendChunk = (offset, end) => fetch(`http://127.0.0.1:${uiPort}/api/sites/${created.id}/files?path=chunked.txt&upload=${chunkUploadId}&offset=${offset}&total=${chunkedBytes.length}`, {
       method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: chunkedBytes.subarray(offset, end)
@@ -200,18 +207,18 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.deepEqual(fs.readFileSync(path.join(created.path, 'chunked.txt')), chunkedBytes);
 
     await api(`sites/${created.id}/action`, json('POST', { action: 'start' }));
-    assert.match(await (await waitFor(`http://127.0.0.1:${staticPort}/`)).text(), /Funguje/);
-    const spaResponse = await fetch(`http://127.0.0.1:${staticPort}/libovolna/spa/cesta`, { headers: { accept: 'text/html' } });
+    assert.match(await (await waitFor(`http://127.0.0.1:${staticPort}/`)).text(), /It works/);
+    const spaResponse = await fetch(`http://127.0.0.1:${staticPort}/arbitrary/spa/path`, { headers: { accept: 'text/html' } });
     assert.equal(spaResponse.status, 200);
-    assert.match(await spaResponse.text(), /Funguje/);
+    assert.match(await spaResponse.text(), /It works/);
 
     const files = await api(`sites/${created.id}/files?path=`);
     assert.deepEqual(files.entries.map(entry => entry.name), ['chunked.txt', 'index.html']);
-    await assert.rejects(() => api(`sites/${created.id}/files?path=${encodeURIComponent('../state.json')}`), /Cesta nesmí/);
+    await assert.rejects(() => api(`sites/${created.id}/files?path=${encodeURIComponent('../state.json')}`), /The path must not/);
 
     await api(`sites/${created.id}/files`, json('POST', { action: 'mkdir', path: 'assets' }));
     await api(`sites/${created.id}/files`, json('POST', { action: 'mkdir', path: 'backup' }));
-    for (const [name, body] of [['a.txt', 'soubor-a'], ['b.txt', 'soubor-b']]) {
+    for (const [name, body] of [['a.txt', 'file-a'], ['b.txt', 'file-b']]) {
       const response = await fetch(`http://127.0.0.1:${uiPort}/api/sites/${created.id}/files?path=${encodeURIComponent(`assets/${name}`)}`, {
         method: 'PUT', headers: { 'content-type': 'text/plain' }, body
       });
@@ -223,19 +230,19 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     await api(`sites/${created.id}/files`, json('POST', { action: 'copy', paths: ['assets/a.txt', 'assets/b.txt'], destination: 'backup' }));
     let backup = await api(`sites/${created.id}/files?path=backup`);
     assert.deepEqual(backup.entries.map(entry => entry.name), ['a.txt', 'b.txt']);
-    await api(`sites/${created.id}/files`, json('POST', { action: 'rename', path: 'backup/a.txt', name: 'prejmenovano.txt' }));
+    await api(`sites/${created.id}/files`, json('POST', { action: 'rename', path: 'backup/a.txt', name: 'renamed.txt' }));
     backup = await api(`sites/${created.id}/files?path=backup`);
-    assert.deepEqual(backup.entries.map(entry => entry.name), ['b.txt', 'prejmenovano.txt']);
+    assert.deepEqual(backup.entries.map(entry => entry.name), ['b.txt', 'renamed.txt']);
 
-    const downloaded = await fetch(`http://127.0.0.1:${uiPort}/api/sites/${created.id}/files?path=${encodeURIComponent('backup/prejmenovano.txt')}&download=1`);
+    const downloaded = await fetch(`http://127.0.0.1:${uiPort}/api/sites/${created.id}/files?path=${encodeURIComponent('backup/renamed.txt')}&download=1`);
     assert.equal(downloaded.status, 200);
     assert.match(downloaded.headers.get('content-disposition'), /attachment/);
-    assert.equal(await downloaded.text(), 'soubor-a');
+    assert.equal(await downloaded.text(), 'file-a');
 
     await api(`sites/${created.id}/files`, json('POST', { action: 'move', paths: ['backup/b.txt'], destination: '' }));
-    assert.equal(fs.readFileSync(path.join(created.path, 'b.txt'), 'utf8'), 'soubor-b');
-    await assert.rejects(() => api(`sites/${created.id}/files`, json('POST', { action: 'move', paths: ['assets'], destination: 'assets' })), /do ní samotné/);
-    await assert.rejects(() => api(`sites/${created.id}/files`, json('POST', { action: 'mkdir', path: '../mimo' })), /Cesta nesmí/);
+    assert.equal(fs.readFileSync(path.join(created.path, 'b.txt'), 'utf8'), 'file-b');
+    await assert.rejects(() => api(`sites/${created.id}/files`, json('POST', { action: 'move', paths: ['assets'], destination: 'assets' })), /inside itself/);
+    await assert.rejects(() => api(`sites/${created.id}/files`, json('POST', { action: 'mkdir', path: '../outside' })), /The path must not/);
 
     await api(`sites/${created.id}/files`, json('POST', { action: 'delete', paths: ['assets', 'backup', 'b.txt'] }));
     assert.equal(fs.existsSync(path.join(created.path, 'assets')), false);
@@ -243,12 +250,12 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.equal(fs.existsSync(path.join(created.path, 'b.txt')), false);
 
     const gatewaySite = await api('sites', json('POST', {
-      name: 'Web přes bránu', runtime: 'static', accessMode: 'gateway', rootMode: 'managed',
+      name: 'Website through gateway', runtime: 'static', accessMode: 'gateway', rootMode: 'managed',
       autostart: false, spaFallback: true
     }));
     assert.equal(gatewaySite.accessMode, 'gateway');
     assert.notEqual(gatewaySite.port, gatewayPort);
-    const gatewayHtml = '<!doctype html><title>Brána funguje</title><h1>Adresa pod cestou funguje</h1>';
+    const gatewayHtml = '<!doctype html><title>Gateway works</title><h1>Path-based address works</h1>';
     assert.equal((await fetch(`http://127.0.0.1:${uiPort}/api/sites/${gatewaySite.id}/files?path=index.html`, {
       method: 'PUT', headers: { 'content-type': 'text/html' }, body: gatewayHtml
     })).status, 201);
@@ -256,9 +263,9 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     const gatewayRedirect = await fetch(`http://127.0.0.1:${gatewayPort}/${gatewaySite.slug}`, { redirect: 'manual' });
     assert.equal(gatewayRedirect.status, 308);
     assert.equal(gatewayRedirect.headers.get('location'), `/${gatewaySite.slug}/`);
-    assert.match(await (await waitFor(`http://127.0.0.1:${gatewayPort}/${gatewaySite.slug}/`)).text(), /Adresa pod cestou funguje/);
-    assert.match(await (await waitFor(`http://127.0.0.1:${uiPort}/api/gateway/${gatewaySite.slug}/`)).text(), /Adresa pod cestou funguje/);
-    assert.match(await (await fetch(`http://127.0.0.1:${gatewayPort}/`)).text(), /Web přes bránu/);
+    assert.match(await (await waitFor(`http://127.0.0.1:${gatewayPort}/${gatewaySite.slug}/`)).text(), /Path-based address works/);
+    assert.match(await (await waitFor(`http://127.0.0.1:${uiPort}/api/gateway/${gatewaySite.slug}/`)).text(), /Path-based address works/);
+    assert.match(await (await fetch(`http://127.0.0.1:${gatewayPort}/`)).text(), /Website through gateway/);
     const generatedPreviewFile = path.join(dataDir, 'site-previews', `${gatewaySite.id}.png`);
     fs.writeFileSync(generatedPreviewFile, Buffer.from([137,80,78,71,13,10,26,10]));
     const gatewayState = await api('state');
@@ -266,7 +273,7 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.equal((await fetch(`http://127.0.0.1:${uiPort}/api/sites/${gatewaySite.id}/preview`)).status, 200);
 
     const uploadSession = await api('upload-sessions', { method: 'POST' });
-    const stagedBytes = Buffer.from('<!doctype html><title>Nahráno na pozadí</title>');
+    const stagedBytes = Buffer.from('<!doctype html><title>Uploaded in background</title>');
     const stagedUploadId = crypto.randomUUID();
     const stagedUpload = await fetch(`http://127.0.0.1:${uiPort}/api/upload-sessions/${uploadSession.id}/files?path=background.html&upload=${stagedUploadId}&offset=0&total=${stagedBytes.length}`, {
       method: 'PUT', headers: { 'content-type': 'text/html' }, body: stagedBytes
@@ -278,20 +285,20 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
 
     const abandonedSession = await api('upload-sessions', { method: 'POST' });
     await api(`upload-sessions/${abandonedSession.id}`, { method: 'DELETE' });
-    await assert.rejects(() => api(`upload-sessions/${abandonedSession.id}`, json('POST', { siteId: gatewaySite.id })), /nebyla nalezena/);
+    await assert.rejects(() => api(`upload-sessions/${abandonedSession.id}`, json('POST', { siteId: gatewaySite.id })), /Upload session not found/);
 
     const customGatewaySite = await api('sites', json('POST', {
-      name: 'Vlastní veřejná brána', runtime: 'static', accessMode: 'custom_gateway',
-      customGatewayUrl: 'https://web.example.test/moje-stranka', rootMode: 'managed', autostart: false
+      name: 'Custom public gateway', runtime: 'static', accessMode: 'custom_gateway',
+      customGatewayUrl: 'https://web.example.test/my-page', rootMode: 'managed', autostart: false
     }));
     assert.equal(customGatewaySite.accessMode, 'custom_gateway');
-    assert.equal(customGatewaySite.customGatewayUrl, 'https://web.example.test/moje-stranka/');
+    assert.equal(customGatewaySite.customGatewayUrl, 'https://web.example.test/my-page/');
     assert.notEqual(customGatewaySite.port, gatewayPort);
     await fetch(`http://127.0.0.1:${uiPort}/api/sites/${customGatewaySite.id}/files?path=index.html`, {
-      method: 'PUT', headers: { 'content-type': 'text/html' }, body: '<h1>Vlastní brána funguje</h1>'
+      method: 'PUT', headers: { 'content-type': 'text/html' }, body: '<h1>Custom gateway works</h1>'
     });
     await api(`sites/${customGatewaySite.id}/action`, json('POST', { action: 'start' }));
-    assert.match(await (await waitFor(`http://127.0.0.1:${gatewayPort}/${customGatewaySite.slug}/`)).text(), /Vlastní brána funguje/);
+    assert.match(await (await waitFor(`http://127.0.0.1:${gatewayPort}/${customGatewaySite.slug}/`)).text(), /Custom gateway works/);
 
     await api(`library/site/${gatewaySite.id}`, json('PATCH', { showOnHome: false }));
     assert.equal((await api('state')).sites.find(site => site.id === gatewaySite.id).showOnHome, false);
@@ -312,7 +319,7 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.ok(logs.logs.some(line => /npm run start/.test(line.message)));
 
     const gatewayNpmSite = await api('sites', json('POST', {
-      name: 'npm přes bránu', runtime: 'npm', accessMode: 'gateway', rootMode: 'existing', path: existingDir,
+      name: 'npm through gateway', runtime: 'npm', accessMode: 'gateway', rootMode: 'existing', path: existingDir,
       script: 'start', buildScript: 'build', autostart: false
     }));
     await api(`sites/${gatewayNpmSite.id}/action`, json('POST', { action: 'start' }));
@@ -335,7 +342,7 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
       if (linkedState.links[0]?.metadataStatus === 'ready') break;
       await new Promise(resolve => setTimeout(resolve, 100));
     } while (Date.now() < metadataDeadline);
-    assert.equal(linkedState.links[0].name, 'Testovací katalog');
+    assert.equal(linkedState.links[0].name, 'Test catalog');
     const coverDeadline = Date.now() + 10000;
     while (!linkedState.links[0].hasCover && Date.now() < coverDeadline) {
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -352,7 +359,7 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     const browsed = await fetch(`http://127.0.0.1:${uiPort}/browse/?url=${encodeURIComponent(`http://127.0.0.1:${remotePort}/`)}`);
     assert.equal(browsed.status, 200);
     const browsedHtml = await browsed.text();
-    assert.match(browsedHtml, /Offline funguje/);
+    assert.match(browsedHtml, /Offline works/);
     assert.match(browsedHtml, /\.\/\?url=/);
     assert.doesNotMatch(browsedHtml, /banner\.js/);
     await api(`library/link/${link.id}/view`, { method: 'POST' });
@@ -372,7 +379,7 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
         if (current.status === 'failed') throw new Error(current.error);
         await new Promise(resolve => setTimeout(resolve, 100));
       }
-      throw new Error('Timeout při vytváření offline archivu');
+      throw new Error('Timed out while creating the offline archive');
     }
     const firstArchive = await createAndWaitForArchive();
     const secondArchive = await createAndWaitForArchive();
@@ -382,7 +389,7 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     const offline = await fetch(`http://127.0.0.1:${uiPort}/offline/${link.id}/${firstArchive.id}/index.html`);
     assert.equal(offline.status, 200);
     const offlineHtml = await offline.text();
-    assert.match(offlineHtml, /Offline funguje/);
+    assert.match(offlineHtml, /Offline works/);
     assert.doesNotMatch(offlineHtml, /banner\.js/);
     assert.match(await (await fetch(`http://127.0.0.1:${uiPort}/viewer?id=${link.id}&archive=${firstArchive.id}`)).text(), /MyBrowser/);
 
@@ -410,19 +417,19 @@ test('MyBrowser spravuje hostované weby, odkazy, oblíbené a historické offli
     assert.equal((await fetch(`http://127.0.0.1:${uiPort}/api/sites/${created.id}/cover`)).status, 404);
 
     await assert.rejects(() => api('sites', json('POST', {
-      name: 'Mimo úložiště', port: staticPort, runtime: 'static', rootMode: 'existing', path: os.tmpdir()
-    })), /Složka musí být uvnitř/);
+      name: 'Outside storage', port: staticPort, runtime: 'static', rootMode: 'existing', path: os.tmpdir()
+    })), /The folder must be inside/);
   } catch (error) {
-    error.message += `\nVýstup serveru:\n${output.join('')}`;
+    error.message += `\nServer output:\n${output.join('')}`;
     throw error;
   }
 });
 
-test('čerstvá instalace přidá průvodce jednou a ikona funguje i pod Ingress cestou', { timeout: 30000 }, async t => {
+test('a fresh installation adds the guide once and the icon works under an Ingress path', { timeout: 30000 }, async t => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'ha-mybrowser-guide-'));
   const dataDir = path.join(temp, 'data');
   const shareDir = path.join(temp, 'share');
-  const managedDir = path.join(shareDir, 'Weby');
+  const managedDir = path.join(shareDir, 'Websites');
   fs.mkdirSync(dataDir, { recursive: true });
   const uiPort = await freePort();
   const gatewayPort = await freePort();
@@ -473,15 +480,15 @@ test('čerstvá instalace přidá průvodce jednou a ikona funguje i pod Ingress
     let current = await api('state');
     assert.equal(current.sites.length, 1);
     const guide = current.sites[0];
-    assert.equal(guide.name, 'Průvodce MyBrowserem');
-    assert.equal(guide.slug, 'pruvodce-mybrowserem');
+    assert.equal(guide.name, 'MyBrowser Guide');
+    assert.equal(guide.slug, 'mybrowser-guide');
     assert.equal(guide.accessMode, 'gateway');
     assert.equal(guide.autostart, true);
     assert.equal(guide.favorite, true);
     assert.equal(guide.bundledGuide, true);
     assert.ok(fs.existsSync(path.join(guide.path, 'index.html')));
     assert.ok(fs.existsSync(path.join(guide.path, 'icon.png')));
-    assert.match(await (await waitFor(`http://127.0.0.1:${gatewayPort}/${guide.slug}/`)).text(), /Průvodce MyBrowserem/);
+    assert.match(await (await waitFor(`http://127.0.0.1:${gatewayPort}/${guide.slug}/`)).text(), /MyBrowser Guide/);
     assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'state.json'), 'utf8')).guideInstalled, true);
 
     await api(`sites/${guide.id}?deleteFiles=1`, { method: 'DELETE' });
@@ -492,7 +499,7 @@ test('čerstvá instalace přidá průvodce jednou a ikona funguje i pod Ingress
     current = await api('state');
     assert.equal(current.sites.length, 0);
   } catch (error) {
-    error.message += `\nVýstup serveru:\n${output.join('')}`;
+    error.message += `\nServer output:\n${output.join('')}`;
     throw error;
   }
 });
