@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.8
+
+- Show backup upload and download percentages with two decimal places, the current direction's transfer speed, transferred size and an approximate remaining time.
+- Pause, resume and cancel uploads and downloads using confirmed chunks and validated HTTP byte ranges. Reconcile interrupted upload acknowledgements without duplicating data.
+- Prepare verified ZIPs on disk before downloading, and stream chunks to a chosen file or browser storage. Keep archive preparation and restore verification separate from transfer progress.
+- Keep active transfers available while navigating the app, localize controls in English and Czech, and clean up cancelled or expired temporary transfers without changing the active library.
+
 ## 5.0.1-dev.7
 
 - Add a unified journal with inclusive date ranges, entry-to-entry browsing, overlap filters, linked records and offline places.

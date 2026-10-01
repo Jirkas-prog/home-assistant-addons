@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { Backups, recoverRestore } from "./backups.js";
+import { registerBackupTransfers } from "./backup-transfers.js";
 import { Maintenance } from "./maintenance.js";
 import { Store, fail, serialize, parseMarkdown } from "./store.js";
 import { Settings, locationId, digest } from "./settings.js";
@@ -102,6 +103,7 @@ export async function createApp({
     }),
   );
   registerTools(app, store, mutate);
+  await registerBackupTransfers(app, backups, mutate);
   app.get("/api/nodes", async (req, res) => {
     const snapshot = await store.read();
     let config;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useSyncExternalStore } from "react";
 import {
   Download,
   Upload,
@@ -9,10 +9,16 @@ import {
 } from "lucide-react";
 import { api } from "./client.js";
 import { t, locale, localizeMessage } from "../shared/i18n.js";
+import { backupTransfer } from "./backup-transfer.js";
+import { BackupTransferPanel } from "./backup-transfer-panel.jsx";
 
 export function DataTools({ onChanged, backupOnly = false }) {
+  const transfer = useSyncExternalStore(
+    backupTransfer.subscribe,
+    backupTransfer.getSnapshot,
+  );
   const [coverage, setCoverage] = useState(null);
-  const [busy, setBusy] = useState(false),
+  const [working, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
     [preview, setPreview] = useState(null),
@@ -20,6 +26,13 @@ export function DataTools({ onChanged, backupOnly = false }) {
     [diagnostics, setDiagnostics] = useState(null),
     [repair, setRepair] = useState(null),
     [confirmed, setConfirmed] = useState(false);
+  const busy = working || backupTransfer.active;
+  useEffect(() => {
+    if (transfer.preview) {
+      setPreview(transfer.preview);
+      setConfirmed(false);
+    }
+  }, [transfer.preview]);
   const refreshCoverage = () =>
     api("backups/summary")
       .then(setCoverage)
@@ -88,10 +101,18 @@ export function DataTools({ onChanged, backupOnly = false }) {
         </div>
       )}
       <div className="data-actions">
-        <a className="secondary-button" href="./api/export">
+        <button
+          type="button"
+          className="secondary-button"
+          disabled={busy}
+          onClick={() => {
+            setError("");
+            backupTransfer.start("download");
+          }}
+        >
           <Download size={16} />
           {t("data.backup")}
-        </a>
+        </button>
         <label className="secondary-button upload-label">
           <Upload size={16} />
           {t("data.upload")}
@@ -110,14 +131,9 @@ export function DataTools({ onChanged, backupOnly = false }) {
                       body: "{}",
                     });
                   setPreview(null);
+                  backupTransfer.clearPreview();
                   setConfirmed(false);
-                  setPreview(
-                    await api("backups/preview", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/zip" },
-                      body: file,
-                    }),
-                  );
+                  await backupTransfer.start("upload", file);
                 });
             }}
           />
@@ -149,7 +165,10 @@ export function DataTools({ onChanged, backupOnly = false }) {
           </button>
         )}
       </div>
-      {busy && <p role="status">{t("data.busy")}</p>}
+      <BackupTransferPanel />
+      {working && !backupTransfer.active && (
+        <p role="status">{t("data.busy")}</p>
+      )}
       {message && (
         <p className="document-message" role="status">
           {localizeMessage(message)}
@@ -218,6 +237,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
                     body: JSON.stringify({ revision: preview.revision }),
                   });
                   setPreview(null);
+                  backupTransfer.clearPreview();
                   setMessage(t("data.restored"));
                   await onChanged();
                   await refreshCoverage();
@@ -237,6 +257,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
                     body: "{}",
                   });
                   setPreview(null);
+                  backupTransfer.clearPreview();
                 })
               }
             >

@@ -8,6 +8,20 @@ Select **Download full backup**. The ZIP contains every saved record, including 
 
 Keep the ZIP outside the application's data and document directories. The ZIP contains the library's private content in readable form. Export archives contain saved library data and should be stored separately from installation files.
 
+### Transfer progress and controls
+
+Uploads and downloads show a progress bar, percentage with two decimal places, the current direction's speed in B/s, KiB/s, MiB/s or GiB/s, transferred bytes and an approximate remaining time (hours:minutes:seconds). The estimate uses recent throughput, so it changes with the connection and pauses. No estimate is shown until enough data has moved. English uses a decimal point; Czech uses a decimal comma.
+
+Use **Pause**, **Resume** or **Cancel transfer**. Resume continues from confirmed chunks, each at most 2 MiB. An interrupted chunk may be repeated, and progress can return to the last confirmed boundary. A lost upload acknowledgement is reconciled with the server before sending more bytes. Connection interruptions pause the active transfer for an explicit retry. Cancellation stops the transfer and removes its temporary files without restoring or modifying the library.
+
+Keep the browser tab open. Navigation within the app preserves the transfer and displays floating controls outside the backup page. Refreshing or closing the tab, restarting the server or changing devices requires a new transfer. Paused transfers are retained for up to 24 hours of inactivity; expired temporary files are removed at server startup or when another transfer starts. Restore rollback libraries are never removed by transfer cleanup.
+
+Before downloading, the server prepares and verifies a temporary ZIP on disk. Its final size provides an exact transfer denominator. **Preparing and checking the ZIP** is a separate stage with no invented percentage or ETA. After upload reaches 100%, **verifying the backup** remains visible until the restore preview is ready. Restoring still requires the normal confirmation.
+
+Where supported in a standalone browser, choose a destination file at the start; chunks are written to its temporary writable stream and committed only when complete. In Home Assistant frames or other browsers, chunks go to browser file storage, with IndexedDB as a fallback. At completion, select **Save ZIP** to keep the archive in your downloads before closing the tab or starting another transfer. Browser storage is subject to available space and browser quotas. These paths avoid building one archive-sized ArrayBuffer; the IndexedDB fallback assembles references to stored Blobs at completion. The browser may still need additional temporary disk space. Cancelled local temporary files are discarded, and abandoned browser temporary files are cleaned after 24 hours when a new download starts.
+
+The server needs free space for the prepared download ZIP. Import needs space for the received ZIP, verification staging, extracted files and the preserved previous library. All transfer operations remain local and use Home Assistant Ingress-relative URLs.
+
 External PC/phone paths, physical places, remote URLs and additional server roots such as `/share` are preserved as references. Their external contents are not files owned by the active library. Browser drafts have not been saved to the server; save them as records before exporting. Temporary uploads, generated caches and rollback copies of previous libraries are outside the active library backup. Back those up separately if needed.
 
 ## Restore

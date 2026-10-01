@@ -44,9 +44,10 @@ export function byteLimit(limit = MAX_BYTES) {
     },
   });
 }
-async function hashFile(file) {
+async function hashFile(file, signal) {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(file)) hash.update(chunk);
+  for await (const chunk of createReadStream(file, { signal }))
+    hash.update(chunk);
   return hash.digest("hex");
 }
 async function filesIn(root, { history = true, exclude = [] } = {}) {
@@ -115,11 +116,11 @@ function inventoryDigest(files, directories) {
   for (const file of files) hash.update(file.path + ":" + file.sha256 + "\n");
   return hash.digest("hex");
 }
-export async function fingerprint(directory, config, history = true) {
+export async function fingerprint(directory, config, history = true, signal) {
   const { files, directories } = await inventory(directory, config, history);
   const hashes = [];
   for (const file of files)
-    hashes.push({ path: file.name, sha256: await hashFile(file.file) });
+    hashes.push({ path: file.name, sha256: await hashFile(file.file, signal) });
   return inventoryDigest(hashes, directories);
 }
 function archiveName(name) {
@@ -197,7 +198,8 @@ export class Backups {
       errors: snapshot.errors,
     };
   }
-  async export(output, { history = true } = {}) {
+  async export(output, { history = true, signal } = {}) {
+    signal?.throwIfAborted();
     const config = await this.settings.read();
     const { files, directories } = await inventory(
       this.directory,
@@ -223,7 +225,7 @@ export class Backups {
       manifest.files.push({
         path: entry.name,
         bytes: entry.stat.size,
-        sha256: await hashFile(entry.file),
+        sha256: await hashFile(entry.file, signal),
       });
     }
     const manifestText = JSON.stringify(manifest, null, 2);
@@ -232,7 +234,7 @@ export class Backups {
         "The backup manifest is too large. Split the library or attachment tree.",
       );
     const archive = new ZipArchive({ zlib: { level: 6 }, forceZip64: true });
-    const finished = pipeline(archive, output);
+    const finished = pipeline(archive, output, { signal });
     // Attach a rejection handler immediately; errors may arrive while entries
     // are still being queued. The same promise is awaited below.
     finished.catch(() => {});
@@ -260,8 +262,9 @@ export class Backups {
           }
         });
       for (const [index, entry] of files.entries()) {
+        signal?.throwIfAborted();
         const expected = manifest.files[index];
-        const stream = createReadStream(entry.file);
+        const stream = createReadStream(entry.file, { signal });
         const hash = createHash("sha256");
         let size = 0;
         const verified = new Transform({
@@ -307,7 +310,12 @@ export class Backups {
       }
       if (
         inventoryDigest(manifest.files, directories) !==
-        (await fingerprint(this.directory, await this.settings.read(), history))
+        (await fingerprint(
+          this.directory,
+          await this.settings.read(),
+          history,
+          signal,
+        ))
       )
         fail(
           "The library changed during backup. Retry when external editors are idle.",
@@ -324,7 +332,8 @@ export class Backups {
       throw error;
     }
   }
-  async prepare(input) {
+  async prepare(input, { signal } = {}) {
+    signal?.throwIfAborted();
     await fs.mkdir(this.root, { recursive: true });
     if ((await fs.lstat(this.root)).isSymbolicLink())
       fail("The operations directory must not be a symlink.");
@@ -338,6 +347,7 @@ export class Backups {
         input,
         byteLimit(),
         createWriteStream(zipPath, { flags: "wx" }),
+        { signal },
       );
       const zip = await new Promise((resolve, reject) =>
         yauzl.open(
@@ -358,6 +368,7 @@ export class Backups {
         zip.on("end", resolve);
         zip.on("entry", (entry) => {
           (async () => {
+            signal?.throwIfAborted();
             const mode = (entry.externalFileAttributes >>> 16) & 0xf000;
             if (mode && mode !== 0x8000 && mode !== 0x4000)
               fail("Backup links and special files are not supported.");
@@ -410,6 +421,7 @@ export class Backups {
               byteLimit(entry.uncompressedSize),
               verify,
               createWriteStream(target, { flags: "wx" }),
+              { signal },
             );
             entries.set(key, { path: name, bytes, sha256: hash.digest("hex") });
             zip.readEntry();
@@ -417,6 +429,7 @@ export class Backups {
         });
         zip.readEntry();
       });
+      signal?.throwIfAborted();
       const manifest = JSON.parse(
         await fs.readFile(path.join(extracted, "manifest.json"), "utf8"),
       );
@@ -487,7 +500,7 @@ export class Backups {
       const plan = {
         id,
         created: new Date().toISOString(),
-        revision: await fingerprint(this.directory, current),
+        revision: await fingerprint(this.directory, current, true, signal),
         records: snapshot.nodes.length,
         files: manifest.files.length,
         bytes: manifest.files.reduce((sum, f) => sum + f.bytes, 0),
@@ -504,6 +517,7 @@ export class Backups {
         documentRoot: path.join(this.directory, ".restored-documents"),
         rollbackDirectory: path.join(stage, "previous-library"),
       };
+      signal?.throwIfAborted();
       await fs.writeFile(path.join(stage, "plan.json"), JSON.stringify(plan), {
         flag: "wx",
       });

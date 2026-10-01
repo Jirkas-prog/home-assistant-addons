@@ -48,6 +48,73 @@
   align-items: center;
   color: #b2ea85;
 }
+.backup-transfer {
+  margin: 20px 0;
+  padding: 18px;
+  border: 1px solid #526446;
+  border-radius: 12px;
+  background: #18212a;
+}
+.backup-transfer-heading,
+.backup-transfer-heading strong,
+.backup-transfer-numbers {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.backup-transfer-heading {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.backup-transfer-heading > span {
+  color: #c5d0dc;
+  font-size: 13px;
+}
+.backup-transfer-numbers {
+  font-variant-numeric: tabular-nums;
+  color: #d6e0ea;
+}
+.backup-transfer-numbers strong {
+  font-size: 24px;
+  color: #c1ed9d;
+}
+.backup-transfer-numbers > span {
+  font-size: 13px;
+}
+.backup-transfer progress {
+  display: block;
+  width: 100%;
+  height: 9px;
+  margin: 14px 0 8px;
+  border: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #303d49;
+  accent-color: #afe480;
+}
+.backup-transfer progress::-webkit-progress-bar {
+  background: #303d49;
+}
+.backup-transfer progress::-webkit-progress-value {
+  background: #afe480;
+  border-radius: 8px;
+}
+.backup-transfer progress::-moz-progress-bar {
+  background: #afe480;
+  border-radius: 8px;
+}
+.backup-transfer-size {
+  font-variant-numeric: tabular-nums;
+}
+.backup-transfer-floating {
+  position: fixed;
+  bottom: 18px;
+  right: 18px;
+  width: min(580px, calc(100vw - 36px));
+  z-index: 90;
+  box-shadow: 0 12px 40px #0009;
+}
 .backup-workbench > .toolbar,
 .backup-workbench > .map-legend {
   display: none;

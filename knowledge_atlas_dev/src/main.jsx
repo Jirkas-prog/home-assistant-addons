@@ -64,6 +64,8 @@ import { WorkTools } from "./work-tools.jsx";
 import { DataTools } from "./data-tools.jsx";
 import { ResizableWorkspace } from "./resizable-workspace.jsx";
 import "./backups.css";
+import { BackupTransferPanel } from "./backup-transfer-panel.jsx";
+import { backupTransfer } from "./backup-transfer.js";
 import { LanguageSetup } from "./language-setup.jsx";
 import { api, useDialogKeys } from "./client.js";
 import {
@@ -1134,10 +1136,15 @@ function App() {
             </div>
           </div>
           <div className="sidebar-actions">
-            <a href="./api/export">
+            <button
+              onClick={() => {
+                setView("backups");
+                if (!backupTransfer.active) backupTransfer.start("download");
+              }}
+            >
               <Download size={15} />
               {t("m110")}
-            </a>
+            </button>
             <button onClick={() => importRef.current.click()}>
               <Upload size={15} />
               {t("m111")}
@@ -1799,6 +1806,7 @@ function App() {
           </footer>
         </section>
       </main>
+      {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
       <input
         ref={importRef}
         type="file"
