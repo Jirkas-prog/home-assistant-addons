@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.0.1-dev.4
+
+- Show physical locations and file attachments directly below importance, before record notes.
+- Open record Markdown and attachments inside a closable viewer. Add formatted Markdown previews and inert image, audio and video viewing alongside PDF and UTF-8 editing.
+- Choose a stable attachment ID to open by double-clicking a bubble in either map. Preserve pan, zoom, camera orientation and the details-panel state on return.
+- Keep preview choices in Markdown, automatic indexing and complete backups. Text writes retain revision checks and draft recovery.
+- Replace timeline task lists and separate importance rows with compact, non-overlapping task bars containing names and stars.
+- Treat missing task endpoints as unbounded; tasks without dates span every visible period. Automatically pack visible tasks into the minimum number of rows.
+- Add 24-hour, 3/7/30/90/180/360-day and all-date presets, continuous cursor-anchored Ctrl-wheel and pinch zoom, time panning, keyboard controls and independent status checkboxes.
+- Provide English and Czech labels for the new controls, with no changes to stable-channel data or identity.
+
 ## 5.0.1-dev.3
 
 - Resize the details panel by dragging its left edge or using the keyboard. Remember the width per browser and channel; double-click to reset it.

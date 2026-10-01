@@ -1,0 +1,116 @@
+.detail-files {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+  margin-bottom: 16px;
+}
+.detail-files .detail-section-title:first-child {
+  margin-top: 0;
+}
+.detail-files .resource:last-child {
+  margin-bottom: 0;
+}
+.detail-content > .detail-top {
+  padding: 0 0 14px;
+  margin-bottom: 16px;
+}
+.resource-title {
+  color: inherit;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+  overflow-wrap: anywhere;
+  font: inherit;
+  cursor: pointer;
+}
+.resource-title:hover {
+  color: #b8ec95;
+  text-decoration: underline;
+}
+.default-document {
+  color: #b8ec95 !important;
+}
+.record-document {
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.record-document > div {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.record-document:hover {
+  border-color: #8bb866;
+}
+.preview-choice {
+  display: grid;
+  gap: 7px;
+  margin: 18px 0;
+}
+.preview-choice small {
+  color: var(--muted);
+  font-weight: normal;
+  line-height: 1.6;
+}
+.document-toolbar {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.document-view-modes {
+  display: flex;
+  gap: 5px;
+}
+.document-view-modes button {
+  border: 1px solid #394452;
+  background: #1b232e;
+  color: #d8e1ed;
+  border-radius: 6px;
+  padding: 7px 12px;
+  cursor: pointer;
+}
+.document-view-modes button[aria-pressed="true"] {
+  border-color: #a7e87b;
+  color: #c6f7a3;
+  background: #273729;
+}
+.document-preview {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+  background: #11151c;
+}
+.document-preview pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: #e2e9f3;
+  font:
+    14px/1.7 Consolas,
+    monospace;
+}
+.document-preview .markdown pre {
+  white-space: pre;
+  overflow-x: auto;
+}
+.media-document {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 18px;
+  background: #11151c;
+}
+.media-document img,
+.media-document video {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.media-document audio {
+  width: min(100%, 650px);
+}

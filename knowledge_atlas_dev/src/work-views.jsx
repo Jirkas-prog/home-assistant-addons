@@ -12,14 +12,12 @@ import { resourceLocation, filterNodes } from "./atlas-model.js";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { locationLabel } from "../shared/locations.js";
 import { importancePriority } from "../shared/importance.js";
-import { RecordImportance } from "./importance.jsx";
-import "./task-importance.css";
+import { Timeline } from "./timeline.jsx";
 import {
   TASK_STATUS,
   PRIORITIES,
   projectFor,
   localDate,
-  timelineModel,
 } from "./work-model.js";
 export function Inventory({ nodes, settings, query, scope, onSelect, onNew }) {
   const [place, setPlace] = useState("");
@@ -132,6 +130,12 @@ export function Tasks({
   const [project, setProject] = useState(""),
     [mode, setMode] = useState("board"),
     [status, setStatus] = useState("all"),
+    [timelineStatuses, setTimelineStatuses] = useState([
+      "draft",
+      "active",
+      "learning",
+      "done",
+    ]),
     [busy, setBusy] = useState(""),
     [error, setError] = useState(""),
     [dragging, setDragging] = useState(null);
@@ -145,9 +149,9 @@ export function Tasks({
       }).filter(
         (n) =>
           (!project || projectFor(n, nodes)?.id === project) &&
-          (status === "all" || n.status === status),
+          (mode === "timeline" || status === "all" || n.status === status),
       ),
-    [nodes, query, scope, project, status, settings],
+    [nodes, query, scope, project, status, mode, settings],
   );
   const today = localDate();
   async function move(n, status) {
@@ -234,18 +238,20 @@ export function Tasks({
               </option>
             ))}
         </select>
-        <select
-          aria-label={t("m251")}
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="all">{t("m252")}</option>
-          {Object.entries(TASK_STATUS).map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
+        {mode === "board" && (
+          <select
+            aria-label={t("m251")}
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="all">{t("m252")}</option>
+            {Object.entries(TASK_STATUS).map(([id, label]) => (
+              <option key={id} value={id}>
+                {label}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="segmented">
           <button
             className={mode === "board" ? "active" : ""}
@@ -324,148 +330,13 @@ export function Tasks({
       ) : (
         <Timeline
           tasks={tasks}
+          statuses={timelineStatuses}
+          setStatuses={setTimelineStatuses}
           onEdit={onEdit}
           onRefresh={onRefresh}
           onError={setError}
         />
       )}
     </section>
-  );
-}
-function Timeline({ tasks, onEdit, onRefresh, onError }) {
-  const model = timelineModel(tasks),
-    taskById = new Map(tasks.map((task) => [task.id, task])),
-    [zoom, setZoom] = useState(1),
-    width = Math.max(700, Math.min(6000, model.span * 25)) * zoom;
-  const percent = (day) => ((day - model.min) / model.span) * 100;
-  const tickCount = Math.min(Math.max(2, Math.floor(width / 145)), model.span);
-  const ticks = Array.from(
-    {
-      length: tickCount,
-    },
-    (_, i) => model.min + Math.floor((i * model.span) / tickCount),
-  );
-  return (
-    <div className="timeline">
-      <div className="timeline-help">
-        <p>{t("m262")}</p>
-        <select
-          aria-label={t("m263")}
-          value={zoom}
-          onChange={(e) => setZoom(Number(e.target.value))}
-        >
-          <option value=".6">{t("m264")}</option>
-          <option value="1">{t("m265")}</option>
-          <option value="2">{t("m266")}</option>
-        </select>
-      </div>
-      {model.scheduled.length ? (
-        <div className="timeline-scroll">
-          <div
-            className="timeline-layout"
-            style={{
-              width: width + 210,
-            }}
-          >
-            <div className="timeline-names">
-              <div className="timeline-name-heading">{t("m267")}</div>
-              {model.scheduled.map((n) => (
-                <button
-                  key={n.id}
-                  onClick={() => onEdit(taskById.get(n.id))}
-                  title={n.title}
-                >
-                  {n.title}
-                </button>
-              ))}
-            </div>
-            <div
-              className="timeline-chart"
-              style={{
-                width,
-              }}
-            >
-              <div className="timeline-ruler">
-                {ticks.map((day) => (
-                  <span
-                    key={day}
-                    style={{
-                      left: `${percent(day)}%`,
-                    }}
-                  >
-                    {new Date(day * 86400000).toLocaleDateString(locale(), {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                      timeZone: "UTC",
-                    })}
-                  </span>
-                ))}
-              </div>
-              <div
-                className="today-line"
-                style={{
-                  left: `${percent(model.today)}%`,
-                }}
-              >
-                <span>{t("m268")}</span>
-              </div>
-              {model.scheduled.map((n) => (
-                <div className="timeline-row" key={n.id}>
-                  <button
-                    className={`timeline-bar ${n.status}`}
-                    style={{
-                      left: `${percent(n.startDay)}%`,
-                      width: `${Math.max(1, ((n.endDay - n.startDay + 1) / model.span) * 100)}%`,
-                    }}
-                    title={`${n.title} · ${n.task.start || n.task.due} → ${n.task.due || n.task.start}`}
-                    onClick={() => onEdit(taskById.get(n.id))}
-                  >
-                    <span>{n.title}</span>
-                  </button>
-                  <div
-                    className="timeline-task-importance"
-                    style={{ "--task-start": `${percent(n.startDay)}%` }}
-                  >
-                    <RecordImportance
-                      node={taskById.get(n.id)}
-                      onSaved={onRefresh}
-                      onError={onError}
-                      compact
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="empty">
-          <CalendarRange />
-          <h3>{t("m269")}</h3>
-          <p>{t("m270")}</p>
-        </div>
-      )}
-      <div className="unscheduled">
-        <h3>
-          {t("m164") + " "}
-          <span>{model.unscheduled.length}</span>
-        </h3>
-        {model.unscheduled.map((n) => (
-          <article className="unscheduled-task" key={n.id}>
-            <button onClick={() => onEdit(n)}>
-              <span>{n.title}</span>
-              <Plus size={14} />
-            </button>
-            <RecordImportance
-              node={n}
-              onSaved={onRefresh}
-              onError={onError}
-              compact
-            />
-          </article>
-        ))}
-      </div>
-    </div>
   );
 }

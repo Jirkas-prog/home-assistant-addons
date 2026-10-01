@@ -319,7 +319,9 @@ export async function createApp({
     const { file, ...metadata } = resolved;
     res.set("Cache-Control", "no-store").json({
       ...metadata,
-      ...(resolved.kind === "text" ? await readText(resolved) : {}),
+      ...(resolved.kind === "text" && resolved.file
+        ? await readText(resolved)
+        : {}),
     });
   });
   async function documentFor(req) {
@@ -351,8 +353,11 @@ export async function createApp({
     if (!doc.file || ["folder", "place"].includes(doc.kind))
       fail("This link is not an accessible file.", 404);
     res.set("Cache-Control", "private, no-cache");
-    if (doc.kind === "pdf" && req.query.download !== "1")
-      res.type("application/pdf").sendFile(doc.file);
+    if (doc.mime && req.query.download !== "1")
+      res
+        .set("X-Content-Type-Options", "nosniff")
+        .type(doc.mime)
+        .sendFile(doc.file);
     else res.download(doc.file);
   });
   app.put("/api/nodes/:id/resources/:index/text", async (req, res) =>

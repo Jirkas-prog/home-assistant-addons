@@ -36,6 +36,7 @@ Write your explanation here.
 | `tags`               | Array of text tags.                                                                               |
 | `related`            | Array of other existing record IDs; self-links are rejected.                                      |
 | `resources`          | Array of file, web or place references, described below.                                          |
+| `previewResourceId` | Optional stable resource ID opened by bubble double-click. Empty, null or absent opens the record Markdown. |
 | `quantity`           | Optional positive integer for inventory records; defaults to one in the UI.                       |
 | `projectId`          | Optional ID of an existing project, particularly useful for tasks.                                |
 | `importance`         | Optional integer from `1` to `5` for projects, inventory items and tasks. Controls project/item bubble size and task importance stars. |
@@ -55,6 +56,7 @@ At the same hierarchy level, one through five stars use 65%, 82%, 100%, 130% and
 ## Resources
 
 ```yaml
+previewResourceId: notebook-pdf
 resources:
   - id: notebook-pdf
     label: Project notebook
@@ -105,4 +107,4 @@ task:
   assignee: Alex
 ```
 
-Dates use `YYYY-MM-DD`; empty strings mean unspecified. A due date cannot precede the start date. Priority is `low`, `normal` or `high`. Date-only values remain date-only when changing languages. UI labels do not alter these field names or enum values.
+Dates use `YYYY-MM-DD`; empty strings mean unbounded endpoints on the timeline. An empty start extends into the past, an empty due date extends into the future, and both empty span the whole visible axis. Due dates are inclusive through the end of that calendar day. A due date cannot precede the start date. Priority is `low`, `normal` or `high`. Date-only values remain date-only when changing languages. UI labels do not alter these field names or enum values.

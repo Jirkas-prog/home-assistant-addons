@@ -537,83 +537,119 @@ export function ResourceEditor({ resources, onChange, settings, onManage }) {
     </section>
   );
 }
-export function ResourceList({ node, settings, env, onDocument, notify }) {
-  return node.resources.map((r, i) => {
-    const loc = settings.locations?.find((l) => l.id === resourceLocation(r)),
-      value = r.path || r.url || "",
-      web = loc?.kind === "web" && /^https?:\/\//i.test(value),
-      physical = loc?.kind === "physical",
-      localPC = loc?.kind === "device" && loc.id === "pc" && env.canOpenFolders,
-      available = ["addon", "server", "web"].includes(loc?.kind) || localPC;
-    return (
-      <div key={i} className="resource resource-wrap">
-        <div className="resource-line">
-          {physical ? (
-            <MapPin size={18} />
-          ) : web ? (
-            <ExternalLink size={18} />
-          ) : (
-            <FileText size={18} />
-          )}
-          <div>
-            <span>{r.label}</span>
-            <small className="location-name">{loc?.name || t("m055")}</small>
-            <small>{value}</small>
-          </div>
-          <button
-            className="icon-button"
-            aria-label={t("m068", r.label)}
-            onClick={() =>
-              navigator.clipboard
-                .writeText(value)
-                .then(() => notify(t("m069")))
-                .catch(() => notify(t("m070")))
-            }
-          >
-            <Copy size={14} />
-          </button>
-        </div>
-        <div className="resource-actions">
-          {web && (
-            <a href={value} target="_blank" rel="noreferrer">
-              {t("m071")}
-            </a>
-          )}
-          {available && (!web || /\.pdf(?:[?#]|$)/i.test(value)) && (
+export function ResourceList({
+  node,
+  settings,
+  env,
+  onDocument,
+  notify,
+  physicalOnly = null,
+}) {
+  return node.resources
+    .filter(
+      (r) =>
+        physicalOnly === null ||
+        (settings.locations?.find((l) => l.id === resourceLocation(r))?.kind ===
+          "physical") ===
+          physicalOnly,
+    )
+    .map((r, i) => {
+      const loc = settings.locations?.find((l) => l.id === resourceLocation(r)),
+        value = r.path || r.url || "",
+        web = loc?.kind === "web" && /^https?:\/\//i.test(value),
+        physical = loc?.kind === "physical",
+        localPC =
+          loc?.kind === "device" && loc.id === "pc" && env.canOpenFolders,
+        available = ["addon", "server", "web"].includes(loc?.kind) || localPC;
+      return (
+        <div key={r.id || i} className="resource resource-wrap">
+          <div className="resource-line">
+            {physical ? (
+              <MapPin size={18} />
+            ) : web ? (
+              <ExternalLink size={18} />
+            ) : (
+              <FileText size={18} />
+            )}
+            <div>
+              {available ? (
+                <button
+                  className="resource-title"
+                  onClick={() =>
+                    onDocument({
+                      nodeId: node.id,
+                      resourceId: r.id,
+                      title: r.label,
+                    })
+                  }
+                >
+                  {r.label}
+                </button>
+              ) : (
+                <span>{r.label}</span>
+              )}
+              {node.previewResourceId === r.id && (
+                <small className="default-document">
+                  {t("documents.doubleClickTarget")}
+                </small>
+              )}
+              <small className="location-name">{loc?.name || t("m055")}</small>
+              <small>{value}</small>
+            </div>
             <button
+              className="icon-button"
+              aria-label={t("m068", r.label)}
               onClick={() =>
-                onDocument({
-                  nodeId: node.id,
-                  resourceId: r.id,
-                  index: i,
-                  title: r.label,
-                })
+                navigator.clipboard
+                  .writeText(value)
+                  .then(() => notify(t("m069")))
+                  .catch(() => notify(t("m070")))
               }
             >
-              {t("m072")}
+              <Copy size={14} />
             </button>
-          )}
-          {localPC && (
-            <button
-              onClick={async () => {
-                try {
-                  await api(`nodes/${node.id}/resources/${r.id}/open`, {
-                    method: "POST",
-                    body: "{}",
-                  });
-                  notify(t("m073"));
-                } catch (e) {
-                  notify(e.message);
+          </div>
+          <div className="resource-actions">
+            {web && (
+              <a href={value} target="_blank" rel="noreferrer">
+                {t("m071")}
+              </a>
+            )}
+            {available && (
+              <button
+                onClick={() =>
+                  onDocument({
+                    nodeId: node.id,
+                    resourceId: r.id,
+                    index: i,
+                    title: r.label,
+                  })
                 }
-              }}
-            >
-              <Folder size={13} />
-              {t("m074")}
-            </button>
-          )}
-          {!available && <small>{physical ? t("m075") : t("m076")}</small>}
+              >
+                {t("m072")}
+              </button>
+            )}
+            {localPC && (
+              <button
+                onClick={async () => {
+                  try {
+                    await api(`nodes/${node.id}/resources/${r.id}/open`, {
+                      method: "POST",
+                      body: "{}",
+                    });
+                    notify(t("m073"));
+                  } catch (e) {
+                    notify(e.message);
+                  }
+                }}
+              >
+                <Folder size={13} />
+                {t("m074")}
+              </button>
+            )}
+            {!available && <small>{physical ? t("m075") : t("m076")}</small>}
+          </div>
         </div>
-      </div>
-    );
-  });
+      );
+    });
 }

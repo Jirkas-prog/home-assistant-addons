@@ -7,8 +7,9 @@ import { createApp } from "../server/index.js";
 import { serialize, validateNode } from "../server/store.js";
 import { safePath, resolveResource } from "../server/documents.js";
 import { atlasStructure, filterNodes } from "../src/atlas-model.js";
-import { timelineModel, projectFor } from "../src/work-model.js";
+import { projectFor } from "../src/work-model.js";
 import { recordImportance, withImportance } from "../shared/importance.js";
+import { taskInterval, packTimeline } from "../src/timeline-model.js";
 const record = (id, type = "knowledge") => ({
   schema: 1,
   id,
@@ -101,9 +102,9 @@ test("task importance saves without changing the schedule or notes and rejects s
   assert.equal(saved.status, "done");
   assert.equal(saved.startDay, undefined);
   assert.equal(saved.endDay, undefined);
-  const model = timelineModel([saved], "2026-10-01");
-  assert.equal(model.scheduled[0].endDay - model.scheduled[0].startDay, 1);
-  assert.equal(recordImportance(model.scheduled[0]), 2);
+  const interval = taskInterval(saved);
+  assert.equal(interval.end - interval.start, 2);
+  assert.equal(recordImportance(interval.node), 2);
   const stale = await f.request(
     `nodes/${original.id}`,
     "PUT",
@@ -402,15 +403,14 @@ test("manual item and task Markdown drives filters, statistics, board data and t
     /tool/,
   );
   assert.equal(projectFor(task, snapshot.nodes).id, "project");
-  const timeline = timelineModel(
-    [task, record("unscheduled", "task")],
-    "2026-10-02",
-  );
-  assert.equal(
-    timeline.scheduled[0].endDay - timeline.scheduled[0].startDay,
-    4,
-  );
-  assert.equal(timeline.unscheduled.length, 1);
+  const interval = taskInterval(task);
+  assert.equal(interval.end - interval.start, 5);
+  const timeline = packTimeline([task, record("undated", "task")], {
+    start: interval.start,
+    days: 7,
+  });
+  assert.equal(timeline.items.length, 2);
+  assert.equal(timeline.lanes, 2);
   const loaded = snapshot.nodes.find((n) => n.id === "task");
   assert.equal(
     (

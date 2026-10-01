@@ -16,8 +16,9 @@ import React, {
   Suspense,
 } from "react";
 import { createRoot } from "react-dom/client";
-import Markdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { MarkdownContent as Md } from "./markdown.jsx";
+import { createMapActivation } from "./map-activation.js";
+import { preserveMapCamera } from "./map-camera.js";
 import ForceGraph2D from "react-force-graph-2d";
 import {
   Network,
@@ -163,33 +164,6 @@ const COLORS = [
 function Glyph({ type, ...props }) {
   const Icon = ICONS[type] || Circle;
   return <Icon size={17} {...props} />;
-}
-function Md({ children }) {
-  return (
-    <div className="markdown">
-      <Markdown
-        remarkPlugins={[remarkGfm]}
-        components={{
-          a: ({ node, href, children, ...props }) =>
-            /^https?:\/\/|^mailto:/i.test(href || "") ? (
-              <a {...props} href={href} target="_blank" rel="noreferrer">
-                {children}
-              </a>
-            ) : (
-              <span title={t("m084", href || "")}>{children}</span>
-            ),
-          img: ({ alt }) => (
-            <span className="image-placeholder">
-              {t("m085") + " "}
-              {alt || t("m394")}
-            </span>
-          ),
-        }}
-      >
-        {children || t("m086")}
-      </Markdown>
-    </div>
-  );
 }
 function graphLayout(nodes, scope, query, type, locations = []) {
   const source = new Map(nodes.map((n) => [n.id, n]));
@@ -347,7 +321,37 @@ class MapBoundary extends React.Component {
     );
   }
 }
-function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
+function MapView({
+  data,
+  mode,
+  selected,
+  onSelect,
+  onOpen,
+  viewerOpen,
+  relations,
+  graphRef,
+}) {
+  const callbacks = useRef(),
+    fitTimer = useRef();
+  callbacks.current = { onSelect, onOpen, viewerOpen };
+  const activation = useMemo(
+    () =>
+      createMapActivation({
+        select: (node) => callbacks.current.onSelect(node),
+        open: (node) => callbacks.current.onOpen(node),
+      }),
+    [],
+  );
+  useEffect(() => () => activation.cancel(), [activation, mode, data]);
+  useEffect(() => {
+    if (viewerOpen) {
+      activation.cancel();
+      clearTimeout(fitTimer.current);
+    }
+  }, [activation, viewerOpen]);
+  useEffect(() => {
+    if (viewerOpen) return preserveMapCamera(graphRef.current, mode);
+  }, [viewerOpen, mode, graphRef]);
   const ref = useRef();
   const [size, setSize] = useState({
     width: 600,
@@ -365,7 +369,11 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    const timer = setTimeout(() => graphRef.current?.zoomToFit(450, 65), 350);
+    if (callbacks.current.viewerOpen) return;
+    const timer = setTimeout(() => {
+      if (!callbacks.current.viewerOpen) graphRef.current?.zoomToFit(0, 65);
+    }, 350);
+    fitTimer.current = timer;
     return () => clearTimeout(timer);
   }, [data, mode, size.width, size.height]);
   useEffect(() => {
@@ -416,10 +424,18 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
       selected,
       hover,
     );
-    if (node) onSelect(node);
+    activation.click(node, event);
   };
   return (
-    <div className="map-canvas" ref={ref}>
+    <div
+      className="map-canvas"
+      ref={ref}
+      onDoubleClickCapture={(event) => {
+        // Keep the canvas library from zooming on native double-click.
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+    >
       {data.nodes.length === 0 ? (
         <div className="empty">
           <Search />
@@ -440,7 +456,7 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
               data={data}
               size={size}
               selected={selected}
-              onSelect={onSelect}
+              onSelect={(node, event) => activation.click(node, event)}
               relations={relations}
               graphRef={graphRef}
             />
@@ -709,6 +725,20 @@ function App() {
     location.hash = encodeURIComponent(id);
     setDetail(true);
     setSidebar(false);
+  };
+  const openNodeDocument = (picked) => {
+    const current = nodes.find((n) => n.id === picked.id);
+    if (!current) return;
+    const resource = current.resources.find(
+      (r) => r.id === current.previewResourceId,
+    );
+    if (resource)
+      setDocument({
+        nodeId: current.id,
+        resourceId: resource.id,
+        title: resource.label,
+      });
+    else setReader({ nodeId: current.id });
   };
   const newNode = (
     parent,
@@ -1400,6 +1430,8 @@ function App() {
                     mode={mode}
                     selected={selected}
                     onSelect={choose}
+                    onOpen={openNodeDocument}
+                    viewerOpen={!!reader || !!openDocument}
                     relations={relations}
                     graphRef={graphRef}
                   />
@@ -1418,7 +1450,7 @@ function App() {
                       className="icon-button fit-button"
                       aria-label={t("m154")}
                       title={t("m154")}
-                      onClick={() => graphRef.current?.zoomToFit(500, 65)}
+                      onClick={() => graphRef.current?.zoomToFit(0, 65)}
                     >
                       <Maximize size={18} />
                     </button>
@@ -1482,34 +1514,76 @@ function App() {
                         onSaved={load}
                       />
                     )}
-                    <div className="detail-top">
-                      <span
-                        className="type-label"
-                        style={{
-                          color: node.color,
-                        }}
-                      >
-                        <Glyph type={node.type} />
-                        {TYPES[node.type]}
-                      </span>
-                      <div>
-                        <button
-                          className="icon-button"
-                          aria-label={t("m160")}
-                          onClick={() => setEditing(node)}
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          className="icon-button"
-                          aria-label={t("m161")}
-                          onClick={() => setDetail(false)}
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    </div>
                     <div className="detail-content">
+                      <section className="detail-files" aria-label={t("m170")}>
+                        {node.type === "item" && node.stock && (
+                          <p className="physical-location">
+                            {itemPlaces(node, settings.locations)}
+                          </p>
+                        )}
+                        <div className="detail-section-title">
+                          {t("m170")}
+                          <span>{node.resources.length + 1}</span>
+                        </div>
+                        <ResourceList
+                          node={node}
+                          settings={settings}
+                          env={env}
+                          onDocument={setDocument}
+                          notify={notify}
+                          physicalOnly={true}
+                        />
+                        <button
+                          className="resource record-document"
+                          onClick={() => setReader({ nodeId: node.id })}
+                        >
+                          <FileText size={18} />
+                          <div>
+                            {node.file}
+                            <small>
+                              {node.previewResourceId
+                                ? t("documents.recordMarkdown")
+                                : t("documents.doubleClickTarget")}
+                            </small>
+                          </div>
+                          <ArrowUpRight size={15} />
+                        </button>
+                        <ResourceList
+                          node={node}
+                          physicalOnly={false}
+                          settings={settings}
+                          env={env}
+                          onDocument={setDocument}
+                          notify={notify}
+                        />
+                      </section>
+                      <div className="detail-top">
+                        <span
+                          className="type-label"
+                          style={{
+                            color: node.color,
+                          }}
+                        >
+                          <Glyph type={node.type} />
+                          {TYPES[node.type]}
+                        </span>
+                        <div>
+                          <button
+                            className="icon-button"
+                            aria-label={t("m160")}
+                            onClick={() => setEditing(node)}
+                          >
+                            <Pencil size={16} />
+                          </button>
+                          <button
+                            className="icon-button"
+                            aria-label={t("m161")}
+                            onClick={() => setDetail(false)}
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      </div>
                       <Breadcrumbs
                         items={recordCrumbs(breadcrumb)}
                         label={t("navigation.recordPath")}
@@ -1527,7 +1601,6 @@ function App() {
                           </p>
                           {node.stock && (
                             <>
-                              <p>{itemPlaces(node, settings.locations)}</p>
                               <StockMovements
                                 key={node.id}
                                 node={node}
@@ -1623,28 +1696,6 @@ function App() {
                       <div className="note-preview">
                         <Md>{node.body}</Md>
                       </div>
-                      <div className="detail-section-title">
-                        {t("m170")}
-                        <span>{node.resources.length + 1}</span>
-                      </div>
-                      <a
-                        className="resource"
-                        href={`./api/nodes/${node.id}/markdown`}
-                      >
-                        <FileText size={18} />
-                        <div>
-                          {node.file}
-                          <small>{t("m171")}</small>
-                        </div>
-                        <Download size={15} />
-                      </a>
-                      <ResourceList
-                        node={node}
-                        settings={settings}
-                        env={env}
-                        onDocument={setDocument}
-                        notify={notify}
-                      />
                       {related.length > 0 && (
                         <>
                           <div className="detail-section-title">
@@ -1812,6 +1863,17 @@ function App() {
             <div className="reader-body">
               <Md>{readerContent.body}</Md>
             </div>
+            {reader.nodeId && (
+              <footer>
+                <a
+                  className="secondary-button"
+                  href={`./api/nodes/${reader.nodeId}/markdown`}
+                >
+                  <Download size={15} />
+                  {t("m018")}
+                </a>
+              </footer>
+            )}
           </section>
         </div>
       )}
@@ -1830,6 +1892,7 @@ function App() {
       )}
       {openDocument && (
         <DocumentViewer
+          key={`${openDocument.nodeId}:${openDocument.resourceId}`}
           resource={openDocument}
           onClose={() => setDocument(null)}
         />
@@ -2225,10 +2288,45 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
           </details>
           <ResourceEditor
             resources={form.resources}
-            onChange={(value) => set("resources", value)}
+            onChange={(resources) => {
+              setDirty(true);
+              setForm((f) => ({
+                ...f,
+                resources,
+                previewResourceId: resources.some(
+                  (r) => r.id === f.previewResourceId,
+                )
+                  ? f.previewResourceId
+                  : "",
+              }));
+            }}
             settings={settings}
             onManage={onManage}
           />
+          <label className="preview-choice">
+            {t("documents.doubleClick")}
+            <select
+              value={form.previewResourceId || ""}
+              onChange={(e) => set("previewResourceId", e.target.value)}
+            >
+              <option value="">{t("documents.recordMarkdown")}</option>
+              {form.resources
+                .filter(
+                  (r) =>
+                    r.id &&
+                    settings.locations?.find(
+                      (l) =>
+                        l.id === (r.locationId || (r.url ? "internet" : "pc")),
+                    )?.kind !== "physical",
+                )
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.label || r.path || r.url}
+                  </option>
+                ))}
+            </select>
+            <small>{t("documents.doubleClickHelp")}</small>
+          </label>
           {error && (
             <div className="error-banner" role="alert">
               {error}

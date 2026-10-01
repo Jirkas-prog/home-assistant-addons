@@ -73,6 +73,13 @@ export function validateNode(n) {
     }
   }
   if (
+    n.previewResourceId != null &&
+    n.previewResourceId !== "" &&
+    (typeof n.previewResourceId !== "string" ||
+      !resourceIds.has(n.previewResourceId))
+  )
+    fail("The double-click document must reference an existing attachment ID.");
+  if (
     n.quantity != null &&
     (!Number.isSafeInteger(n.quantity) ||
       n.quantity < 1 ||

@@ -16,7 +16,7 @@ Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge At
 | Add-on | Release channel | Current version | Update policy |
 | --- | --- | --- | --- |
 | [Knowledge Atlas](knowledge_atlas/README.md) | Stable | 5.0.1 | Promote a development major only after the owner explicitly confirms it is stable. |
-| [Knowledge Atlas Dev](knowledge_atlas_dev/README.md) | Development | 5.0.1-dev.3 | Receive new development versions immediately, independently of stable. |
+| [Knowledge Atlas Dev](knowledge_atlas_dev/README.md) | Development | 5.0.1-dev.4 | Receive new development versions immediately, independently of stable. |
 
 These two names and installation identities are permanent. A future `6.0.0-dev.1` updates **Knowledge Atlas Dev** while **Knowledge Atlas** stays on V5. Once V6 is explicitly approved as stable, the stable add-on updates in place to `6.0.0`; neither name changes and no V6 add-on is created. See [Release channels](knowledge_atlas_dev/docs/RELEASE-CHANNELS.md).
 

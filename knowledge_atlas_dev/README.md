@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.3**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.4**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Nested branches, cross-links, searchable records and live statistics.
 - Projects, a task board and a timeline with start and due dates.
@@ -16,7 +16,9 @@ This is the **development channel**, version **5.0.1-dev.3**. The add-on name an
 - Saved views that automatically recompute from manually edited Markdown.
 - Inventory with quantities, location filters and CSV export.
 - Configurable physical places, devices and server document roots.
-- PDF viewer, UTF-8 text editor and file uploads.
+- Integrated Markdown, PDF, text and media previews, UTF-8 editing and file uploads.
+- Configurable document opening by bubble double-click, with the map view preserved.
+- Compact timeline lanes, open-ended tasks, status filters and smooth Ctrl-wheel/pinch zoom.
 - Complete managed-file backups, verified restore previews and reversible schema upgrades.
 - Stable attachment IDs, browser drafts, concurrent-edit comparison and source repair tools.
 - English by default, with a persistent English/Czech switch in **Settings and locations**.

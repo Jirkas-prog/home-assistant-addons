@@ -141,7 +141,19 @@ test("complete backup round trip preserves every saved record kind, metadata, fi
   }
   let edited = (await s.store.read()).nodes.find((n) => n.id === "knowledge");
   await s.store.save(
-    { ...edited, body: 'const myFunction = () => "saved";' },
+    {
+      ...edited,
+      body: 'const myFunction = () => "saved";',
+      resources: [
+        {
+          id: "reference",
+          label: "Reference",
+          locationId: "addon",
+          path: "document.pdf",
+        },
+      ],
+      previewResourceId: "reference",
+    },
     edited.id,
     edited.revision,
   );

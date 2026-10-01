@@ -45,7 +45,7 @@ export default function Map3D({
       clientX: event.clientX,
       clientY: event.clientY,
     });
-    if (node) onSelect(node);
+    onSelect(node, event);
   };
   return (
     <ForceGraph3D

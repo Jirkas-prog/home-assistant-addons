@@ -4,8 +4,7 @@ import { randomUUID } from "node:crypto";
 import { fail } from "./store.js";
 import { digest, locationId } from "./settings.js";
 import { historyDirectory } from "./file-safety.js";
-const TEXT =
-  /\.(txt|md|markdown|json|csv|ya?ml|log|js|jsx|ts|tsx|py|css|html|xml|ini|conf|toml|sh|sql|c|cpp|h|rs|java)$/i;
+import { documentType } from "../shared/document-types.js";
 const contained = (root, target) => {
   const rel = path.relative(root, target);
   return (
@@ -78,7 +77,7 @@ export async function resolveResource(resource, settings, ingress) {
       fail("Web links must start with http:// or https://.");
     return {
       url: value,
-      kind: /\.pdf(?:[?#]|$)/i.test(value) ? "pdf" : "web",
+      ...documentType(value, true),
       editable: false,
       title: resource.label,
       location: location.name,
@@ -125,16 +124,11 @@ export async function resolveResource(resource, settings, ingress) {
       "The file is not available on this server. Check its location and path.",
       404,
     );
-  const kind = stat.isDirectory()
-    ? "folder"
-    : /\.pdf$/i.test(file)
-      ? "pdf"
-      : TEXT.test(file)
-        ? "text"
-        : "download";
+  const type = stat.isDirectory() ? { kind: "folder" } : documentType(file);
+  const { kind } = type;
   return {
     file,
-    kind,
+    ...type,
     editable: editable && kind === "text",
     title: resource.label,
     location: location.name,

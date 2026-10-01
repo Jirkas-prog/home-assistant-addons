@@ -1,8 +1,12 @@
-import { t, locale } from "../shared/i18n.js";
+import { t, locale, localizeMessage } from "../shared/i18n.js";
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import { X, Download, Check, ExternalLink, FileText } from "lucide-react";
 import { api, useDialogKeys } from "./client.js";
 import { useDraft, DraftNotice, DraftExit, ConflictReview } from "./drafts.jsx";
+import { MarkdownContent } from "./markdown.jsx";
+import { readRemoteText } from "./remote-text.js";
+import { documentType } from "../shared/document-types.js";
+import "./document-preview.css";
 const Pdf = lazy(() => import("./pdf-viewer.jsx"));
 export function DocumentViewer({ resource, onClose }) {
   const [doc, setDoc] = useState(null),
@@ -11,10 +15,15 @@ export function DocumentViewer({ resource, onClose }) {
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [conflict, setConflict] = useState(null),
-    [leaving, setLeaving] = useState(false);
+    [leaving, setLeaving] = useState(false),
+    [editing, setEditing] = useState(false),
+    [textLoaded, setTextLoaded] = useState(false);
   const base = `nodes/${resource.nodeId}/resources/${resource.resourceId}`,
     fileURL = `./api/${base}/file`;
-  const dirty = doc?.kind === "text" && body !== doc.body;
+  const markdown =
+    doc?.format === "markdown" ||
+    documentType(doc?.resolvedPath || "").format === "markdown";
+  const dirty = doc?.editable && textLoaded && body !== doc.body;
   const draft = useDraft(
     `document:${resource.nodeId}:${resource.resourceId}`,
     { body },
@@ -28,18 +37,35 @@ export function DocumentViewer({ resource, onClose }) {
   useDialogKeys(React, close);
   useEffect(() => {
     let live = true;
+    const abort = new AbortController();
+    const timeout = setTimeout(() => abort.abort(), 30_000);
     api(base)
-      .then((r) => {
+      .then(async (r) => {
+        if (!live) return;
+        setDoc(r);
+        if (r.url && r.kind === "text") {
+          try {
+            r = { ...r, body: await readRemoteText(r.url, abort.signal) };
+          } catch (e) {
+            throw new Error(
+              t("documents.remoteError", localizeMessage(e.message)),
+            );
+          }
+        }
         if (live) {
           setDoc(r);
           setBody(r.body || "");
+          setTextLoaded(r.kind === "text");
         }
       })
       .catch((e) => {
         if (live) setError(e.message);
-      });
+      })
+      .finally(() => clearTimeout(timeout));
     return () => {
       live = false;
+      abort.abort();
+      clearTimeout(timeout);
     };
   }, [base]);
   useEffect(() => {
@@ -96,7 +122,7 @@ export function DocumentViewer({ resource, onClose }) {
               {doc?.kind === "pdf"
                 ? t("m004")
                 : doc?.kind === "text"
-                  ? t("m005")
+                  ? t("documents.viewer")
                   : t("m006")}
             </span>
             <h2>{resource.title}</h2>
@@ -137,13 +163,45 @@ export function DocumentViewer({ resource, onClose }) {
             <Pdf url={doc.url || fileURL} />
           </Suspense>
         )}
-        {doc?.kind === "text" && (
+        {doc && ["image", "audio", "video"].includes(doc.kind) && (
+          <div className="media-document">
+            {doc.kind === "image" ? (
+              <img
+                src={doc.url || fileURL}
+                alt={resource.title}
+                referrerPolicy="no-referrer"
+                onError={() => setError(t("documents.mediaError"))}
+              />
+            ) : doc.kind === "audio" ? (
+              <audio
+                controls
+                preload="metadata"
+                src={doc.url || fileURL}
+                aria-label={resource.title}
+                onError={() => setError(t("documents.mediaError"))}
+              />
+            ) : (
+              <video
+                controls
+                preload="metadata"
+                src={doc.url || fileURL}
+                aria-label={resource.title}
+                onError={() => setError(t("documents.mediaError"))}
+              />
+            )}
+          </div>
+        )}
+        {doc?.kind === "text" && !textLoaded && !error && (
+          <div className="empty">{t("m008")}</div>
+        )}
+        {doc?.kind === "text" && textLoaded && (
           <div className="text-document">
             <DraftNotice
               draft={draft}
               onRecover={(saved) => {
                 setDoc(saved.original);
                 setBody(saved.value.body);
+                setEditing(true);
               }}
             />
             {conflict && (
@@ -161,6 +219,26 @@ export function DocumentViewer({ resource, onClose }) {
               />
             )}
             <div className="document-toolbar">
+              <div
+                className="document-view-modes"
+                role="group"
+                aria-label={t("documents.display")}
+              >
+                <button
+                  type="button"
+                  aria-pressed={!editing}
+                  onClick={() => setEditing(false)}
+                >
+                  {t("documents.preview")}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={editing}
+                  onClick={() => setEditing(true)}
+                >
+                  {doc.editable ? t("documents.edit") : t("documents.source")}
+                </button>
+              </div>
               <span>
                 {doc.editable ? (dirty ? t("m010") : t("m011")) : t("m012")}
               </span>
@@ -169,13 +247,27 @@ export function DocumentViewer({ resource, onClose }) {
                 {" " + t("m013")}
               </span>
             </div>
-            <textarea
-              aria-label={t("m014")}
-              value={body}
-              readOnly={!doc.editable}
-              spellCheck={false}
-              onChange={(e) => setBody(e.target.value)}
-            />
+            {editing ? (
+              <textarea
+                aria-label={t("m014")}
+                value={body}
+                readOnly={!doc.editable}
+                spellCheck={false}
+                onChange={(e) => setBody(e.target.value)}
+              />
+            ) : (
+              <div
+                className="document-preview"
+                tabIndex={0}
+                aria-label={t("documents.preview")}
+              >
+                {markdown ? (
+                  <MarkdownContent>{body}</MarkdownContent>
+                ) : (
+                  <pre>{body}</pre>
+                )}
+              </div>
+            )}
           </div>
         )}
         {doc && ["folder", "place", "download", "web"].includes(doc.kind) && (

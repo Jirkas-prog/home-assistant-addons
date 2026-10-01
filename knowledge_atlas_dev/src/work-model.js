@@ -30,27 +30,6 @@ export const localDate = () => {
 };
 export const dayNumber = (date) =>
   Math.floor(Date.parse(`${date}T00:00:00Z`) / 86400000);
-export function timelineModel(tasks, today = localDate()) {
-  const scheduled = tasks
-    .filter((t) => t.task?.start || t.task?.due)
-    .map((t) => ({
-      ...t,
-      startDay: dayNumber(t.task.start || t.task.due),
-      endDay: dayNumber(t.task.due || t.task.start),
-    }));
-  const now = dayNumber(today),
-    days = scheduled.flatMap((t) => [t.startDay, t.endDay]);
-  const min = Math.min(now, ...days) - 2,
-    max = Math.max(now, ...days) + 3;
-  return {
-    scheduled: scheduled.sort((a, b) => a.startDay - b.startDay),
-    unscheduled: tasks.filter((t) => !t.task?.start && !t.task?.due),
-    min,
-    max,
-    span: max - min + 1,
-    today: now,
-  };
-}
 export function projectFor(task, nodes) {
   if (task.projectId) return nodes.find((n) => n.id === task.projectId);
   let parent = task.parent;

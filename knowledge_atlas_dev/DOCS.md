@@ -36,6 +36,8 @@ Use the mouse wheel to zoom in either map. Wheel sensitivity is increased by 25%
 
 Drag the left edge of the record details panel to change its width. The preference is saved in this browser for each release channel and survives reloads. Double-click the handle to restore the default width. With the handle focused, use **Left** / **Right** to resize, **Shift** for larger steps, or **Home** / **End** for the minimum / maximum width. The main view keeps usable space; on narrow screens the panel remains below it.
 
+Double-click a bubble in either map to open its record Markdown in a closable window. In the record editor, **Open on bubble double-click** can instead select an attachment. The choice uses the attachment's stable ID, survives renaming and reordering, and is saved with the record. Removing the selected attachment in the editor resets the choice to record Markdown. Closing the viewer with its cross or Escape returns to the same map position, zoom, orientation and panel state. Unsaved text changes still require the existing draft/leave decision.
+
 ## Files and locations
 
 The default document root is `/config/documents`. An attachment with location **Add-on** and path `school/physics.pdf` resolves to `/config/documents/school/physics.pdf`.
@@ -54,13 +56,23 @@ Device paths are informational in Home Assistant: installing the add-on does not
 
 The `/config` mapping corresponds to the add-on's directory under `/addon_configs/<repository-id>_knowledge_atlas_dev` on the host. Each channel has its own configuration directory and library. `/share` is also mapped with write capability, but its location is read-only in the app by default. Enable writes deliberately in location settings when needed. Do not expose this app directly on the internet outside authenticated Ingress.
 
+Physical locations and attachments appear directly below importance in the details panel. Click the record's Markdown filename or an accessible attachment name to open the integrated viewer. Markdown opens as formatted text, with a source/edit toggle; TXT, code, JSON and CSV open as readable text. PDF uses its built-in page viewer. PNG, JPEG, GIF, WebP and AVIF images and browser-supported MP3/WAV/OGG/M4A/FLAC audio and MP4/WebM video have inline previews. HTML and SVG are displayed as source text, never executed. Unsupported binary formats show their download action.
+
+Remote text and PDF previews require the remote server to allow browser access through CORS. Remote text is read-only, limited to 2 MB and requested without credentials; the add-on does not proxy arbitrary web requests. If a remote host blocks access, use the original link or upload the document. Physical places and paths on unmounted devices remain informational.
+
 Uploads accept files up to 50 MB and never overwrite an existing filename. The upload saves the file immediately; saving the record attaches its link. A cancelled record may therefore leave an unattached file. Text editing supports UTF-8 files up to 2 MB and saves a previous version in a `.history` folder beside the edited file. PDFs support pages, zoom, passwords and copying available page text. Scanned PDFs do not gain OCR automatically.
 
 ## Projects, tasks and inventory
 
-Create a **Project**, then use **Add project task**. A task can reference a project with `projectId`, independently of its tree parent. The board has four fixed statuses: To plan, In progress, Waiting and Done. Drag a card or use its status selector. A start or due date adds the task to the timeline; click a timeline bar to edit it. Task dependencies, custom columns and recurring tasks are not implemented in this release.
+Create a **Project**, then use **Add project task**. A task can reference a project with `projectId`, independently of its tree parent. The board has four fixed statuses: To plan, In progress, Waiting and Done. Drag a card or use its status selector. Every matching task appears on the timeline; click its name inside the bar to edit it. Task dependencies, custom columns and recurring tasks are not implemented in this release.
 
-Every task on the timeline has five clickable importance stars below its time bar, including short, single-day tasks. Unscheduled tasks have the same control. A click saves immediately; the task editor and details show the same rating. Stars do not alter dates, durations or completion status. Existing low, normal and high task priorities appear as one, three and five stars until a numeric importance is saved. The board's priority label reflects the rating: one or two stars are Low, three are Normal, and four or five are High.
+The timeline has no separate task-name column or unscheduled list. Names and five importance stars sit inside each task bar, following the visible portion when panning. Short bars clip their contents; zoom in to reveal the full rating control. A star click saves immediately without opening the task editor or altering its dates. Legacy priorities remain compatible with the numeric importance field.
+
+Missing start dates extend into the past; missing due dates extend into the future. A task with neither date spans the whole viewport at any position. Due dates include their complete calendar day, so an October 1 task and an October 2 task can share a row. Tasks overlapping on the same day cannot. Visible intervals are processed oldest-first and placed in the minimum possible number of rows, with each task kept on one row.
+
+Use **Time scale** for 24 hours, 3, 7, 30, 90, 180 or 360 days. **Eternity · all dates** fits all finite dates (plus today); open ends still continue indefinitely as you pan. Ctrl + mouse wheel or a trackpad pinch changes the time scale continuously around the pointer, overriding the preset. Two-finger touch pinching also scales the viewport. Drag the background, scroll horizontally or use Shift + wheel to pan. Arrow buttons move by part of a viewport; **Today** recenters it. With the timeline focused, Left/Right pan and +/- zoom. There is no zoom slider. The view supports scales from one hour to approximately 10,000 years.
+
+The four status checkboxes independently include planned, in-progress, waiting and completed tasks. They combine with project, branch and search filters. Changing filters recomputes row packing; changing importance preserves the current time scale and position.
 
 Inventory supports explicit storage placements separate from attachments. In an item editor, choose **Set storage distribution**, specify physical places and their quantities, and save. A place can belong to another physical place (for example Workshop / Cabinet / Top drawer). Filtering a place includes its descendants; displayed quantities and CSV count only matching placements. A stock of three units in a workshop and two in a dormitory has five available units overall, but the workshop filter exports three.
 
