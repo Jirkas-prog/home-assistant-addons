@@ -1,0 +1,7 @@
+node_modules
+build
+release
+.git
+tests
+*.zip
+*.sha256

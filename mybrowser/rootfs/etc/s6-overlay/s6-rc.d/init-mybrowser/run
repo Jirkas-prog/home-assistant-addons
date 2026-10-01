@@ -1,0 +1,6 @@
+#!/usr/bin/with-contenv bash
+set -e
+mkdir -p /data /share/MyBrowser/Downloads /config
+if [[ ! -e /config/Downloads ]]; then
+  ln -s /share/MyBrowser/Downloads /config/Downloads
+fi

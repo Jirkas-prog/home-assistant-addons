@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MyBrowser Guide</title>
+  <style>
+    :root{color-scheme:dark;--bg:#111317;--panel:#20242b;--panel2:#292e37;--line:#3b424d;--text:#f6f8fb;--muted:#b8c0ce;--blue:#2799e6;--blue2:#73c8ff;--green:#52d78d;--yellow:#ffbf57}
+    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:radial-gradient(circle at 12% 2%,#126aa64d,transparent 30%),var(--bg);color:var(--text);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}a{color:var(--blue2)}
+    .top{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:14px;padding:14px clamp(18px,4vw,58px);background:#171a1fe8;border-bottom:1px solid var(--line);backdrop-filter:blur(14px)}.top img{width:46px;height:46px}.top strong{font-size:20px}.top span{display:block;color:var(--muted);font-size:12px}.top nav{margin-left:auto;display:flex;gap:18px}.top nav a{text-decoration:none;color:#d9deea;font-size:14px}
+    main{width:min(1180px,calc(100% - 32px));margin:auto;padding:72px 0 90px}.hero{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(280px,.65fr);align-items:center;gap:42px;padding-bottom:58px}.hero>*{min-width:0}.eyebrow{color:var(--blue2);font-weight:800;text-transform:uppercase;letter-spacing:.12em;font-size:12px}.hero h1{font-size:clamp(42px,7vw,82px);line-height:1.02;margin:10px 0 20px}.hero p{font-size:20px;color:var(--muted);max-width:720px}.hero-card{min-width:0;background:linear-gradient(145deg,#26323e,#1b1e24);border:1px solid var(--line);border-radius:24px;padding:28px;box-shadow:0 25px 70px #0006}.hero-card img{width:92px}.address{max-width:100%;margin-top:20px;background:#101216;border:1px solid #3d4857;border-radius:10px;padding:12px 14px;font:14px ui-monospace,monospace;color:#9fdbff;overflow-wrap:anywhere;word-break:break-word}
+    section{scroll-margin-top:92px;margin-top:48px}h2{font-size:30px;margin:0 0 8px}.lead{color:var(--muted);margin:0 0 22px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px}.card .number{display:grid;place-items:center;width:38px;height:38px;border-radius:11px;background:var(--blue);font-weight:900}.card h3{margin:16px 0 8px;font-size:19px}.card p{color:var(--muted);margin:0}.wide{grid-column:span 2}.tip{border-left:4px solid var(--yellow);background:#2b261e;padding:18px 20px;border-radius:0 12px 12px 0;color:#e9ddc8}.status{display:inline-flex;align-items:center;gap:8px;color:var(--green);font-weight:800}.dot{width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 14px currentColor}.footer{margin-top:70px;padding-top:28px;border-top:1px solid var(--line);color:var(--muted)}code{background:#0c0e11;border:1px solid #343b45;padding:2px 6px;border-radius:5px;color:#b9e4ff}
+    @media(max-width:800px){.top nav{display:none}.hero{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.wide{grid-column:auto}main{padding-top:42px}}
+  </style>
+</head>
+<body>
+  <header class="top"><img src="./icon.png" alt="MyBrowser icon"><div><strong>MyBrowser</strong><span>Built-in guide</span></div><nav><a href="#getting-started">Getting started</a><a href="#previews">Previews</a><a href="#management">Management</a></nav></header>
+  <main>
+    <div class="hero">
+      <div><div class="eyebrow">Welcome to MyBrowser</div><h1>All your websites in one place.</h1><p>This page is a real hosted website running inside the add-on. It also shows how to add a project, upload files, and open it directly in the main workspace.</p></div>
+      <aside class="hero-card"><img src="./icon.png" alt=""><h2>The guide is running</h2><div class="status"><span class="dot"></span> Static website through the gateway</div><div class="address">http://HOME_ASSISTANT_IP:3000/mybrowser-guide/</div></aside>
+    </div>
+
+    <section id="getting-started"><h2>Your first website in three steps</h2><p class="lead">Use <strong>＋ Add → Hosted website</strong> in the MyBrowser header.</p><div class="grid">
+      <article class="card"><span class="number">1</span><h3>Name the website</h3><p>The path is prepared automatically as <code>/share/Websites/001_WebsiteName</code>. The shared gateway is the default access mode.</p></article>
+      <article class="card"><span class="number">2</span><h3>Drop your files</h3><p>Drop individual files or an entire folder into the left panel. Uploading starts immediately and safely continues in the background after website creation.</p></article>
+      <article class="card"><span class="number">3</span><h3>Open the card</h3><p>Clicking the card opens the website in the main MyBrowser workspace. “Open separately” remains available as an additional option.</p></article>
+    </div></section>
+
+    <section id="previews"><h2>Cover images and automatic previews</h2><div class="grid"><article class="card wide"><h3>A custom image takes priority</h3><p>Drop a JPG, PNG, WebP, GIF, or AVIF into the right-hand panel. Without a custom image, MyBrowser renders the home page once at 1900 × 1069 px and stores it as a static PNG preview.</p></article><article class="card"><h3>No unnecessary refreshes</h3><p>The preview is not rendered live. It is captured again only after the website files change.</p></article></div></section>
+
+    <section id="management"><h2>Gateway and server management</h2><div class="grid">
+      <article class="card"><h3>One public gateway</h3><p>The default port is <code>3000</code>. Each website receives its own path, such as <code>/my-website/</code>.</p></article>
+      <article class="card"><h3>Three access modes</h3><p>Alongside the default gateway, you can enter a public URL from your own reverse proxy or keep a dedicated custom port for the project.</p></article>
+      <article class="card"><h3>Technical management and files</h3><p>Server Management provides start, restart, logs, and settings. The Files tab supports folders, bulk selection, copying, moving, renaming, downloading, and deletion.</p></article>
+    </div><p class="tip"><strong>Tip:</strong> The three-dot menu on each card can copy the address, open settings, or hide the card from Home without deleting it. Header search can open web results directly in MyBrowser, and “Make available offline” adds the current page to the library.</p><p class="tip"><strong>The guide is a regular managed website.</strong> You can inspect or edit its files, or remove it. Once removed, it is not created again automatically.</p></section>
+
+    <div class="footer">MyBrowser · built-in add-on guide</div>
+  </main>
+</body>
+</html>

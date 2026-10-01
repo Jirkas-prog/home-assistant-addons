@@ -1,0 +1,39 @@
+#include <tunables/global>
+
+profile mybrowser_addon flags=(attach_disconnected,mediate_deleted) {
+  #include <abstractions/base>
+
+  capability chown,
+  capability dac_override,
+  capability dac_read_search,
+  capability fowner,
+  capability setgid,
+  capability setuid,
+  capability sys_admin,
+  capability sys_chroot,
+  file,
+  mount,
+  network,
+  ptrace,
+  remount,
+  signal,
+  umount,
+
+  /init rix,
+  /app/** rix,
+  /bin/** rix,
+  /command/** rix,
+  /config/** rwk,
+  /data/** rwk,
+  /dev/** mrwkl,
+  /etc/** rix,
+  /media/** rwk,
+  /package/** rix,
+  /proc/** r,
+  /run/** mrwkl,
+  /share/** rwk,
+  /sys/** r,
+  /tmp/** mrwkl,
+  /usr/** rix,
+  /var/** mrwkl,
+}

@@ -1,0 +1,233 @@
+import { t, locale } from "../shared/i18n.js";
+import React, { useState, useEffect, lazy, Suspense } from "react";
+import { X, Download, Check, ExternalLink, FileText } from "lucide-react";
+import { api, useDialogKeys } from "./client.js";
+import { useDraft, DraftNotice, DraftExit, ConflictReview } from "./drafts.jsx";
+const Pdf = lazy(() => import("./pdf-viewer.jsx"));
+export function DocumentViewer({ resource, onClose }) {
+  const [doc, setDoc] = useState(null),
+    [body, setBody] = useState(""),
+    [error, setError] = useState(""),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState(""),
+    [conflict, setConflict] = useState(null),
+    [leaving, setLeaving] = useState(false);
+  const base = `nodes/${resource.nodeId}/resources/${resource.resourceId}`,
+    fileURL = `./api/${base}/file`;
+  const dirty = doc?.kind === "text" && body !== doc.body;
+  const draft = useDraft(
+    `document:${resource.nodeId}:${resource.resourceId}`,
+    { body },
+    doc,
+    dirty,
+  );
+  const close = () => {
+    if (dirty) setLeaving(true);
+    else onClose();
+  };
+  useDialogKeys(React, close);
+  useEffect(() => {
+    let live = true;
+    api(base)
+      .then((r) => {
+        if (live) {
+          setDoc(r);
+          setBody(r.body || "");
+        }
+      })
+      .catch((e) => {
+        if (live) setError(e.message);
+      });
+    return () => {
+      live = false;
+    };
+  }, [base]);
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
+  async function save() {
+    setBusy(true);
+    setError("");
+    setMessage("");
+    try {
+      const next = await api(`${base}/text`, {
+        method: "PUT",
+        body: JSON.stringify({
+          body,
+          revision: doc.revision,
+          targetRevision: doc.targetRevision,
+        }),
+      });
+      setDoc((d) => ({
+        ...d,
+        ...next,
+      }));
+      setMessage(t("m003"));
+      draft.clear();
+    } catch (e) {
+      setError(e.message);
+      if (e.status === 409) {
+        try {
+          const current = await api(base);
+          if (current.kind === "text") setConflict(current);
+        } catch {}
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="modal-backdrop upper-modal">
+      <section
+        className="modal document-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("m386", resource.title)}
+      >
+        <header>
+          <div>
+            <span className="eyebrow">
+              {doc?.kind === "pdf"
+                ? t("m004")
+                : doc?.kind === "text"
+                  ? t("m005")
+                  : t("m006")}
+            </span>
+            <h2>{resource.title}</h2>
+            <small>
+              {doc?.location}
+              {doc?.resolvedPath && ` · ${doc.resolvedPath}`}
+            </small>
+          </div>
+          <button
+            autoFocus
+            className="icon-button"
+            aria-label={t("m007")}
+            onClick={close}
+          >
+            <X />
+          </button>
+        </header>
+        {error && (
+          <div className="error-banner" role="alert">
+            {error}
+          </div>
+        )}
+        {message && (
+          <p className="document-message" role="status">
+            {message}
+          </p>
+        )}
+        {leaving && (
+          <DraftExit
+            failed={draft.state === "failed"}
+            onLeave={onClose}
+            onStay={() => setLeaving(false)}
+          />
+        )}
+        {!doc && !error && <div className="empty">{t("m008")}</div>}
+        {doc?.kind === "pdf" && (
+          <Suspense fallback={<div className="empty">{t("m009")}</div>}>
+            <Pdf url={doc.url || fileURL} />
+          </Suspense>
+        )}
+        {doc?.kind === "text" && (
+          <div className="text-document">
+            <DraftNotice
+              draft={draft}
+              onRecover={(saved) => {
+                setDoc(saved.original);
+                setBody(saved.value.body);
+              }}
+            />
+            {conflict && (
+              <ConflictReview
+                base={{ body: doc.body }}
+                mine={{ body }}
+                current={{ body: conflict.body }}
+                onCancel={() => setConflict(null)}
+                onApply={(merged) => {
+                  setDoc(conflict);
+                  setBody(merged.body);
+                  setConflict(null);
+                  setError("");
+                }}
+              />
+            )}
+            <div className="document-toolbar">
+              <span>
+                {doc.editable ? (dirty ? t("m010") : t("m011")) : t("m012")}
+              </span>
+              <span>
+                {body.length.toLocaleString(locale())}
+                {" " + t("m013")}
+              </span>
+            </div>
+            <textarea
+              aria-label={t("m014")}
+              value={body}
+              readOnly={!doc.editable}
+              spellCheck={false}
+              onChange={(e) => setBody(e.target.value)}
+            />
+          </div>
+        )}
+        {doc && ["folder", "place", "download", "web"].includes(doc.kind) && (
+          <div className="empty">
+            <FileText />
+            <p>{doc.kind === "place" ? t("m015") : t("m016")}</p>
+            <p>{doc.resolvedPath}</p>
+          </div>
+        )}
+        <footer>
+          {doc?.url && (
+            <a
+              className="secondary-button"
+              href={doc.url}
+              target="_blank"
+              rel="noreferrer"
+            >
+              <ExternalLink size={15} />
+              {t("m017")}
+            </a>
+          )}
+          {doc && !doc.url && !["place", "folder"].includes(doc.kind) && (
+            <a className="secondary-button" href={`${fileURL}?download=1`}>
+              <Download size={15} />
+              {t("m018")}
+            </a>
+          )}
+          {dirty && (
+            <button
+              className="secondary-button"
+              onClick={() =>
+                navigator.clipboard
+                  .writeText(body)
+                  .then(() => setMessage(t("m019")))
+                  .catch(() => setError(t("m020")))
+              }
+            >
+              {t("m021")}
+            </button>
+          )}
+          {doc?.editable && (
+            <button
+              disabled={busy || !dirty}
+              className="primary-button"
+              onClick={save}
+            >
+              <Check size={16} />
+              {busy ? t("m022") : t("m023")}
+            </button>
+          )}
+        </footer>
+      </section>
+    </div>
+  );
+}

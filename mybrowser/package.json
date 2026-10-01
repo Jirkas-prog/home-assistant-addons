@@ -1,0 +1,14 @@
+{
+  "name": "home-assistant-mybrowser",
+  "version": "0.8.1",
+  "private": true,
+  "description": "Home Assistant web library, offline archive and static/npm/Bun host",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test ../tests/*.test.js"
+  }
+}

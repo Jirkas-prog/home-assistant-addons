@@ -1,0 +1,118 @@
+.language-setup {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 30px 18px;
+  background:
+    radial-gradient(ellipse at 50% 0, #27362455, transparent 65%), #101419;
+}
+.language-card {
+  width: min(100%, 520px);
+  padding: 32px;
+  border: 1px solid #303942;
+  border-radius: 18px;
+  background: #161d24;
+  box-shadow: 0 24px 90px #0004;
+}
+.language-brand {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  font-size: 18px;
+  font-weight: 650;
+}
+.language-brand small {
+  color: #9eacba;
+  font-size: 12px;
+  margin-left: 4px;
+}
+.language-emblem {
+  margin-top: 36px;
+  color: #b4eb7c;
+}
+.language-card h1 {
+  margin: 16px 0 10px;
+  font-size: 28px;
+  letter-spacing: -0.6px;
+}
+.language-card p {
+  color: #aab6c3;
+  line-height: 1.65;
+}
+.language-card fieldset {
+  border: 0;
+  padding: 0;
+  margin: 28px 0 24px;
+  display: grid;
+  gap: 10px;
+}
+.language-card legend {
+  font-size: 13px;
+  color: #aab6c3;
+  margin-bottom: 10px;
+}
+.language-option {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid #35414c;
+  border-radius: 10px;
+  cursor: pointer;
+  background: #111820;
+}
+.language-option.selected {
+  border-color: #9ed875;
+  background: #243321;
+}
+.language-option input {
+  width: 17px;
+  height: 17px;
+  accent-color: #b4eb7c;
+}
+.language-option span {
+  flex: 1;
+}
+.language-option strong,
+.language-option small {
+  display: block;
+}
+.language-option small {
+  color: #aab6c3;
+  font-size: 12px;
+  margin-top: 4px;
+}
+.language-option svg {
+  color: #b4eb7c;
+}
+.language-option:focus-within {
+  outline: 2px solid #b4eb7c;
+  outline-offset: 3px;
+}
+.language-card .language-submit {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 46px;
+}
+.language-card .language-footnote {
+  text-align: center;
+  font-size: 12px;
+  margin: 16px 0 0;
+}
+.language-card .language-error {
+  color: #ffb7aa;
+}
+@media (max-width: 540px) {
+  .language-setup {
+    padding: 18px 12px;
+  }
+  .language-card {
+    padding: 24px 20px;
+  }
+  .language-card h1 {
+    font-size: 25px;
+  }
+}

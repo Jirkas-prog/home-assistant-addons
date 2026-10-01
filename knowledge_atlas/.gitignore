@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+releases/
+*.log
+.env
+.server.pid
+backups/
+.*-operations/
+*.zip
+*.zip.sha256
+*.zip.partial

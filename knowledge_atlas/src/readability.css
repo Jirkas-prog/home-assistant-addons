@@ -1,0 +1,162 @@
+/* Readable controls and a complete map in compact desktop windows. */
+.tree-title,
+.nav-button,
+.primary-button,
+.secondary-button,
+.toolbar select,
+.search input,
+.filter-bar button,
+.segmented button,
+.type-label,
+.related-row,
+.resource,
+.detail-summary {
+  font-size: 14px;
+}
+.workspace {
+  height: max(360px, calc(100dvh - 383px));
+  min-height: 360px;
+}
+.page-heading {
+  padding-top: 23px;
+  padding-bottom: 23px;
+}
+.page-heading h1 {
+  font-size: 27px;
+  margin-top: 8px;
+  margin-bottom: 7px;
+}
+.page-heading p {
+  font-size: 14px;
+}
+.detail-summary,
+.note-preview .markdown {
+  font-size: 14px;
+}
+.note-preview .markdown h2 {
+  font-size: 16px;
+}
+.metadata,
+.status,
+.tags button,
+.map-legend button,
+.detail-section-title,
+.detail-section-title > button,
+.resource small,
+.resource-actions button,
+.relation-toggle,
+.breadcrumb button,
+.map-bottom > span {
+  font-size: 12px;
+}
+.resource small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.detail-section-title {
+  letter-spacing: 0.5px;
+}
+.map-caption {
+  font-size: 14px;
+}
+.tree-heading,
+.workspace-label {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.record-card p {
+  font-size: 14px;
+}
+.record-card h3 {
+  font-size: 20px;
+}
+.card-meta,
+.card-footer {
+  font-size: 12px;
+}
+.editor-body > label,
+.form-grid > label,
+.editor-label,
+.related-picker label,
+.editor-label button,
+.editor-extra summary {
+  font-size: 14px;
+}
+@media (min-width: 701px) and (max-height: 800px) {
+  .topbar {
+    height: 60px;
+  }
+  .page-heading {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+  .page-heading h1 {
+    font-size: 24px;
+  }
+  .page-heading .eyebrow {
+    display: none;
+  }
+  .workspace {
+    height: max(330px, calc(100dvh - 325px));
+    min-height: 330px;
+  }
+  .toolbar {
+    min-height: 60px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .workbench {
+    margin-bottom: 14px;
+  }
+  .map-legend {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    gap: 10px;
+  }
+  .stats strong {
+    font-size: 22px;
+  }
+}
+@media (max-width: 1250px) {
+  .toolbar .segmented button,
+  .toolbar select {
+    font-size: 12px;
+  }
+  .filter-bar button {
+    font-size: 13px;
+  }
+  .map-legend button {
+    font-size: 11px;
+  }
+  .tree-title {
+    font-size: 13px;
+  }
+}
+@media (max-width: 700px) {
+  .workspace,
+  .workspace.with-detail {
+    height: auto;
+    min-height: 440px;
+  }
+  .page-heading h1 {
+    font-size: 25px;
+  }
+  .page-heading p {
+    font-size: 14px;
+  }
+  .filter-bar button {
+    font-size: 12px;
+  }
+  .map-legend button {
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 1000px) {
+  .sidebar {
+    visibility: hidden;
+  }
+  .sidebar.open {
+    visibility: visible;
+  }
+}

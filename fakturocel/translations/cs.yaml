@@ -1,0 +1,7 @@
+configuration:
+  remote_enabled:
+    name: Synchronizace spárovaných zařízení
+    description: Zapne HTTPS rozhraní na portu 8443 pro spárované samostatné aplikace.
+  backup_folder:
+    name: Složka automatických záloh
+    description: Složka v /share, do které Fakturocel ukládá spravované automatické zálohy.

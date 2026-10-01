@@ -1,0 +1,33 @@
+name: Knowledge Atlas Dev
+version: "5.0.1-dev.1"
+slug: knowledge_atlas_dev
+description: A Markdown knowledge map with projects, tasks, inventory and document viewers.
+url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/knowledge_atlas_dev
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: true
+ingress: true
+ingress_port: 8099
+ingress_stream: true
+panel_icon: mdi:graph-outline
+panel_title: Knowledge Atlas Dev
+panel_admin: true
+map:
+  - type: addon_config
+    read_only: false
+    path: /config
+  - type: share
+    read_only: false
+environment:
+  HA_INGRESS: "1"
+  HOST: "0.0.0.0"
+  PORT: "8099"
+  DATA_DIR: /config/knowledge
+  DOCUMENT_ROOT: /config/documents
+options: {}
+schema: {}
+stage: experimental
+backup: cold

@@ -1,0 +1,62 @@
+.backup-workbench .workspace {
+  height: auto;
+  min-height: 0;
+}
+.backup-page {
+  padding: 24px;
+  overflow: auto;
+  width: 100%;
+}
+.backup-page .data-tools {
+  margin: 0;
+  max-width: 1000px;
+  border-top: 0;
+  padding-top: 0;
+}
+.backup-coverage {
+  border: 1px solid #35404d;
+  border-radius: 12px;
+  background: #171e27;
+  padding: 20px;
+  margin: 18px 0;
+}
+.backup-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.backup-metrics strong,
+.backup-metrics span {
+  display: block;
+}
+.backup-metrics strong {
+  font-size: 25px;
+  color: #d9eccd;
+}
+.backup-metrics span {
+  color: #9daab8;
+  font-size: 12px;
+  margin-top: 5px;
+}
+.backup-coverage p {
+  line-height: 1.65;
+}
+.backup-verified {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: #b2ea85;
+}
+.backup-workbench > .toolbar,
+.backup-workbench > .map-legend {
+  display: none;
+}
+@media (max-width: 600px) {
+  .backup-page {
+    padding: 14px;
+  }
+  .backup-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
