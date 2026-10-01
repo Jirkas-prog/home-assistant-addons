@@ -1,5 +1,10 @@
 # Changelog
 
+## 5.0.1-dev.6
+
+- Open PDFs, images and downloads after a complete library restore, including range requests and explicit downloads from restored document storage.
+- Preserve attachment path validation and keep HTML downloads inert. Add an end-to-end backup, restore and attachment-delivery regression test.
+
 ## 5.0.1-dev.5
 
 - Add dated task checkpoints with completion criteria, quick checkboxes and recorded completion times.

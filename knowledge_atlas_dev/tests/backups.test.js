@@ -9,6 +9,7 @@ import { zipSync, strToU8 } from "fflate";
 import { Backups, operationRoot, recoverRestore } from "../server/backups.js";
 import { Store } from "../server/store.js";
 import { Settings } from "../server/settings.js";
+import { createApp } from "../server/index.js";
 
 async function fixture(t) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-backup-")),
@@ -106,6 +107,90 @@ test("full backup restores records, unlinked attachments, settings and history t
   await fresh.restore(next.id, next.revision);
   assert.equal((await freshStore.read()).nodes[0].body, "Second version");
 });
+test("restored attachments remain viewable and downloadable without exposing hidden relative paths", async (t) => {
+  const f = await fixture(t);
+  const contents = {
+    "guide.pdf": "%PDF-1.4\nRestored PDF fixture\n%%EOF",
+    "picture.png": "Restored image fixture",
+    "archive.zip": "Restored download fixture",
+    "unsafe.html": "<script>window.fixture = true</script>",
+  };
+  const original = (await f.store.read()).nodes[0];
+  await f.store.save(
+    {
+      ...original,
+      resources: [
+        ...Object.keys(contents).map((name, i) => ({
+          id: `restored-${i}`,
+          label: name,
+          locationId: "addon",
+          path: name,
+        })),
+        {
+          id: "hidden",
+          label: "Hidden",
+          locationId: "addon",
+          path: ".private.txt",
+        },
+        {
+          id: "escape",
+          label: "Outside",
+          locationId: "addon",
+          path: "../outside.txt",
+        },
+      ],
+    },
+    original.id,
+    original.revision,
+  );
+  for (const [name, body] of Object.entries(contents))
+    await fs.writeFile(path.join(f.config.documentRoot, name), body);
+  await fs.writeFile(
+    path.join(f.config.documentRoot, ".private.txt"),
+    "Private fixture",
+  );
+  const zip = path.join(f.root, "attachments.zip");
+  await f.service.export(createWriteStream(zip));
+  const preview = await f.service.prepare(createReadStream(zip));
+  await f.service.restore(preview.id, preview.revision);
+  assert.equal(
+    path.basename((await f.settings.read()).documentRoot),
+    ".restored-documents",
+  );
+  const { app } = await createApp({ directory: f.directory, allowOpen: false });
+  const server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve) => server.once("listening", resolve));
+  try {
+    const base = `http://127.0.0.1:${server.address().port}/api/nodes/note/resources/`;
+    for (const [i, [name, body]] of Object.entries(contents).entries()) {
+      const response = await fetch(base + `restored-${i}/file`);
+      assert.equal(response.status, 200, name);
+      assert.equal(await response.text(), body);
+      if (["guide.pdf", "picture.png"].includes(name)) {
+        assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+        assert.equal(
+          response.headers.get("content-type"),
+          name.endsWith("pdf") ? "application/pdf" : "image/png",
+        );
+      } else
+        assert.match(response.headers.get("content-disposition"), /attachment/);
+    }
+    const range = await fetch(base + "restored-0/file", {
+      headers: { Range: "bytes=0-3" },
+    });
+    assert.equal(range.status, 206);
+    assert.equal(await range.text(), "%PDF");
+    const download = await fetch(base + "restored-0/file?download=1");
+    assert.equal(download.status, 200);
+    assert.match(download.headers.get("content-disposition"), /attachment/);
+    await download.arrayBuffer();
+    for (const id of ["hidden", "escape"])
+      assert.equal((await fetch(base + id + "/file")).status, 400);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 test("restore detects attachment changes after preview and preserves both current files and staging", async (t) => {
   const f = await fixture(t),
     zip = path.join(f.root, "backup.zip");

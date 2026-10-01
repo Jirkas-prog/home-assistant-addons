@@ -357,8 +357,9 @@ export async function createApp({
       res
         .set("X-Content-Type-Options", "nosniff")
         .type(doc.mime)
-        .sendFile(doc.file);
-    else res.download(doc.file);
+        // The validated storage root may be the internal .restored-documents folder.
+        .sendFile(doc.file, { dotfiles: "allow" });
+    else res.download(doc.file, { dotfiles: "allow" });
   });
   app.put("/api/nodes/:id/resources/:index/text", async (req, res) =>
     res.json(
