@@ -2,6 +2,8 @@
 
 Open **Backup and restore** in the sidebar. The file counts come from the current library and managed document root. Use **Refresh file counts** after external edits.
 
+For additive imports, use **Import data package**. This separate workflow adds or updates selected records and attachments while preserving the rest of the library. See [Incremental data packages](DATA-PACKAGES.md). Full restore remains a complete library replacement.
+
 ## Export
 
 Select **Download full backup**. The ZIP contains every saved record, including knowledge, projects, tasks, inventory, links and structured work tools; settings and language; managed attachments, including unattached files; record and attachment history; archived records; and empty folders. A manifest lists sizes and SHA-256 hashes. Each stream is verified, and additions, deletions or edits detected before finalization abort the backup. Keep external editors idle while exporting; this is a verified file copy, not an operating-system snapshot.
@@ -14,7 +16,7 @@ Uploads and downloads show a progress bar, percentage with two decimal places, t
 
 Use **Pause**, **Resume** or **Cancel transfer**. Resume continues from confirmed chunks, each at most 2 MiB. An interrupted chunk may be repeated, and progress can return to the last confirmed boundary. A lost upload acknowledgement is reconciled with the server before sending more bytes. Connection interruptions pause the active transfer for an explicit retry. Cancellation stops the transfer and removes its temporary files without restoring or modifying the library.
 
-Navigation within the app preserves the transfer and displays floating controls outside the backup page. Uploads also survive refreshing or closing the page, connection loss and add-on restarts. When you return to the library, **Resume a backup upload** shows the original filename and confirmed progress. Choose **Resume upload**, **Later**, or **Cancel transfer**. The reminder remains available after choosing Later. Interrupted uploads have no automatic expiry; cancel abandoned uploads to reclaim disk space. Restore rollback libraries are never removed by transfer cleanup.
+Navigation within the app preserves the transfer and displays floating controls outside the backup page. Uploads also survive refreshing or closing the page, connection loss and add-on restarts. When you return to the library, **Resume an upload** shows the original filename and confirmed progress. Choose **Resume upload**, **Later**, or **Cancel transfer**. The reminder remains available after choosing Later. Interrupted uploads have no automatic expiry; cancel abandoned uploads to reclaim disk space. Restore rollback libraries are never removed by transfer cleanup.
 
 For an incomplete upload, select the original ZIP again: browsers cannot silently reopen a local file after a page is closed. The app checks the file size, a sample fingerprint and SHA-256 hashes of every previously uploaded chunk locally, showing verification progress. A different file is rejected without deleting the saved upload. Only the remaining bytes are sent. Checking a large uploaded prefix can take time but does not consume upload bandwidth. A fully uploaded ZIP needs no local file selection: Resume verifies the retained server copy and refreshes the restore preview, including an expired preview.
 

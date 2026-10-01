@@ -44,7 +44,7 @@ export function byteLimit(limit = MAX_BYTES) {
     },
   });
 }
-async function hashFile(file, signal) {
+export async function hashFile(file, signal) {
   const hash = createHash("sha256");
   for await (const chunk of createReadStream(file, { signal }))
     hash.update(chunk);
@@ -123,7 +123,7 @@ export async function fingerprint(directory, config, history = true, signal) {
     hashes.push({ path: file.name, sha256: await hashFile(file.file, signal) });
   return inventoryDigest(hashes, directories);
 }
-function archiveName(name) {
+export function archiveName(name) {
   if (
     typeof name !== "string" ||
     name.includes("\\") ||
@@ -332,7 +332,7 @@ export class Backups {
       throw error;
     }
   }
-  async prepare(input, { signal, id: requestedId } = {}) {
+  async prepare(input, { signal, id: requestedId, purpose = "restore" } = {}) {
     signal?.throwIfAborted();
     await fs.mkdir(this.root, { recursive: true });
     if ((await fs.lstat(this.root)).isSymbolicLink())
@@ -437,13 +437,16 @@ export class Backups {
         await fs.readFile(path.join(extracted, "manifest.json"), "utf8"),
       );
       if (
-        manifest.format !== "knowledge-atlas-backup" ||
-        ![1, 2].includes(manifest.version) ||
+        (purpose === "merge"
+          ? manifest.format !== "knowledge-atlas-package" ||
+            manifest.version !== 1
+          : manifest.format !== "knowledge-atlas-backup" ||
+            ![1, 2].includes(manifest.version)) ||
         !Array.isArray(manifest.files) ||
         manifest.files.length !== entries.size - 1
       )
         fail("Invalid backup manifest.");
-      if (manifest.version === 2) {
+      if (manifest.version === 2 || purpose === "merge") {
         if (
           !Array.isArray(manifest.directories) ||
           manifest.directories.length !== directories.size ||
@@ -469,6 +472,20 @@ export class Backups {
         )
           fail("Backup checksum verification failed.");
         listed.add(entry.path.toLowerCase());
+      }
+      if (purpose === "merge") {
+        const { previewPackage } = await import("./packages.js");
+        const plan = await previewPackage(this, id, manifest, signal);
+        await fs.writeFile(path.join(stage, "plan.tmp"), JSON.stringify(plan), {
+          flag: "wx",
+          flush: true,
+        });
+        await fs.rename(
+          path.join(stage, "plan.tmp"),
+          path.join(stage, "plan.json"),
+        );
+        await fs.unlink(zipPath);
+        return plan;
       }
       const candidate = path.join(extracted, "library");
       const config = new Settings(candidate, false).validate({
@@ -544,6 +561,8 @@ export class Backups {
       plan = JSON.parse(
         await fs.readFile(path.join(stage, "plan.json"), "utf8"),
       );
+    if (plan.kind === "merge")
+      fail("Use package import to merge this preview.");
     if (Date.now() - Date.parse(plan.created) > 24 * 3600_000)
       fail("The restore preview has expired. Upload the backup again.", 409);
     if (
@@ -603,6 +622,8 @@ export class Backups {
   async discard(id) {
     if (!ID.test(id)) fail("Invalid restore ID.");
     const stage = path.join(this.root, id);
+    if (await exists(path.join(stage, "merge-active.json")))
+      fail("The package import is still running.", 409);
     if (await exists(path.join(stage, "previous-library")))
       fail(
         "Preserved libraries cannot be deleted through preview cleanup.",

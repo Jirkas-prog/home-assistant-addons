@@ -106,6 +106,7 @@ function RecoveryDialog({ uploads, onClose, onResume, onRemoved }) {
         {uploads.map((upload, index) => (
           <article key={upload.id} className="upload-recovery-item">
             <strong>{upload.source?.name || upload.filename}</strong>
+            {upload.purpose === "merge" && <p>{t("package.upload")}</p>}
             <p>
               {formatPercent(upload.offset, upload.total, locale())} ·{" "}
               {formatBytes(upload.offset, locale())} /{" "}
@@ -114,7 +115,9 @@ function RecoveryDialog({ uploads, onClose, onResume, onRemoved }) {
             <p className="field-help">
               {t(
                 upload.offset === upload.total
-                  ? "transfer.alreadyUploaded"
+                  ? upload.purpose === "merge"
+                    ? "package.alreadyUploaded"
+                    : "transfer.alreadyUploaded"
                   : "transfer.selectOriginal",
               )}
             </p>

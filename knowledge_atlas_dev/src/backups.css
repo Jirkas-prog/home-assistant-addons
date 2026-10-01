@@ -161,6 +161,65 @@
 .backup-workbench > .map-legend {
   display: none;
 }
+.package-preview > label {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0;
+}
+.package-records {
+  max-height: 55vh;
+  overflow: auto;
+  margin: 20px 0;
+}
+.package-record {
+  border: 1px solid #35404d;
+  border-radius: 8px;
+  padding: 14px;
+  margin: 10px 0;
+}
+.package-record summary {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.package-record summary span {
+  color: #b8dc94;
+}
+.package-record summary::before {
+  content: "\25b8";
+  color: #a7e87b;
+}
+.package-record[open] summary::before {
+  transform: rotate(90deg);
+}
+.package-record code {
+  color: #9eafbd;
+  overflow-wrap: anywhere;
+}
+.package-record > label {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+}
+.package-comparison {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 18px;
+}
+.package-comparison > div {
+  min-width: 0;
+}
+.package-comparison pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  max-height: 260px;
+  overflow: auto;
+  padding: 12px;
+  background: #101820;
+  border-radius: 6px;
+}
 @media (max-width: 600px) {
   .backup-page {
     padding: 14px;

@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.10
+
+- Import incremental data packages into an existing library without uploading or replacing a complete backup. Include nested records, tasks, work tools and managed documents.
+- Preview new, identical and conflicting records; keep current content by default or choose an incoming record and preserve its previous version. Choose a target branch and validate the merged references.
+- Isolate package documents, reuse identical imports, preserve settings and apply changes with a recovery journal and rollback after failure or restart.
+- Retain resumable upload controls and package import mode across restarts. Add English/Czech controls, a documented package format and an offline package creation command.
+
 ## 5.0.1-dev.9
 
 - Persist confirmed upload chunks across page closure, connection loss and add-on restarts. Offer Resume, Later and Cancel when returning, with the saved filename, size and precise progress.

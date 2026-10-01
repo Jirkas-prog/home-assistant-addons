@@ -80,6 +80,7 @@ export class BackupTransfers {
       error,
       source,
       touched,
+      purpose,
     } = session;
     return {
       id,
@@ -92,6 +93,7 @@ export class BackupTransfers {
       error,
       source,
       touched,
+      purpose,
       chunkSize: TRANSFER_CHUNK,
     };
   }
@@ -115,7 +117,12 @@ export class BackupTransfers {
         session.job = null;
       });
   }
-  async create({ direction, size, source }) {
+  async create({ direction, size, source, purpose = "restore" }) {
+    if (
+      !["restore", "merge"].includes(purpose) ||
+      (direction === "download" && purpose !== "restore")
+    )
+      fail("Invalid transfer purpose.");
     if (!["upload", "download"].includes(direction))
       fail("Invalid transfer direction.");
     if (
@@ -132,6 +139,7 @@ export class BackupTransfers {
     const session = {
       id,
       direction,
+      purpose,
       folder,
       file: path.join(folder, "archive.zip"),
       state: direction === "download" ? "preparing" : "transferring",
@@ -253,7 +261,11 @@ export class BackupTransfers {
         await saveUpload(session);
         session.preview = await this.backups.prepare(
           createReadStream(session.file),
-          { signal: session.controller.signal, id: session.verificationId },
+          {
+            signal: session.controller.signal,
+            id: session.verificationId,
+            purpose: session.purpose,
+          },
         );
         session.controller.signal.throwIfAborted();
         session.state = "ready";
@@ -266,6 +278,15 @@ export class BackupTransfers {
   }
   async remove(id, { keepPreview = false } = {}) {
     const session = this.get(id);
+    if (
+      session.preview &&
+      (await fs
+        .lstat(
+          path.join(this.backups.root, session.preview.id, "merge-active.json"),
+        )
+        .catch(() => null))
+    )
+      fail("The package import is still running.", 409);
     session.state = "cancelling";
     session.controller.abort();
     await session.job?.catch(() => {});

@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.9` on 2026-10-01.
+Validated for Knowledge Atlas Dev `5.0.1-dev.10` on 2026-10-01.
 
-- All 116 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 128 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 893 matching translation keys.
+- English/Czech language audits pass with 939 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -35,3 +35,9 @@ Browser verification used a generic 32 MiB binary attachment in an embedded fram
 Development release 5.0.1-dev.9 adds durable upload journals, recovery endpoints, local original-file verification and retained restore previews. Ten additional tests cover restarted services, truncated unacknowledged tails, failed journal commits, old upload retention, malformed journals, interrupted verification, renewed previews, cancellation, file mismatches outside the sampled fingerprint, lost verification responses, saved settings and preserved rollback libraries.
 
 The embedded-browser test closed an upload at 24.99% (8 MiB of a generic 32.01 MiB ZIP), stopped and restarted the local server, then reopened the page. English and Czech recovery dialogs retained the exact progress. Selecting the original ZIP resumed successfully through the SHA-256 restore preview. Reloading at 100% recovered and reverified the ZIP without selecting a file again. Discarding the preview removed the recovery prompt on the next reload. Tests do not simulate physical power loss or certify every browser/storage implementation.
+
+## Incremental package validation
+
+Development release 5.0.1-dev.10 adds twelve tests covering partial nested libraries, managed attachments, an optional destination branch, identical reimports, conflict choices and history, stale previews, changed staging files, graph validation, missing attachments and locations, rollback after a failed write, and recovery after abruptly terminating a separate server process during the commit. The suite also covers durable upload purpose, protected HTTP endpoints, duplicate concurrent requests, reserved property names as record IDs, symlink containment, and preservation of an external edit encountered during rollback. Complete backups include the merged records and original attachment bytes; existing settings and unrelated files remain unchanged.
+
+English and Czech browser checks used a generic school package in an embedded frame. They verified keeping an existing record, adding a category beneath an existing branch, explicitly replacing a conflicting record, reusing an already imported document, updated search and counts, and opening the imported notebook in the integrated text viewer. Import fixtures contained no personal data. These checks used a small package; a 500 MB package transfer and an import on a real Home Assistant installation have not been exercised.

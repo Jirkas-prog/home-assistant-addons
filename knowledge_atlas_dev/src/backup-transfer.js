@@ -140,11 +140,13 @@ export class BackupTransfer {
       await this.request(`backup-transfers/${id}`, {
         method: "DELETE",
         body: JSON.stringify({ keepPreview: true }),
-      }).catch(() =>
-        this.emit({
-          error:
-            "The saved transfer could not be removed. Try cancelling it again when the connection returns.",
-        }),
+      }).catch((error) =>
+        error.status === 404
+          ? undefined
+          : this.emit({
+              error:
+                "The saved transfer could not be removed. Try cancelling it again when the connection returns.",
+            }),
       );
   }
   async gate() {
@@ -185,7 +187,36 @@ export class BackupTransfer {
     });
     this.session = null;
   }
-  async start(direction, file, resumeSession = null) {
+  async merge(preview, options) {
+    if (this.active) return;
+    this.emit({
+      phase: "merging",
+      error: "",
+      mergeResult: null,
+      mergeProgress: null,
+    });
+    try {
+      let status = await this.request(`packages/${preview.id}/import`, {
+        method: "POST",
+        body: JSON.stringify({ ...options, revision: preview.revision }),
+      });
+      while (status.phase === "applying") {
+        this.emit({ mergeProgress: status });
+        await this.wait(700);
+        status = await this.request(`packages/${preview.id}/status`);
+      }
+      if (status.phase !== "complete")
+        throw new Error(
+          status.error ||
+            "The package could not be imported. Check storage space and try again.",
+        );
+      await this.clearPreview();
+      this.emit({ phase: "complete", mergeResult: status });
+    } catch (error) {
+      this.emit({ phase: "error", error: errorMessage(error) });
+    }
+  }
+  async start(direction, file, resumeSession = null, purpose = "restore") {
     if (this.active) return;
     // Open a picker before the first await consumes transient user activation.
     const filename =
@@ -208,6 +239,7 @@ export class BackupTransfer {
     this.state = {
       ...idle,
       direction,
+      purpose: resumeSession?.purpose || purpose,
       filename,
       total: resumeSession?.total ?? file?.size ?? null,
       loaded: this.committed,
@@ -256,7 +288,12 @@ export class BackupTransfer {
         if (this.cancelled) throw abortError();
         this.session = await this.request("backup-transfers", {
           method: "POST",
-          body: JSON.stringify({ direction, size: file?.size, source }),
+          body: JSON.stringify({
+            direction,
+            size: file?.size,
+            source,
+            purpose,
+          }),
         });
       }
       if (this.cancelled) throw abortError();

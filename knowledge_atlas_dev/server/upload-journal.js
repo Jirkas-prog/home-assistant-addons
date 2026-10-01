@@ -30,8 +30,17 @@ export async function syncFile(file) {
 }
 export async function saveUpload(session) {
   if (session.direction !== "upload") return;
-  const { id, state, total, offset, source, chunks, touched, verificationId } =
-    session;
+  const {
+    id,
+    state,
+    total,
+    offset,
+    source,
+    chunks,
+    touched,
+    verificationId,
+    purpose,
+  } = session;
   const temp = path.join(session.folder, "session.tmp");
   const handle = await fs.open(temp, "w");
   try {
@@ -46,6 +55,7 @@ export async function saveUpload(session) {
         chunks,
         touched,
         verificationId,
+        purpose,
       }),
     );
     await handle.sync();
@@ -72,6 +82,7 @@ export async function recoverUpload(folder, backups, chunkLimit) {
   const saved = JSON.parse(await fs.readFile(journal, "utf8"));
   if (
     saved.version !== 1 ||
+    (saved.purpose != null && !["restore", "merge"].includes(saved.purpose)) ||
     !ID.test(saved.id) ||
     saved.id !== path.basename(folder) ||
     !Number.isSafeInteger(saved.total) ||
@@ -112,6 +123,7 @@ export async function recoverUpload(folder, backups, chunkLimit) {
     chunks: saved.chunks,
     touched: saved.touched,
     verificationId: saved.verificationId,
+    purpose: saved.purpose || "restore",
     source: validateSource(saved.source),
     direction: "upload",
     folder,

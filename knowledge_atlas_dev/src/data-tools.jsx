@@ -1,4 +1,9 @@
-import React, { useState, useEffect, useSyncExternalStore } from "react";
+import React, {
+  useState,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import {
   Download,
   Upload,
@@ -11,6 +16,7 @@ import { api } from "./client.js";
 import { t, locale, localizeMessage } from "../shared/i18n.js";
 import { backupTransfer } from "./backup-transfer.js";
 import { BackupTransferPanel } from "./backup-transfer-panel.jsx";
+import { PackagePreview } from "./package-preview.jsx";
 
 export function DataTools({ onChanged, backupOnly = false }) {
   const transfer = useSyncExternalStore(
@@ -27,12 +33,21 @@ export function DataTools({ onChanged, backupOnly = false }) {
     [repair, setRepair] = useState(null),
     [confirmed, setConfirmed] = useState(false);
   const busy = working || backupTransfer.active;
+  const previousMerge = useRef(transfer.mergeResult);
   useEffect(() => {
-    if (transfer.preview) {
-      setPreview(transfer.preview);
-      setConfirmed(false);
-    }
+    setPreview(transfer.preview);
+    setConfirmed(false);
   }, [transfer.preview]);
+  useEffect(() => {
+    if (
+      transfer.mergeResult &&
+      previousMerge.current !== transfer.mergeResult
+    ) {
+      Promise.resolve(onChanged()).catch((e) => setError(e.message));
+      refreshCoverage();
+    }
+    previousMerge.current = transfer.mergeResult;
+  }, [transfer.mergeResult]);
   const refreshCoverage = () =>
     api("backups/summary")
       .then(setCoverage)
@@ -51,6 +66,17 @@ export function DataTools({ onChanged, backupOnly = false }) {
     } finally {
       setBusy(false);
     }
+  }
+  async function upload(file, purpose = "restore") {
+    if (!file) return;
+    await run(async () => {
+      if (preview)
+        await api(`backups/${preview.id}`, { method: "DELETE", body: "{}" });
+      setPreview(null);
+      await backupTransfer.clearPreview();
+      setConfirmed(false);
+      await backupTransfer.start("upload", file, null, purpose);
+    });
   }
   return (
     <section className="data-tools">
@@ -138,6 +164,20 @@ export function DataTools({ onChanged, backupOnly = false }) {
             }}
           />
         </label>
+        <label className="secondary-button upload-label">
+          <Upload size={16} />
+          {t("package.upload")}
+          <input
+            type="file"
+            accept=".zip,application/zip"
+            disabled={busy}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              upload(file, "merge");
+            }}
+          />
+        </label>
         {!backupOnly && (
           <button
             type="button"
@@ -166,6 +206,17 @@ export function DataTools({ onChanged, backupOnly = false }) {
         )}
       </div>
       <BackupTransferPanel />
+      {transfer.mergeResult && (
+        <p className="document-message" role="status">
+          {t(
+            "package.result",
+            transfer.mergeResult.added,
+            transfer.mergeResult.replaced,
+            transfer.mergeResult.kept,
+            transfer.mergeResult.documents,
+          )}
+        </p>
+      )}
       {working && !backupTransfer.active && (
         <p role="status">{t("data.busy")}</p>
       )}
@@ -179,7 +230,27 @@ export function DataTools({ onChanged, backupOnly = false }) {
           {error}
         </p>
       )}
-      {preview && (
+      {preview?.kind === "merge" && (
+        <PackagePreview
+          preview={preview}
+          busy={busy}
+          onApply={(options) => backupTransfer.merge(preview, options)}
+          onRefresh={() =>
+            backupTransfer.start("upload", null, backupTransfer.session)
+          }
+          onDiscard={() =>
+            run(async () => {
+              await api(`backups/${preview.id}`, {
+                method: "DELETE",
+                body: "{}",
+              });
+              await backupTransfer.clearPreview();
+              setPreview(null);
+            })
+          }
+        />
+      )}
+      {preview && preview.kind !== "merge" && (
         <div className="data-panel">
           <h3>{t("data.restorePreview")}</h3>
           {preview.checksumVerified && (

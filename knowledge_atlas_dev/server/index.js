@@ -7,6 +7,7 @@ import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { Backups, recoverRestore } from "./backups.js";
 import { registerBackupTransfers } from "./backup-transfers.js";
+import { PackageImports, recoverPackage } from "./packages.js";
 import { Maintenance } from "./maintenance.js";
 import { Store, fail, serialize, parseMarkdown } from "./store.js";
 import { Settings, locationId, digest } from "./settings.js";
@@ -24,15 +25,27 @@ export async function createApp({
   allowOpen = process.platform === "win32" && !ingress,
 } = {}) {
   await recoverRestore(directory);
+  await recoverPackage(directory);
   const store = new Store(directory);
   await store.init();
   const settings = new Settings(directory, ingress);
   await settings.init();
   const backups = new Backups(directory, settings);
   const maintenance = new Maintenance(store, settings, backups);
+  let packageImports;
+  const checkPackageRecovery = () => {
+    if (packageImports?.recoveryRequired)
+      fail(
+        "Package recovery found an externally changed file. Keep the operations directory for manual recovery.",
+        503,
+      );
+  };
   let queue = Promise.resolve();
   const mutate = (fn) => {
-    const result = queue.then(fn);
+    const result = queue.then(() => {
+      checkPackageRecovery();
+      return fn();
+    });
     queue = result.catch(() => {});
     return result;
   };
@@ -96,6 +109,13 @@ export async function createApp({
       limit: "2mb",
     }),
   );
+  app.use(async (req, res, next) => {
+    if (!/^\/api\/packages\/[^/]+\/status$/.test(req.path)) {
+      if (req.method === "GET") await packageImports?.wait();
+      checkPackageRecovery();
+    }
+    next();
+  });
   app.get("/api/health", (req, res) =>
     res.json({
       ok: true,
@@ -103,7 +123,16 @@ export async function createApp({
     }),
   );
   registerTools(app, store, mutate);
-  await registerBackupTransfers(app, backups, mutate);
+  const transfers = await registerBackupTransfers(app, backups, mutate);
+  packageImports = new PackageImports(backups, mutate, transfers);
+  app.post("/api/packages/:id/import", async (req, res) =>
+    res.status(202).json(await packageImports.start(req.params.id, req.body)),
+  );
+  app.get("/api/packages/:id/status", async (req, res) =>
+    res
+      .set("Cache-Control", "no-store")
+      .json(await packageImports.status(req.params.id)),
+  );
   app.get("/api/nodes", async (req, res) => {
     const snapshot = await store.read();
     let config;

@@ -1,5 +1,7 @@
 # Knowledge Atlas documentation
 
+To add only new or updated records and documents to an existing library, use **Backup and restore > Import data package**. Review conflicts before merging; this preserves the rest of the library and its settings. See [Incremental data packages](docs/DATA-PACKAGES.md) for the workflow and package creation command.
+
 ## First start
 
 Start the add-on and open its web interface through Home Assistant. Ingress handles authentication. The service accepts Ingress connections from the Supervisor gateway only; no host port is exposed.
