@@ -26,17 +26,20 @@ export const t = (key, ...values) => translate(language, key, ...values);
 // The API and logs stay in English. Translate known messages for display only;
 // captured filenames, titles and other user content are never translated.
 const escape = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const messages = Object.entries(en).map(([key, value]) => ({
-  key,
-  pattern: new RegExp(
-    "^" +
-      value
-        .split(/\{\d+\}/)
-        .map(escape)
-        .join("([\\s\\S]*?)") +
-      "$",
-  ),
-}));
+// Exact errors must win over broad labels such as "Checkpoint {0}".
+const messages = Object.entries(en)
+  .sort(([, a], [, b]) => Number(/\{\d+\}/.test(a)) - Number(/\{\d+\}/.test(b)))
+  .map(([key, value]) => ({
+    key,
+    pattern: new RegExp(
+      "^" +
+        value
+          .split(/\{\d+\}/)
+          .map(escape)
+          .join("([\\s\\S]*?)") +
+        "$",
+    ),
+  }));
 export function localizeMessage(message) {
   if (language !== "cs" || typeof message !== "string") return message;
   for (const { key, pattern } of messages) {

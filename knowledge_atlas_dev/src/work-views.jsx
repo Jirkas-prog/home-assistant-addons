@@ -13,12 +13,9 @@ import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { locationLabel } from "../shared/locations.js";
 import { importancePriority } from "../shared/importance.js";
 import { Timeline } from "./timeline.jsx";
-import {
-  TASK_STATUS,
-  PRIORITIES,
-  projectFor,
-  localDate,
-} from "./work-model.js";
+import { checkpoints, taskUrgencies } from "../shared/checkpoints.js";
+import { useToday } from "./use-today.js";
+import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
 export function Inventory({ nodes, settings, query, scope, onSelect, onNew }) {
   const [place, setPlace] = useState("");
   const items = filterNodes(nodes, {
@@ -153,7 +150,15 @@ export function Tasks({
       ),
     [nodes, query, scope, project, status, mode, settings],
   );
-  const today = localDate();
+  const today = useToday();
+  const allTasks = useMemo(
+    () => nodes.filter((n) => n.type === "task"),
+    [nodes],
+  );
+  const urgencyById = useMemo(
+    () => taskUrgencies(allTasks, today),
+    [allTasks, today],
+  );
   async function move(n, status) {
     if (n.status === status) return;
     setBusy(n.id);
@@ -169,7 +174,7 @@ export function Tasks({
   }
   const card = (n) => (
     <article
-      className={`task-card ${n.status !== "done" && n.task?.due && n.task.due < today ? "overdue" : ""}`}
+      className={`task-card ${urgencyById.get(n.id).overdue ? "overdue" : ""}`}
       key={n.id}
       draggable={!busy}
       onDragStart={(e) => {
@@ -194,6 +199,24 @@ export function Tasks({
           </span>
         )}
       </div>
+      {checkpoints(n).length > 0 && (
+        <p className="task-checkpoint-progress">
+          {t("checkpoint.title")} ·{" "}
+          {t(
+            "checkpoint.progress",
+            checkpoints(n).filter((p) => p.done).length,
+            checkpoints(n).length,
+          )}
+          {urgencyById.get(n.id).overdueCheckpoints > 0 && (
+            <strong>
+              {t(
+                "checkpoint.overdueCount",
+                urgencyById.get(n.id).overdueCheckpoints,
+              )}
+            </strong>
+          )}
+        </p>
+      )}
       <small>
         {projectFor(n, nodes)?.title || t("m404")}
         {n.task?.assignee && ` · ${n.task.assignee}`}
@@ -278,11 +301,7 @@ export function Tasks({
         {" " + t("m256") + " "}
         {tasks.filter((n) => n.status === "done").length}
         {" " + t("m257") + " "}
-        {
-          tasks.filter(
-            (n) => n.status !== "done" && n.task?.due && n.task.due < today,
-          ).length
-        }
+        {tasks.filter((n) => urgencyById.get(n.id).overdue).length}
         {" " + t("m258")}
       </div>
       {error && (
@@ -330,6 +349,7 @@ export function Tasks({
       ) : (
         <Timeline
           tasks={tasks}
+          allTasks={allTasks}
           statuses={timelineStatuses}
           setStatuses={setTimelineStatuses}
           onEdit={onEdit}

@@ -80,6 +80,7 @@ import {
   withImportance,
 } from "../shared/importance.js";
 import { ImportanceStars, RecordImportance } from "./importance.jsx";
+import { CheckpointEditor, TaskCheckpoints } from "./checkpoints.jsx";
 import { InventoryEditor } from "./inventory-editor.jsx";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { StockMovements } from "./stock-movements.jsx";
@@ -1621,6 +1622,12 @@ function App() {
                             {node.task?.start || t("m163")} →{" "}
                             {node.task?.due || t("m164")}
                           </p>
+                          <TaskCheckpoints
+                            key={node.id}
+                            node={node}
+                            allTasks={nodes.filter((n) => n.type === "task")}
+                            onSaved={load}
+                          />
                           {projectFor(node, nodes) && (
                             <button
                               onClick={() => choose(projectFor(node, nodes))}
@@ -2154,6 +2161,12 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                   />
                 </label>
               </div>
+              <CheckpointEditor
+                node={form}
+                onChange={(checkpoints) =>
+                  set("task", { ...form.task, checkpoints })
+                }
+              />
               <label>
                 {t("m199")}
                 <select

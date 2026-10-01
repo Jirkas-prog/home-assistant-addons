@@ -74,6 +74,8 @@ Use **Time scale** for 24 hours, 3, 7, 30, 90, 180 or 360 days. **Eternity · al
 
 The four status checkboxes independently include planned, in-progress, waiting and completed tasks. They combine with project, branch and search filters. Changing filters recomputes row packing; changing importance preserves the current time scale and position.
 
+Use **Add checkpoint** in the task editor to enter a due date and completion criteria. Checkpoints appear in task details and in the timeline flag menu; checking or reopening one saves immediately. Diamonds mark checkpoint deadlines along the bar. Overdue checkpoints make the entire task bar red and count toward overdue-task statistics. See [Checkpoints and urgency](docs/CHECKPOINTS.md) for the color rules and manual Markdown format.
+
 Inventory supports explicit storage placements separate from attachments. In an item editor, choose **Set storage distribution**, specify physical places and their quantities, and save. A place can belong to another physical place (for example Workshop / Cabinet / Top drawer). Filtering a place includes its descendants; displayed quantities and CSV count only matching placements. A stock of three units in a workshop and two in a dormitory has five available units overall, but the workshop filter exports three.
 
 Legacy `quantity` and resource references remain readable. Their distribution is not guessed: conversion starts with a quantity to assign explicitly, and existing references remain preserved. **One unique item** restricts available plus loaned stock to one. Counts of item records, available units and outstanding loans are distinct; note counts do not imply skill mastery.

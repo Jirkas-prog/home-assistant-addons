@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.4` on 2026-10-01.
+Validated for Knowledge Atlas Dev `5.0.1-dev.5` on 2026-10-01.
 
-- All 84 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 93 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 745 matching translation keys.
+- English/Czech language audits pass with 784 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -14,6 +14,8 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.4` on 2026-10-01.
 - Browser checks cover formatted Markdown, PDF rendering, TXT editing and saving, image previews, persisted document selection, and double-click opening/closing in both 2D and 3D with the view and panel state preserved.
 - Timeline tests check inclusive dates, open endpoints, minimum lane counts over varied overlaps, off-screen filtering, continuous zoom limits, cursor anchoring, wheel units, pinch scaling and panning, bounded ruler ticks and all-date fitting.
 - English/Czech browser checks cover all eight timeline presets, status checkboxes, importance saves inside bars, keyboard pan/zoom, labels following the viewport and a 390-pixel layout without horizontal page overflow. Native physical touchpad and touchscreen gestures have not been exercised on hardware; their coordinate calculations have automated coverage.
+- Checkpoint tests cover validation, completion timestamps, inclusive dates, importance thresholds, overdue overrides, nearby deadline pressure, manual edits, search, API conflict protection, restart, backup restoration and localization.
+- English/Czech browser checks cover adding and removing checkpoints, editing dates and criteria, quick completion and reopening, saved completion times after restart, red/green bar changes, overdue counts, checkpoint search and marker dialogs. Filters retain urgency from hidden neighboring tasks. Saves preserve the timeline range, keyboard focus returns after saving and closing, and the checklist and editor fit a 390-pixel layout. No browser console errors were recorded.
 - Restart and update tests preserve existing records and saved language settings; no storage schema or path changes are introduced by this release.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.

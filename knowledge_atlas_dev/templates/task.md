@@ -16,6 +16,7 @@ task:
   due: ""
   priority: normal
   assignee: ""
+  checkpoints: []
 ---
 
 # Task notes

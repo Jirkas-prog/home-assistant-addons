@@ -13,7 +13,13 @@ export function taskInterval(node) {
 export function fitTimeline(tasks, today = dayNumber(localDate())) {
   const dates = tasks.flatMap((task) => {
     const { start, end } = taskInterval(task);
-    return [start, end].filter(Number.isFinite);
+    return [
+      start,
+      end,
+      ...(task.task?.checkpoints || []).map(
+        (point) => dayNumber(point.due) + 1,
+      ),
+    ].filter(Number.isFinite);
   });
   const min = Math.min(today, ...dates),
     max = Math.max(today + 1, ...dates);

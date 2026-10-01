@@ -1,8 +1,16 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
 import { t, locale } from "../shared/i18n.js";
-import { TASK_STATUS, dayNumber, localDate } from "./work-model.js";
+import { TASK_STATUS, dayNumber } from "./work-model.js";
 import { RecordImportance } from "./importance.jsx";
+import {
+  checkpoints,
+  taskUrgencies,
+  urgencyStyle,
+  dateDay,
+} from "../shared/checkpoints.js";
+import { CheckpointDialog, urgencyDescription } from "./checkpoints.jsx";
+import { useToday } from "./use-today.js";
 import {
   TIME_PRESETS,
   fitTimeline,
@@ -16,13 +24,21 @@ import "./timeline.css";
 
 export function Timeline({
   tasks,
+  allTasks,
   statuses,
   setStatuses,
   onEdit,
   onRefresh,
   onError,
 }) {
-  const today = dayNumber(localDate());
+  const todayDate = useToday(),
+    today = dayNumber(todayDate);
+  const urgencyById = useMemo(
+    () => taskUrgencies(allTasks, todayDate),
+    [allTasks, todayDate],
+  );
+  const [checkpointTaskId, setCheckpointTaskId] = useState(null);
+  const checkpointTask = allTasks.find((node) => node.id === checkpointTaskId);
   const [view, setView] = useState({
     start: today - 5,
     days: 30,
@@ -226,6 +242,22 @@ export function Timeline({
       </fieldset>
       <p className="timeline-instructions">{t("timeline.gestures")}</p>
       <div
+        className="timeline-urgency-legend"
+        aria-label={t("checkpoint.legend")}
+      >
+        {[
+          ["onTrack", 0],
+          ["attention", 0.5],
+          ["urgent", 1],
+        ].map(([label, score]) => (
+          <span key={label} style={urgencyStyle({ score })}>
+            <i />
+            {t(`checkpoint.${label}`)}
+          </span>
+        ))}
+        <span>{t("checkpoint.legendHelp")}</span>
+      </div>
+      <div
         className="timeline-surface"
         ref={host}
         role="region"
@@ -268,29 +300,34 @@ export function Timeline({
         )}
         {layout.items.map(({ node, start, end, left, right, lane }) => {
           const pixels = ((right - left) / view.days) * width;
+          const urgency = urgencyById.get(node.id);
+          const urgencyText = `${t(`checkpoint.${urgency.completed ? "completed" : urgency.level}`)} · ${urgencyDescription(urgency)}`;
+          const points = checkpoints(node);
+          const markerDates = [...new Set(points.map((p) => p.due))];
           const range = `${Number.isFinite(start) ? date(start) : "−∞"} → ${Number.isFinite(end) ? date(end - 1) : "+∞"}`;
           return (
             <article
               key={node.id}
-              className={`timeline-task-bar ${node.status}`}
-              aria-label={`${node.title} · ${range}`}
+              className={`timeline-task-bar ${node.status} urgency`}
+              aria-label={`${node.title} · ${range} · ${urgencyText}`}
               style={{
+                ...urgencyStyle(urgency),
                 left: `${percent(left)}%`,
                 width: `${((right - left) / view.days) * 100}%`,
                 top: 58 + lane * 52,
               }}
-              title={`${node.title} · ${range}`}
+              title={`${node.title} · ${range} · ${urgencyText}`}
             >
               <div className="timeline-bar-content">
                 <button
                   className="timeline-item-title"
-                  style={{ width: Math.min(240, Math.max(42, pixels - 132)) }}
+                  style={{ width: Math.min(240, Math.max(42, pixels - 192)) }}
                   onClick={() => onEdit(node)}
-                  title={`${node.title} · ${range}`}
+                  title={`${node.title} · ${range} · ${urgencyText}`}
                 >
                   {node.title}
                 </button>
-              <div className="timeline-inline-stars">
+                <div className="timeline-inline-stars">
                   <RecordImportance
                     node={node}
                     onSaved={onRefresh}
@@ -298,7 +335,42 @@ export function Timeline({
                     compact
                   />
                 </div>
+                <button
+                  className="timeline-checkpoint-button"
+                  aria-label={t("checkpoint.forTask", node.title)}
+                  title={urgencyText}
+                  onClick={() => setCheckpointTaskId(node.id)}
+                >
+                  <Flag size={14} />
+                  {points.filter((p) => p.done).length}/{points.length}
+                </button>
               </div>
+              {pixels >= 16 &&
+                markerDates.map((due) => {
+                  const day = dateDay(due) + 1;
+                  if (day < left || day > right) return null;
+                  const dated = points.filter((p) => p.due === due),
+                    done = dated.every((p) => p.done);
+                  return (
+                    <button
+                      key={due}
+                      className={`timeline-checkpoint-marker ${done ? "done" : due < todayDate ? "overdue" : ""}`}
+                      style={{
+                        left: Math.min(
+                          pixels - 6,
+                          Math.max(6, ((day - left) / view.days) * width),
+                        ),
+                      }}
+                      aria-label={t(
+                        "checkpoint.marker",
+                        date(day - 1),
+                        dated.length,
+                      )}
+                      title={dated.map((p) => p.description).join(" · ")}
+                      onClick={() => setCheckpointTaskId(node.id)}
+                    />
+                  );
+                })}
             </article>
           );
         })}
@@ -309,6 +381,15 @@ export function Timeline({
       <p className="timeline-lane-count">
         {t("timeline.lanes", layout.items.length, layout.lanes)}
       </p>
+      {checkpointTask && (
+        <CheckpointDialog
+          node={checkpointTask}
+          allTasks={allTasks}
+          onSaved={onRefresh}
+          onEdit={onEdit}
+          onClose={() => setCheckpointTaskId(null)}
+        />
+      )}
     </div>
   );
 }

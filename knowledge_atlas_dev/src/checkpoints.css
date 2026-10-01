@@ -1,0 +1,221 @@
+.checkpoint-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+.task-checkpoint-progress strong {
+  display: block;
+  color: #ffaaaa;
+  font-size: 11px;
+  font-weight: 500;
+}
+.checkpoint-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  font-size: 14px;
+}
+.checkpoint-heading > span,
+.checkpoint-help {
+  font-size: 12px;
+  color: #a7b4c6;
+  line-height: 1.6;
+}
+.checkpoint-editor {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.checkpoint-fields {
+  min-width: 0;
+  border: 1px solid #354152;
+  border-radius: 8px;
+  padding: 12px;
+  margin: 14px 0;
+}
+.checkpoint-fields legend {
+  color: #b9c6d8;
+  font-size: 12px;
+  padding: 0 6px;
+}
+.checkpoint-fields label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+}
+.checkpoint-field-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.checkpoint-field-row > label:first-child {
+  flex: 1;
+}
+.checkpoint-field-row .checkpoint-done {
+  display: flex;
+  align-items: center;
+}
+.checkpoint-fields textarea {
+  width: 100%;
+  min-height: 64px;
+}
+.checkpoint-fields input[type="checkbox"],
+.checkpoint-entry input {
+  accent-color: #ade97e;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.checkpoint-entry {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 10px;
+  border: 1px solid #354152;
+  border-radius: 8px;
+  margin: 9px 0;
+  cursor: pointer;
+}
+.checkpoint-entry > span {
+  flex: 1;
+  min-width: 0;
+}
+.checkpoint-entry strong {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: #dce5f0;
+  font-size: 13px;
+}
+.checkpoint-entry em {
+  font-size: 11px;
+  font-style: normal;
+  color: #b2c39b;
+}
+.checkpoint-entry.overdue {
+  border-color: #e47878;
+  background: #62292930;
+}
+.checkpoint-entry.overdue em {
+  color: #ffaaaa;
+}
+.checkpoint-description {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.checkpoint-entry small {
+  display: block;
+  margin-top: 7px;
+  color: #a7b4c6;
+  font-size: 11px;
+}
+.urgency-summary {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  margin: 10px 0;
+  border-left: 3px solid var(--urgency-border);
+  border-radius: 6px;
+  background: var(--urgency-fill);
+  color: #eff3f7;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.urgency-summary strong {
+  font-size: 13px;
+}
+.checkpoint-dialog {
+  width: min(650px, 94vw);
+  max-height: 90vh;
+}
+.checkpoint-dialog-body {
+  padding: 8px 22px 20px;
+  overflow: auto;
+  min-height: 0;
+}
+.checkpoint-dialog header h2 {
+  overflow-wrap: anywhere;
+}
+.timeline-v2 .timeline-task-bar.urgency {
+  border-color: var(--urgency-border);
+  background: var(--urgency-fill);
+}
+.timeline-checkpoint-button {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+  padding: 4px 6px;
+  border-left: 1px solid #ffffff30;
+  font-size: 11px;
+  height: 30px;
+}
+.timeline-checkpoint-button:hover {
+  background: #ffffff15;
+}
+.timeline-checkpoint-marker {
+  position: absolute;
+  bottom: 0;
+  width: 16px;
+  height: 8px;
+  padding: 0;
+  transform: translateX(-50%);
+  z-index: 4;
+}
+.timeline-checkpoint-marker::after {
+  content: "";
+  display: block;
+  margin: auto;
+  width: 6px;
+  height: 6px;
+  background: #f7f2d6;
+  transform: rotate(45deg);
+  border: 1px solid #18222e;
+}
+.timeline-checkpoint-marker.done::after {
+  background: #a7e87b;
+}
+.timeline-checkpoint-marker.overdue::after {
+  background: #ff8e8e;
+}
+.timeline-task-bar .timeline-bar-content {
+  height: calc(100% - 6px);
+}
+.timeline-urgency-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin: 8px 0;
+  color: #b9c6d8;
+  font-size: 11px;
+}
+.timeline-urgency-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.timeline-urgency-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--urgency-border);
+}
+@media (max-width: 700px) {
+  .checkpoint-dialog-body {
+    padding: 8px 14px 15px;
+  }
+  .checkpoint-editor {
+    padding: 10px;
+  }
+}

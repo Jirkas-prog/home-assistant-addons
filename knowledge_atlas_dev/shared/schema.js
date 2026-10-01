@@ -1,6 +1,7 @@
 import { validateStock } from "./inventory.js";
 import { validateTool, toolReferences } from "./tools.js";
 import { validImportance } from "./importance.js";
+import { validateCheckpoints } from "./checkpoints.js";
 export const TYPES = [
   "category",
   "project",
@@ -98,6 +99,7 @@ export function validateNode(n) {
   if (n.task != null) {
     if (typeof n.task !== "object" || Array.isArray(n.task))
       fail("Invalid task data.");
+    validateCheckpoints(n.task, fail);
     for (const key of ["start", "due"])
       if (
         n.task[key] &&

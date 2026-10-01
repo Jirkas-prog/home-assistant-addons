@@ -85,7 +85,30 @@ test("complete backup round trip preserves every saved record kind, metadata, fi
           ? { importance: 5 }
           : {}),
         ...(type === "task"
-          ? { task: { start: "", due: "", priority: "normal", assignee: "" } }
+          ? {
+              task: {
+                start: "",
+                due: "",
+                priority: "normal",
+                assignee: "",
+                checkpoints: [
+                  {
+                    id: "design",
+                    due: "2026-10-01",
+                    description: "Approve the design",
+                    done: true,
+                    completedAt: "2026-09-30T12:00:00.000Z",
+                    evidence: "Review notes",
+                  },
+                  {
+                    id: "test",
+                    due: "2026-10-08",
+                    description: "Verify the prototype",
+                    done: false,
+                  },
+                ],
+              },
+            }
           : {}),
         provenance: { source: "Manual author", custom: 42 },
       }),

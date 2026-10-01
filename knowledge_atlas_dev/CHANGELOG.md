@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.5
+
+- Add dated task checkpoints with completion criteria, quick checkboxes and recorded completion times.
+- Color the entire timeline bar red when a checkpoint is overdue. Gradually vary urgency from green to yellow to red using importance, upcoming deadlines and nearby pending deadlines across the library.
+- Show checkpoint markers and completion counts inside task bars, with an accessible dialog explaining the current urgency. Preserve the time scale and position when checking off a checkpoint.
+- Include checkpoints in task details, board progress, overdue counts, search, all-date fitting and complete backups. Recalculate urgency after midnight and when returning to the app.
+- Validate manual Markdown and editor changes, preserve custom metadata and reject conflicting saves. Keep all controls and errors available in English and Czech.
+
 ## 5.0.1-dev.4
 
 - Show physical locations and file attachments directly below importance, before record notes.

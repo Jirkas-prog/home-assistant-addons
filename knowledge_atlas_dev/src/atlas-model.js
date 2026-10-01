@@ -68,6 +68,10 @@ export function matchesQuery(node, query, type = "all", locations = []) {
       node.body,
       toolSearchText(node),
       node.task?.assignee || "",
+      ...(node.task?.checkpoints || []).flatMap((point) => [
+        point.description,
+        point.due,
+      ]),
       ...(node.stock?.placements || []).flatMap((p) => [
         p.detail,
         locationLabel(locations, p.locationId),
