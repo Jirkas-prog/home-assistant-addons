@@ -378,7 +378,7 @@
   "m176": "Select a map node",
   "m177": "Its content, files and connections will open here.",
   "m178": "New root",
-  "m179": "Larger node = higher level",
+  "m179": "Size: hierarchy and importance",
   "m180": "Markdown imported.",
   "m181": "Saved to Markdown.",
   "m182": "RECORD PAGE",
@@ -705,5 +705,14 @@
   "navigation.hint": "{0}: click to open; right-click for other paths.",
   "navigation.otherPaths": "Other paths at {0}",
   "navigation.sameLevel": "Paths at this level",
-  "navigation.sections": "Workspace sections"
+  "navigation.sections": "Workspace sections",
+  "layout.resizeDetails": "Resize details panel",
+  "layout.resizeHint": "Drag left or right to resize. Use the arrow keys for fine adjustments. Double-click to reset the width.",
+  "layout.detailsWidth": "Panel width: {0} pixels",
+  "importance.label": "Importance",
+  "importance.help": "More stars make this project's or item's bubble larger in both maps. Three stars keep the normal size; hierarchy still affects the base size.",
+  "importance.value": "{0} of 5 stars",
+  "importance.error": "Importance must be an integer from 1 to 5.",
+  "importance.forRecord": "Importance: {0}",
+  "importance.taskHelp": "Set one to five stars. The same rating appears on the timeline and in task details. Dates and duration remain controlled by the schedule."
 }

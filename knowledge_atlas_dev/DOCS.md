@@ -30,7 +30,11 @@ Click a level in the page or record path to open it. Right-click that level, sel
 
 Every visible map bubble can open its record regardless of the currently selected hierarchy level. Click the bubble or its visible label. Small bubbles retain a larger click target, and visible bubbles take priority over overlapping labels and padded targets. Area and search filters determine which records appear in the map.
 
+Set **Importance** by clicking one of the five stars at the top of a project or inventory item's details. The change saves immediately and resizes its bubble in both 2D and 3D. Three stars keep the normal size; hierarchy still determines the base size. Use the arrow keys to change the focused rating, or **Home** / **End** for one / five stars. The editor offers the same control. The value is saved in Markdown; manual changes to `importance` are applied by automatic refresh. Older records default to three stars without a migration.
+
 Use the mouse wheel to zoom in either map. Wheel sensitivity is increased by 25%; in 2D, the point under the cursor stays in place. Drag to pan in 2D or rotate in 3D. **Fit entire map** resets the view to the visible records.
+
+Drag the left edge of the record details panel to change its width. The preference is saved in this browser for each release channel and survives reloads. Double-click the handle to restore the default width. With the handle focused, use **Left** / **Right** to resize, **Shift** for larger steps, or **Home** / **End** for the minimum / maximum width. The main view keeps usable space; on narrow screens the panel remains below it.
 
 ## Files and locations
 
@@ -55,6 +59,8 @@ Uploads accept files up to 50 MB and never overwrite an existing filename. The u
 ## Projects, tasks and inventory
 
 Create a **Project**, then use **Add project task**. A task can reference a project with `projectId`, independently of its tree parent. The board has four fixed statuses: To plan, In progress, Waiting and Done. Drag a card or use its status selector. A start or due date adds the task to the timeline; click a timeline bar to edit it. Task dependencies, custom columns and recurring tasks are not implemented in this release.
+
+Every task on the timeline has five clickable importance stars below its time bar, including short, single-day tasks. Unscheduled tasks have the same control. A click saves immediately; the task editor and details show the same rating. Stars do not alter dates, durations or completion status. Existing low, normal and high task priorities appear as one, three and five stars until a numeric importance is saved. The board's priority label reflects the rating: one or two stars are Low, three are Normal, and four or five are High.
 
 Inventory supports explicit storage placements separate from attachments. In an item editor, choose **Set storage distribution**, specify physical places and their quantities, and save. A place can belong to another physical place (for example Workshop / Cabinet / Top drawer). Filtering a place includes its descendants; displayed quantities and CSV count only matching placements. A stock of three units in a workshop and two in a dormitory has five available units overall, but the workshop filter exports three.
 

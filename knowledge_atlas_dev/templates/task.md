@@ -3,6 +3,7 @@ schema: 2
 id: my-task
 title: Task title
 type: task
+importance: 3
 parent: null
 status: draft
 summary: The next step I want to take.

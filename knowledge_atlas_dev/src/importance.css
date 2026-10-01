@@ -1,0 +1,62 @@
+.importance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+  color: #c9d3df;
+  font-size: 13px;
+}
+.importance-rating {
+  display: inline-flex;
+  flex-shrink: 0;
+  gap: 1px;
+}
+.importance-rating button {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 32px;
+  padding: 0;
+  border-radius: 5px;
+  color: #8996a8;
+}
+.importance-rating button.filled {
+  color: #eac16d;
+}
+.importance-rating button.filled svg {
+  fill: currentColor;
+}
+.importance-rating button:hover,
+.importance-rating button:focus-visible {
+  background: #eac16d20;
+  color: #ffe09b;
+}
+.importance-rating button:focus-visible {
+  outline: 2px solid #eac16d;
+  outline-offset: -2px;
+}
+.importance-rating[aria-busy="true"] {
+  opacity: 0.65;
+}
+.importance-field > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+}
+.importance-error {
+  flex-basis: 100%;
+  margin: 0;
+  color: #ffb2aa;
+  overflow-wrap: anywhere;
+}
+@media (forced-colors: active) {
+  .importance-rating button.filled {
+    color: Highlight;
+  }
+  .importance-rating button:focus-visible {
+    outline-color: Highlight;
+  }
+}

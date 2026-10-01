@@ -1,0 +1,47 @@
+.timeline-row,
+.timeline-names > button {
+  height: 80px;
+}
+.timeline-task-importance {
+  position: absolute;
+  top: 44px;
+  left: clamp(0px, var(--task-start), calc(100% - 124px));
+  width: 124px;
+  z-index: 2;
+}
+.importance-inline .importance-rating button {
+  width: 24px;
+  height: 28px;
+}
+.importance-inline .importance-rating svg {
+  width: 17px;
+  height: 17px;
+}
+.unscheduled-task {
+  display: inline-flex;
+  flex-direction: column;
+  vertical-align: top;
+  gap: 6px;
+  max-width: 100%;
+  width: 260px;
+  padding: 9px 13px;
+  margin: 0 8px 8px 0;
+  background: #222c3a;
+  border: 1px dashed #556379;
+  border-radius: 7px;
+}
+.unscheduled-task > button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+  text-align: left;
+  font-size: 13px;
+}
+.unscheduled-task > button > span {
+  overflow-wrap: anywhere;
+}
+.unscheduled-task > button > svg {
+  flex-shrink: 0;
+}

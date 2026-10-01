@@ -81,6 +81,9 @@ test("complete backup round trip preserves every saved record kind, metadata, fi
     await s.store.save(
       note(type, {
         type,
+        ...(["project", "item", "task"].includes(type)
+          ? { importance: 5 }
+          : {}),
         ...(type === "task"
           ? { task: { start: "", due: "", priority: "normal", assignee: "" } }
           : {}),

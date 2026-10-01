@@ -7,6 +7,7 @@ import { createApp } from "../server/index.js";
 import { serialize } from "../server/store.js";
 import { atlasStructure, filterNodes } from "../src/atlas-model.js";
 import { createAtlasSync } from "../src/atlas-sync.js";
+import { mapNodeRadius } from "../src/map-node-geometry.js";
 const record = (id, parent = null, type = "knowledge") => ({
   schema: 1,
   id,
@@ -212,6 +213,19 @@ test("running client automatically discovers external create/edit/delete without
     }),
   );
   await waitFor((s) => atlasStructure(s.nodes).stats.projects === 1);
+  const normalRadius = mapNodeRadius(current.nodes[0], 2);
+  await fs.writeFile(
+    file,
+    serialize({
+      ...record("custom", null, "project"),
+      title: "My new work",
+      importance: 5,
+    }),
+  );
+  await waitFor((s) => s.nodes[0]?.importance === 5);
+  assert.ok(mapNodeRadius(current.nodes[0], 2) > normalRadius);
+  assert.equal(atlasStructure(current.nodes).stats.projects, 1);
+  assert.equal(filterNodes(current.nodes, { query: "My new work" }).length, 1);
   await fs.writeFile(
     file,
     serialize({

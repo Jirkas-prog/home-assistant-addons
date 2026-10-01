@@ -378,7 +378,7 @@
   "m176": "Vyber uzel v mapě",
   "m177": "Otevře se jeho obsah, soubory a souvislosti.",
   "m178": "Nový kořen",
-  "m179": "Větší uzel = vyšší úroveň",
+  "m179": "Velikost: hierarchie a důležitost",
   "m180": "Markdown byl importován.",
   "m181": "Uloženo do Markdownu.",
   "m182": "STRÁNKA ZÁZNAMU",
@@ -705,5 +705,14 @@
   "navigation.hint": "{0}: kliknutím otevřete, pravým tlačítkem zobrazíte sousední cesty.",
   "navigation.otherPaths": "Sousední cesty u úrovně {0}",
   "navigation.sameLevel": "Cesty na této úrovni",
-  "navigation.sections": "Sekce pracovního prostoru"
+  "navigation.sections": "Sekce pracovního prostoru",
+  "layout.resizeDetails": "Změnit šířku bočního panelu",
+  "layout.resizeHint": "Tažením doleva nebo doprava změníte šířku. Šipkami ji můžete jemně doladit. Dvojklik obnoví výchozí šířku.",
+  "layout.detailsWidth": "Šířka panelu: {0} pixelů",
+  "importance.label": "Důležitost",
+  "importance.help": "Více hvězdiček zvětší bublinu projektu nebo věci v obou mapách. Tři hvězdičky zachovají běžnou velikost; základ nadále závisí na úrovni v hierarchii.",
+  "importance.value": "{0} z 5 hvězdiček",
+  "importance.error": "Důležitost musí být celé číslo od 1 do 5.",
+  "importance.forRecord": "Důležitost: {0}",
+  "importance.taskHelp": "Nastavte jednu až pět hvězdiček. Stejné hodnocení se zobrazuje v časové ose i detailu úkolu. Termíny a délku úkolu nadále určuje plánování."
 }

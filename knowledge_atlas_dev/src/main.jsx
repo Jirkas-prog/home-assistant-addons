@@ -61,6 +61,7 @@ import "./scrollbars.css";
 import "./tools.css";
 import { WorkTools } from "./work-tools.jsx";
 import { DataTools } from "./data-tools.jsx";
+import { ResizableWorkspace } from "./resizable-workspace.jsx";
 import "./backups.css";
 import { LanguageSetup } from "./language-setup.jsx";
 import { api, useDialogKeys } from "./client.js";
@@ -72,6 +73,12 @@ import {
   setDraftLibrary,
 } from "./drafts.jsx";
 import { validateNode } from "../shared/schema.js";
+import {
+  recordImportance,
+  importancePriority,
+  withImportance,
+} from "../shared/importance.js";
+import { ImportanceStars, RecordImportance } from "./importance.jsx";
 import { InventoryEditor } from "./inventory-editor.jsx";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { StockMovements } from "./stock-movements.jsx";
@@ -93,6 +100,7 @@ import { createAtlasSync } from "./atlas-sync.js";
 import { Breadcrumbs } from "./breadcrumbs.jsx";
 import { createRecordNavigation } from "./breadcrumb-model.js";
 import {
+  mapNodeRadius,
   mapNodeGeometry,
   paintMapNodePointer,
   pickMapNode2D,
@@ -251,7 +259,7 @@ function graphLayout(nodes, scope, query, type, locations = []) {
     visited.add(n.id);
     const angle = (start + end) / 2 - Math.PI / 2,
       radius = depth * 145 + (roots.length > 1 ? 90 : 0),
-      r = 32 / (1 + depth * 0.65);
+      r = mapNodeRadius(n, depth);
     positioned.push({
       ...n,
       matched: !!query || type !== "all",
@@ -1316,7 +1324,7 @@ function App() {
               ))}
             </div>
           )}
-          <div className={`workspace ${detail ? "with-detail" : ""}`}>
+          <ResizableWorkspace detail={detail}>
             <div className="map-area">
               {loading ? (
                 <div className="empty">
@@ -1357,6 +1365,7 @@ function App() {
                 />
               ) : view === "tasks" ? (
                 <Tasks
+                  onRefresh={load}
                   nodes={nodes}
                   settings={settings}
                   query={query}
@@ -1459,9 +1468,20 @@ function App() {
               )}
             </div>
             {detail && (
-              <aside className="details" aria-label={t("m159")}>
+              <aside
+                id="record-details"
+                className="details"
+                aria-label={t("m159")}
+              >
                 {node ? (
                   <>
+                    {["project", "item", "task"].includes(node.type) && (
+                      <RecordImportance
+                        key={node.id}
+                        node={node}
+                        onSaved={load}
+                      />
+                    )}
                     <div className="detail-top">
                       <span
                         className="type-label"
@@ -1522,7 +1542,7 @@ function App() {
                         <div className="detail-extra">
                           <p>
                             {TASK_STATUS[node.status]} ·{" "}
-                            {PRIORITIES[node.task?.priority || "normal"]}
+                            {PRIORITIES[importancePriority(node)]}
                           </p>
                           <p>
                             {node.task?.start || t("m163")} →{" "}
@@ -1700,7 +1720,7 @@ function App() {
                 )}
               </aside>
             )}
-          </div>
+          </ResizableWorkspace>
           <footer className="map-legend">
             {structure.mainBranches.map((g) => (
               <button
@@ -1876,6 +1896,9 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
           try {
             const value = {
               ...form,
+              ...(["project", "item", "task"].includes(form.type)
+                ? withImportance(form, recordImportance(form))
+                : {}),
               tags: form.tags.filter(Boolean),
               id: form.id || crypto.randomUUID(),
               schema: 2,
@@ -1984,6 +2007,22 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
               </select>
             </label>
           </div>
+          {["project", "item", "task"].includes(form.type) && (
+            <div className="importance-field">
+              <span>{t("importance.label")}</span>
+              <ImportanceStars
+                value={recordImportance(form)}
+                onChange={(importance) => set("importance", importance)}
+              />
+              <p className="field-help">
+                {t(
+                  form.type === "task"
+                    ? "importance.taskHelp"
+                    : "importance.help",
+                )}
+              </p>
+            </div>
+          )}
           {form.type === "item" && (
             <InventoryEditor
               node={form}
@@ -2036,24 +2075,6 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                       })
                     }
                   />
-                </label>
-                <label>
-                  {t("m196")}
-                  <select
-                    value={form.task?.priority || "normal"}
-                    onChange={(e) =>
-                      set("task", {
-                        ...form.task,
-                        priority: e.target.value,
-                      })
-                    }
-                  >
-                    {Object.entries(PRIORITIES).map(([id, name]) => (
-                      <option value={id} key={id}>
-                        {name}
-                      </option>
-                    ))}
-                  </select>
                 </label>
                 <label>
                   {t("m197")}

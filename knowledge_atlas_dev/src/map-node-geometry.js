@@ -1,3 +1,14 @@
+import { recordImportance } from "../shared/importance.js";
+
+// Both map renderers and their picking layers use this shared radius.
+export function mapNodeRadius(node, depth) {
+  const base = 32 / (1 + depth * 0.65);
+  if (!["project", "item"].includes(node.type)) return base;
+  return (
+    base * { 1: 0.65, 2: 0.82, 3: 1, 4: 1.3, 5: 1.6 }[recordImportance(node)]
+  );
+}
+
 // Keep the visible labels and the canvas picking layer in the same coordinates.
 export function mapNodeGeometry(node, ctx, scale, selected, hover) {
   const active = node.id === selected;

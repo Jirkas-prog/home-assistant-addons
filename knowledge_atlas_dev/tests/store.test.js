@@ -8,6 +8,7 @@ import {
   parseMarkdown,
   serialize,
   validateGraph,
+  validateNode,
 } from "../server/store.js";
 import { createApp } from "../server/index.js";
 const record = (id, parent = null) => ({
@@ -45,6 +46,63 @@ test("Markdown preserves Unicode, code and additional provenance", () => {
     },
   };
   assert.deepEqual(parseMarkdown(serialize(n)), n);
+});
+
+test("project importance survives Markdown, saving and restart without rewriting legacy records", async (t) => {
+  const store = await fixture(t);
+  const legacy = { ...record("legacy-project"), type: "project" };
+  const legacyRaw = serialize(legacy);
+  await fs.writeFile(path.join(store.directory, legacy.id + ".md"), legacyRaw);
+  for (const importance of [1, 2, 3, 4, 5]) {
+    const project = {
+      ...record(`project-${importance}`),
+      type: "project",
+      importance,
+    };
+    assert.equal(
+      validateNode(parseMarkdown(serialize(project))).importance,
+      importance,
+    );
+    await store.save(project);
+  }
+  const restarted = new Store(store.directory);
+  const snapshot = await restarted.read();
+  assert.deepEqual(snapshot.errors, []);
+  assert.equal(
+    snapshot.nodes.find((n) => n.id === legacy.id).importance,
+    undefined,
+  );
+  assert.equal(
+    await fs.readFile(path.join(store.directory, legacy.id + ".md"), "utf8"),
+    legacyRaw,
+  );
+  for (const importance of [1, 2, 3, 4, 5]) {
+    assert.equal(
+      snapshot.nodes.find((n) => n.id === `project-${importance}`).importance,
+      importance,
+    );
+  }
+  const previous = snapshot.nodes.find((n) => n.id === "project-1");
+  await store.save(
+    { ...previous, importance: 5 },
+    previous.id,
+    previous.revision,
+  );
+  assert.equal(
+    (await restarted.read()).nodes.find((n) => n.id === previous.id).importance,
+    5,
+  );
+  await store.save({ ...record("item"), type: "item", importance: 4 });
+  assert.equal(
+    (await restarted.read()).nodes.find((n) => n.id === "item").importance,
+    4,
+  );
+  for (const importance of ["urgent", "", 0, 6, 1.5, "5", {}, [5]]) {
+    await assert.rejects(
+      store.save({ ...record("invalid"), type: "project", importance }),
+      /Importance must/,
+    );
+  }
 });
 test("save, restart, conflict, history and archive preserve files", async (t) => {
   const s = await fixture(t);

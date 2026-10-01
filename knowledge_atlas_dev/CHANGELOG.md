@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.0.1-dev.3
+
+- Resize the details panel by dragging its left edge or using the keyboard. Remember the width per browser and channel; double-click to reset it.
+- Set five-star importance directly at the top of project, inventory item and task details, with immediate saving and matching editor controls.
+- Scale project and inventory bubbles in both maps by their importance while retaining hierarchy-based sizing and normal defaults for existing records.
+- Rate scheduled and unscheduled tasks directly on the timeline, including single-day tasks. Preserve dates, completion state and notes, and reject stale updates.
+- Store importance in Markdown, detect manual changes automatically and preserve it in complete backups. Map legacy task priorities to stars and keep board labels consistent.
+- Add English/Czech labels, accessible keyboard controls and a manual project template.
+
 ## 5.0.1-dev.2
 
 - Click breadcrumb levels to navigate; right-click or use the dropdown arrow to open sibling branches and workspace sections. Keyboard navigation is supported.

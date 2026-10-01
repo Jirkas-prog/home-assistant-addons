@@ -1,5 +1,6 @@
 import { validateStock } from "./inventory.js";
 import { validateTool, toolReferences } from "./tools.js";
+import { validImportance } from "./importance.js";
 export const TYPES = [
   "category",
   "project",
@@ -27,6 +28,8 @@ export function validateNode(n) {
     fail("The title must contain 1–180 characters.");
   if (!TYPES.includes(n.type)) fail("Invalid record type.");
   if (!STATUSES.includes(n.status)) fail("Invalid status.");
+  if (n.importance != null && !validImportance(n.importance))
+    fail("Importance must be an integer from 1 to 5.");
   if (n.parent !== null && !idPattern.test(n.parent || ""))
     fail("Invalid parent branch.");
   if (typeof n.body !== "string" || n.body.length > 1_000_000)

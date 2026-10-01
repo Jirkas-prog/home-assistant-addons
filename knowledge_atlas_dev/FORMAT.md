@@ -38,10 +38,19 @@ Write your explanation here.
 | `resources`          | Array of file, web or place references, described below.                                          |
 | `quantity`           | Optional positive integer for inventory records; defaults to one in the UI.                       |
 | `projectId`          | Optional ID of an existing project, particularly useful for tasks.                                |
+| `importance`         | Optional integer from `1` to `5` for projects, inventory items and tasks. Controls project/item bubble size and task importance stars. |
 | `task`               | Optional task properties: `start`, `due`, `priority`, `assignee`.                                 |
 | `created`, `updated` | Optional ISO timestamps. Managed by the web editor on save.                                       |
 
 Text after the YAML header is the Markdown body. Additional metadata, such as provenance, is preserved. Hierarchy validation is iterative and has no fixed depth limit; practical rendering capacity depends on the device and library size.
+
+## Importance
+
+Set `importance: 1` through `importance: 5` in a project or inventory item's YAML header. Five stars at the top of the record details allow immediate updates without opening the editor; the editor also offers the same control. The numeric value is independent of the interface language. Use [the project template](templates/project.md) for a manually created record.
+
+Tasks use the same top-level field. A numeric `importance` takes precedence over the legacy `task.priority`. If importance is missing or null, low, normal and high task priorities display as one, three and five stars; otherwise the default is three. Saving task importance in the UI also updates `task.priority` for compatibility: one/two stars map to `low`, three to `normal`, four/five to `high`. Task dates, duration, assignee and other metadata are preserved. See [the task template](templates/task.md).
+
+At the same hierarchy level, one through five stars use 65%, 82%, 100%, 130% and 160% of the normal bubble radius. The hierarchy still determines the base size; other record types keep their existing sizing. Older records without this field retain their normal size (three stars) without a migration. Compatibility values `low`, `normal` and `high` are read as one, three and five stars; saving through the importance control or editor writes a number. Direct Markdown edits are picked up by automatic refresh, and the field is preserved in exports and full backups.
 
 ## Resources
 

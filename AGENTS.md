@@ -20,6 +20,7 @@ Maintain exactly two permanent Knowledge Atlas add-ons:
 
 - Names, slugs, mapped configuration volumes and data paths remain fixed when versions increase.
 - Implement new work in `knowledge_atlas_dev`. Publish requested development releases there with an increased development version, without changing stable.
+- Publish completed, tested Knowledge Atlas changes to the public Dev channel immediately after implementation; the owner has authorized this standing workflow. Increase the Dev version and use a normal push to `main` without requiring a separate upload request. Stable promotion still requires explicit approval.
 - Promote a development major to stable only when the owner explicitly confirms it is stable and authorizes its release. Passing tests or publishing Dev is not stable-release approval.
 - At promotion, transfer the approved implementation and retain stable release metadata, name, slug and storage identity. Keep Dev independently updatable.
 - Update `config.yaml`, `package.json`, both package-lock version fields, Docker build defaults and the changelog together. Branding reads `release.json` and the package version.

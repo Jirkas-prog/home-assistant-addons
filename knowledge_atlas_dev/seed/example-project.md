@@ -8,6 +8,7 @@ resources: []
 id: example-project
 title: Example project
 type: project
+importance: 3
 parent: projects
 summary: Replace this example with your next project.
 ---

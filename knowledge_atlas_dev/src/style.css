@@ -592,13 +592,17 @@ button:hover {
   font-size: 11px;
 }
 .workspace {
+  --details-default-width: 320px;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
   height: clamp(530px, calc(100dvh - 339px), 1000px);
   min-height: 530px;
 }
 .workspace.with-detail {
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) var(
+      --details-width,
+      var(--details-default-width)
+    );
 }
 .map-area {
   position: relative;
@@ -1348,7 +1352,7 @@ button:hover {
 }
 @media (min-width: 1700px) {
   .workspace.with-detail {
-    grid-template-columns: minmax(0, 1fr) 380px;
+    --details-default-width: 380px;
   }
   .details h2 {
     font-size: 28px;
@@ -1405,7 +1409,7 @@ button:hover {
     gap: 18px;
   }
   .workspace.with-detail {
-    grid-template-columns: minmax(0, 1fr) 286px;
+    --details-default-width: 286px;
   }
   .toolbar {
     gap: 8px;

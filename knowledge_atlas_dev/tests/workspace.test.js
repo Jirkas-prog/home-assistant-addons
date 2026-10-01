@@ -8,6 +8,7 @@ import { serialize, validateNode } from "../server/store.js";
 import { safePath, resolveResource } from "../server/documents.js";
 import { atlasStructure, filterNodes } from "../src/atlas-model.js";
 import { timelineModel, projectFor } from "../src/work-model.js";
+import { recordImportance, withImportance } from "../shared/importance.js";
 const record = (id, type = "knowledge") => ({
   schema: 1,
   id,
@@ -72,6 +73,49 @@ async function fixture(t) {
     upload,
   };
 }
+test("task importance saves without changing the schedule or notes and rejects stale edits", async (t) => {
+  const f = await fixture(t);
+  const original = await f.store.save({
+    ...record("scheduled-task", "task"),
+    body: "Keep these instructions.",
+    status: "done",
+    task: {
+      start: "2026-10-01",
+      due: "2026-10-02",
+      priority: "high",
+      assignee: "Owner",
+      custom: "keep",
+    },
+  });
+  assert.equal(recordImportance(original), 5);
+  const response = await f.request(
+    `nodes/${original.id}`,
+    "PUT",
+    withImportance(original, 2),
+  );
+  assert.equal(response.status, 200);
+  const saved = await response.json();
+  assert.equal(saved.importance, 2);
+  assert.deepEqual(saved.task, { ...original.task, priority: "low" });
+  assert.equal(saved.body, original.body);
+  assert.equal(saved.status, "done");
+  assert.equal(saved.startDay, undefined);
+  assert.equal(saved.endDay, undefined);
+  const model = timelineModel([saved], "2026-10-01");
+  assert.equal(model.scheduled[0].endDay - model.scheduled[0].startDay, 1);
+  assert.equal(recordImportance(model.scheduled[0]), 2);
+  const stale = await f.request(
+    `nodes/${original.id}`,
+    "PUT",
+    withImportance(original, 5),
+  );
+  assert.equal(stale.status, 409);
+  assert.equal(
+    (await (await f.request(`nodes/${original.id}`)).json()).importance,
+    2,
+  );
+});
+
 test("location CRUD persists, preserves links on rename, rejects used deletion and stale settings", async (t) => {
   const f = await fixture(t),
     old = await f.settings.read();

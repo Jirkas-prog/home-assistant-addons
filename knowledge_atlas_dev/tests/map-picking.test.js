@@ -1,10 +1,56 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  mapNodeRadius,
   mapNodeGeometry,
   paintMapNodePointer,
   pickMapNode2D,
 } from "../src/map-node-geometry.js";
+
+test("project importance changes map radius while legacy projects and other types keep their size", () => {
+  for (const depth of [0, 1, 5, 100]) {
+    const base = 32 / (1 + depth * 0.65);
+    const radius = (importance) =>
+      mapNodeRadius({ type: "project", importance }, depth);
+    assert.equal(radius(undefined), base);
+    assert.equal(radius(null), base);
+    assert.equal(radius(3), base);
+    assert.equal(radius("normal"), base);
+    assert.equal(radius("low"), radius(1));
+    assert.equal(radius("high"), radius(5));
+    for (const rating of [1, 2, 3, 4])
+      assert.ok(radius(rating) < radius(rating + 1));
+    assert.equal(
+      mapNodeRadius({ type: "item", importance: 5 }, depth),
+      radius(5),
+    );
+    assert.ok(Number.isFinite(radius("invalid")));
+    for (const type of ["category", "knowledge", "skill", "code", "task"]) {
+      assert.equal(mapNodeRadius({ type, importance: "high" }, depth), base);
+    }
+  }
+});
+
+test("resized project bubbles remain clickable at their visible edges", () => {
+  const ctx = pickingCanvas();
+  for (const importance of [1, 2, 3, 4, 5]) {
+    const node = {
+      id: "project",
+      type: "project",
+      title: "Project",
+      importance,
+      depth: 2,
+      x: 0,
+      y: 0,
+    };
+    node.r = mapNodeRadius(node, node.depth);
+    assert.equal(
+      pickMapNode2D([node], ctx, 1, { x: node.r * 0.99, y: 0 }, "other", null)
+        ?.id,
+      node.id,
+    );
+  }
+});
 
 function pickingCanvas() {
   const shapes = [];

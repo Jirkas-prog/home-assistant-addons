@@ -11,6 +11,9 @@ import {
 import { resourceLocation, filterNodes } from "./atlas-model.js";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { locationLabel } from "../shared/locations.js";
+import { importancePriority } from "../shared/importance.js";
+import { RecordImportance } from "./importance.jsx";
+import "./task-importance.css";
 import {
   TASK_STATUS,
   PRIORITIES,
@@ -124,6 +127,7 @@ export function Tasks({
   onNew,
   onMove,
   onSelect,
+  onRefresh,
 }) {
   const [project, setProject] = useState(""),
     [mode, setMode] = useState("board"),
@@ -175,8 +179,8 @@ export function Tasks({
       </button>
       <p>{n.summary}</p>
       <div className="task-meta">
-        <span className={`priority ${n.task?.priority || "normal"}`}>
-          {PRIORITIES[n.task?.priority || "normal"]}
+        <span className={`priority ${importancePriority(n)}`}>
+          {PRIORITIES[importancePriority(n)]}
         </span>
         {n.task?.due && (
           <span>
@@ -318,13 +322,19 @@ export function Tasks({
           ))}
         </div>
       ) : (
-        <Timeline tasks={tasks} onEdit={onEdit} />
+        <Timeline
+          tasks={tasks}
+          onEdit={onEdit}
+          onRefresh={onRefresh}
+          onError={setError}
+        />
       )}
     </section>
   );
 }
-function Timeline({ tasks, onEdit }) {
+function Timeline({ tasks, onEdit, onRefresh, onError }) {
   const model = timelineModel(tasks),
+    taskById = new Map(tasks.map((task) => [task.id, task])),
     [zoom, setZoom] = useState(1),
     width = Math.max(700, Math.min(6000, model.span * 25)) * zoom;
   const percent = (day) => ((day - model.min) / model.span) * 100;
@@ -360,7 +370,11 @@ function Timeline({ tasks, onEdit }) {
             <div className="timeline-names">
               <div className="timeline-name-heading">{t("m267")}</div>
               {model.scheduled.map((n) => (
-                <button key={n.id} onClick={() => onEdit(n)} title={n.title}>
+                <button
+                  key={n.id}
+                  onClick={() => onEdit(taskById.get(n.id))}
+                  title={n.title}
+                >
                   {n.title}
                 </button>
               ))}
@@ -405,10 +419,21 @@ function Timeline({ tasks, onEdit }) {
                       width: `${Math.max(1, ((n.endDay - n.startDay + 1) / model.span) * 100)}%`,
                     }}
                     title={`${n.title} · ${n.task.start || n.task.due} → ${n.task.due || n.task.start}`}
-                    onClick={() => onEdit(n)}
+                    onClick={() => onEdit(taskById.get(n.id))}
                   >
                     <span>{n.title}</span>
                   </button>
+                  <div
+                    className="timeline-task-importance"
+                    style={{ "--task-start": `${percent(n.startDay)}%` }}
+                  >
+                    <RecordImportance
+                      node={taskById.get(n.id)}
+                      onSaved={onRefresh}
+                      onError={onError}
+                      compact
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -427,10 +452,18 @@ function Timeline({ tasks, onEdit }) {
           <span>{model.unscheduled.length}</span>
         </h3>
         {model.unscheduled.map((n) => (
-          <button key={n.id} onClick={() => onEdit(n)}>
-            {n.title}
-            <Plus size={14} />
-          </button>
+          <article className="unscheduled-task" key={n.id}>
+            <button onClick={() => onEdit(n)}>
+              <span>{n.title}</span>
+              <Plus size={14} />
+            </button>
+            <RecordImportance
+              node={n}
+              onSaved={onRefresh}
+              onError={onError}
+              compact
+            />
+          </article>
         ))}
       </div>
     </div>
