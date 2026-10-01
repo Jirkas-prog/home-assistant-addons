@@ -35,6 +35,8 @@ export function documentType(value, remote = false) {
     ?.toLowerCase();
   if (media[extension])
     return { kind: media[extension][0], mime: media[extension][1] };
+  if (!remote && /^(docx|odt|pptx|odp)$/.test(extension || ""))
+    return { kind: "office" };
   if (text.test(extension || ""))
     return {
       kind: "text",

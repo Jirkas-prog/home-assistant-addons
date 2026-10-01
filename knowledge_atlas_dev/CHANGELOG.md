@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.7
+
+- Add a unified journal with inclusive date ranges, entry-to-entry browsing, overlap filters, linked records and offline places.
+- Upload multiple journal attachments, preserve original files, and suggest capture dates and coordinates from embedded EXIF.
+- Add photo galleries and image navigation, inert Office document text previews and an explicit read-only text fallback for arbitrary local files.
+- Preserve legacy daily entries, automatic Markdown indexing, full backups and saved English/Czech interface preferences.
+
 ## 5.0.1-dev.6
 
 - Open PDFs, images and downloads after a complete library restore, including range requests and explicit downloads from restored document storage.

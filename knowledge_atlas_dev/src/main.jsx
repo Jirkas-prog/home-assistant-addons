@@ -90,6 +90,7 @@ import {
   ResourceList,
 } from "./locations.jsx";
 import { DocumentViewer } from "./documents.jsx";
+import { AttachmentGallery } from "./journal.jsx";
 import { Inventory, Tasks } from "./work-views.jsx";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
 import {
@@ -1516,6 +1517,7 @@ function App() {
                       />
                     )}
                     <div className="detail-content">
+                      <AttachmentGallery node={node} settings={settings} />
                       <section className="detail-files" aria-label={t("m170")}>
                         {node.type === "item" && node.stock && (
                           <p className="physical-location">

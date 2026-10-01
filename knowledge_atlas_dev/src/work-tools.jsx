@@ -25,6 +25,8 @@ import { filterNodes, matchesQuery } from "./atlas-model.js";
 import { localDate } from "./work-model.js";
 import { api } from "./client.js";
 import { ToolEditor, newTool } from "./tool-editor.jsx";
+import { JournalEntry } from "./journal.jsx";
+import { journalEntries, journalRange } from "../shared/journal.js";
 
 const tabs = ["journal", "bom", "procedure", "cards", "view"];
 const icons = {
@@ -225,9 +227,17 @@ export function WorkTools({
     [error, setError] = useState("");
   const today = useToday(),
     pending = useRef(null);
+  const [journalFrom, setJournalFrom] = useState(""),
+    [journalTo, setJournalTo] = useState("");
+  const lastFocus = useRef(null);
   useEffect(() => setProject(initialProject), [initialProject]);
   useEffect(() => {
-    const node = nodes.find((n) => n.id === focusId);
+    const target =
+      lastFocus.current === null
+        ? new URLSearchParams(location.search).get("toolId") || focusId
+        : focusId;
+    lastFocus.current = focusId;
+    const node = nodes.find((n) => n.id === target);
     if (node?.tool) {
       setTab(node.tool.kind === "run" ? "procedure" : node.tool.kind);
       setActiveId(node.id);
@@ -243,21 +253,30 @@ export function WorkTools({
   }, [tab, activeId]);
   const scoped = filterNodes(nodes, {
     query,
-    scope,
+    scope: tab === "journal" ? "" : scope,
     locations: settings.locations,
-  }).filter((n) => !project || projectIdFor(n, nodes) === project);
-  const entries = scoped
-    .filter(
-      (n) =>
-        n.tool &&
-        (n.tool.kind === tab || (tab === "procedure" && n.tool.kind === "run")),
-    )
-    .sort(
-      (a, b) =>
-        (b.tool.date || b.updated || "").localeCompare(
-          a.tool.date || a.updated || "",
-        ) || a.title.localeCompare(b.title, locale()),
-    );
+  }).filter(
+    (n) =>
+      !project ||
+      projectIdFor(n, nodes) === project ||
+      (n.tool?.kind === "journal" && n.related.includes(project)),
+  );
+  const entries =
+    tab === "journal"
+      ? journalEntries(scoped, { from: journalFrom, to: journalTo })
+      : scoped
+          .filter(
+            (n) =>
+              n.tool &&
+              (n.tool.kind === tab ||
+                (tab === "procedure" && n.tool.kind === "run")),
+          )
+          .sort(
+            (a, b) =>
+              (b.tool.date || b.updated || "").localeCompare(
+                a.tool.date || a.updated || "",
+              ) || a.title.localeCompare(b.title, locale()),
+          );
   const active = entries.find((n) => n.id === activeId) || entries[0],
     stats = toolStats(scoped, today);
   const projects = nodes.filter((n) => n.type === "project");
@@ -378,6 +397,37 @@ export function WorkTools({
           {error}
         </div>
       )}
+      {tab === "journal" && (
+        <div className="journal-date-filter">
+          <label>
+            {t("journal.filterFrom")}
+            <input
+              type="date"
+              value={journalFrom}
+              onChange={(e) => setJournalFrom(e.target.value)}
+            />
+          </label>
+          <label>
+            {t("journal.filterTo")}
+            <input
+              type="date"
+              min={journalFrom}
+              value={journalTo}
+              onChange={(e) => setJournalTo(e.target.value)}
+            />
+          </label>
+          <button
+            className="text-button"
+            onClick={() => {
+              setJournalFrom("");
+              setJournalTo("");
+            }}
+          >
+            {t("journal.allDates")}
+          </button>
+          <small>{t("journal.browseHelp")}</small>
+        </div>
+      )}
       {!entries.length ? (
         <div className="tool-empty">
           <Icon size={34} />
@@ -408,7 +458,9 @@ export function WorkTools({
                 </span>
                 <strong>{node.title}</strong>
                 <small>
-                  {node.tool.date ||
+                  {(node.tool.kind === "journal"
+                    ? `${node.tool.date}${journalRange(node.tool).end !== node.tool.date ? " — " + journalRange(node.tool).end : ""}`
+                    : node.tool.date) ||
                     nodes.find((p) => p.id === projectIdFor(node, nodes))
                       ?.title ||
                     t("tools.noProject")}
@@ -458,19 +510,14 @@ export function WorkTools({
               </div>
             </header>
             {active.tool.kind === "journal" && (
-              <>
-                <div className="tool-meta">
-                  <span>{active.tool.date}</span>
-                  <span>{t("tools.duration", active.tool.minutes)}</span>
-                </div>
-                <Notes text={active.body} />
-                {active.tool.next && (
-                  <section className="tool-next">
-                    <h3>{t("tools.next")}</h3>
-                    <p>{active.tool.next}</p>
-                  </section>
-                )}
-              </>
+              <JournalEntry
+                node={active}
+                entries={entries}
+                settings={settings}
+                nodes={nodes}
+                onSelect={onSelect}
+                onEntry={setActiveId}
+              />
             )}
             {active.tool.kind === "bom" && (
               <>

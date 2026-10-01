@@ -6,12 +6,20 @@ import { VIEW_RULES } from "../shared/tools.js";
 import { api, useDialogKeys } from "./client.js";
 import { useDraft, DraftNotice, DraftExit, ConflictReview } from "./drafts.jsx";
 import { localDate } from "./work-model.js";
+import { JournalFields } from "./journal.jsx";
 
 const uid = () => crypto.randomUUID();
 export function newTool(kind, projectId, parent) {
   const tool = { schema: 1, kind };
   if (kind === "journal")
-    Object.assign(tool, { date: localDate(), minutes: 0, next: "" });
+    Object.assign(tool, {
+      date: localDate(),
+      endDate: localDate(),
+      period: "day",
+      places: [],
+      minutes: 0,
+      next: "",
+    });
   if (kind === "bom")
     Object.assign(tool, {
       reserve: false,
@@ -65,7 +73,9 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
     base,
     dirty,
   );
-  const close = () => (dirty ? setLeaving(true) : onClose());
+  const close = () => {
+    if (!busy) dirty ? setLeaving(true) : onClose();
+  };
   useDialogKeys(React, close);
   const set = (key, value) => setForm((old) => ({ ...old, [key]: value }));
   const toolSet = (key, value) =>
@@ -85,6 +95,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
   const kind = form.tool.kind;
   async function save(event) {
     event.preventDefault();
+    if (busy) return;
     setBusy(true);
     setError("");
     try {
@@ -116,11 +127,15 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
         className="modal editor tool-editor"
         role="dialog"
         aria-modal="true"
-        aria-label={t(`${initial.revision ? "tools.edit." : "tools.new."}${kind}`)}
+        aria-label={t(
+          `${initial.revision ? "tools.edit." : "tools.new."}${kind}`,
+        )}
         onSubmit={save}
       >
         <header>
-          <h2>{t(`${initial.revision ? "tools.edit." : "tools.new."}${kind}`)}</h2>
+          <h2>
+            {t(`${initial.revision ? "tools.edit." : "tools.new."}${kind}`)}
+          </h2>
           <button
             className="icon-button"
             type="button"
@@ -233,39 +248,13 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
             />
           </label>
           {kind === "journal" && (
-            <>
-              <div className="form-grid">
-                <label>
-                  {t("tools.date")}
-                  <input
-                    type="date"
-                    required
-                    value={form.tool.date}
-                    onChange={(e) => toolSet("date", e.target.value)}
-                  />
-                </label>
-                <label>
-                  {t("tools.minutes")}
-                  <input
-                    type="number"
-                    min="0"
-                    max="1440"
-                    required
-                    value={form.tool.minutes}
-                    onChange={(e) => toolSet("minutes", Number(e.target.value))}
-                  />
-                </label>
-              </div>
-              <label>
-                {t("tools.next")}
-                <textarea
-                  maxLength={2000}
-                  rows={2}
-                  value={form.tool.next}
-                  onChange={(e) => toolSet("next", e.target.value)}
-                />
-              </label>
-            </>
+            <JournalFields
+              form={form}
+              setForm={setForm}
+              nodes={nodes}
+              busy={busy}
+              onBusy={setBusy}
+            />
           )}
           {kind === "bom" && (
             <>

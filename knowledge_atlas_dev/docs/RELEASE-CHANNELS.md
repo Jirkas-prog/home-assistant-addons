@@ -7,7 +7,7 @@ Knowledge Atlas has two installable channels in the same Home Assistant reposito
 | Name | Knowledge Atlas | Knowledge Atlas Dev |
 | Directory | `knowledge_atlas` | `knowledge_atlas_dev` |
 | Permanent slug | `knowledge_atlas_v5` | `knowledge_atlas_dev` |
-| Current version | `5.0.1` | `5.0.1-dev.5` |
+| Current version | `5.0.1` | `5.0.1-dev.7` |
 | Release stage | stable | experimental |
 
 Names, slugs, configuration volumes and data paths remain fixed across major releases.

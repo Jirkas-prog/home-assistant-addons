@@ -14,6 +14,8 @@ import { filterNodes, resourceLocation } from "../src/atlas-model.js";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { moveStock } from "./inventory.js";
 import { registerTools } from "./tools.js";
+import { photoMetadata } from "./photo-metadata.js";
+import { readAsText, readOffice } from "./document-preview.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 export async function createApp({
   directory = process.env.DATA_DIR || path.join(root, "data"),
@@ -321,8 +323,14 @@ export async function createApp({
       ...metadata,
       ...(resolved.kind === "text" && resolved.file
         ? await readText(resolved)
-        : {}),
+        : resolved.kind === "office" && resolved.file
+          ? await readOffice(resolved)
+          : {}),
     });
+  });
+  app.get("/api/nodes/:id/resources/:index/as-text", async (req, res) => {
+    const resolved = await documentFor(req);
+    res.set("Cache-Control", "no-store").json(await readAsText(resolved));
   });
   async function documentFor(req) {
     const n = await getNode(req.params.id);
@@ -414,6 +422,9 @@ export async function createApp({
           label: path.basename(file),
           locationId: location.id,
           path: path.relative(config.documentRoot, file).replaceAll("\\", "/"),
+          ...(/\.(jpe?g|png|webp|heic|tiff?)$/i.test(file)
+            ? { photo: await photoMetadata(req.body) }
+            : {}),
         };
       });
       res.status(201).json(result);

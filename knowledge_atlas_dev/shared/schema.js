@@ -1,5 +1,5 @@
 import { validateStock } from "./inventory.js";
-import { validateTool, toolReferences } from "./tools.js";
+import { validateTool, toolReferences, validDate } from "./tools.js";
 import { validImportance } from "./importance.js";
 import { validateCheckpoints } from "./checkpoints.js";
 export const TYPES = [
@@ -67,6 +67,30 @@ export function validateNode(n) {
     fail("Invalid location ID.");
   const resourceIds = new Set();
   for (const resource of n.resources) {
+    if (resource.photo != null) {
+      const photo = resource.photo;
+      if (
+        typeof photo !== "object" ||
+        Array.isArray(photo) ||
+        ["takenAt", "offset", "camera", "source"].some(
+          (key) =>
+            photo[key] != null &&
+            (typeof photo[key] !== "string" || photo[key].length > 200),
+        ) ||
+        (photo.takenAt != null &&
+          (!/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(
+            photo.takenAt,
+          ) ||
+            !validDate(photo.takenAt.slice(0, 10)))) ||
+        (photo.latitude != null &&
+          (!Number.isFinite(photo.latitude) ||
+            Math.abs(photo.latitude) > 90)) ||
+        (photo.longitude != null &&
+          (!Number.isFinite(photo.longitude) ||
+            Math.abs(photo.longitude) > 180))
+      )
+        fail("Invalid photo metadata.");
+    }
     if (resource.id != null || n.schema === 2) {
       if (!idPattern.test(resource.id || "") || resourceIds.has(resource.id))
         fail("Attachments must have unique stable IDs.");

@@ -1,4 +1,5 @@
 import { itemQuantity } from "./inventory.js";
+import { journalDays } from "./journal.js";
 
 export const TOOL_KINDS = [
   "journal",
@@ -45,8 +46,38 @@ export function validateTool(tool, fail) {
   );
   if (tool.kind === "journal") {
     check(validDate(tool.date), "date");
-    integer(tool.minutes, "minutes", 1440);
+    check(
+      tool.endDate == null ||
+        (validDate(tool.endDate) && tool.endDate >= tool.date),
+      "endDate",
+    );
+    check(
+      tool.period == null ||
+        ["day", "week", "month", "custom"].includes(tool.period),
+      "period",
+    );
+    integer(
+      tool.minutes,
+      "minutes",
+      Math.min(5256000, journalDays(tool) * 1440),
+    );
     text(tool.next, "next");
+    if (tool.places != null) {
+      rows(tool.places, "places", 100);
+      for (const place of tool.places) {
+        text(place.label, "placeLabel", 300);
+        const coordinates = place.latitude != null || place.longitude != null;
+        check(!!place.label.trim() || coordinates, "placeLabel");
+        if (coordinates)
+          check(
+            Number.isFinite(place.latitude) &&
+              Math.abs(place.latitude) <= 90 &&
+              Number.isFinite(place.longitude) &&
+              Math.abs(place.longitude) <= 180,
+            "coordinates",
+          );
+      }
+    }
   }
   if (tool.kind === "bom") {
     rows(tool.lines, "lines");
@@ -166,6 +197,8 @@ export function toolSearchText(node) {
   return [
     tool.kind,
     tool.date,
+    tool.endDate,
+    ...(tool.places || []).flatMap((p) => [p.label, p.latitude, p.longitude]),
     tool.next,
     ...(tool.lines || []).flatMap((x) => [x.label, x.note]),
     ...(tool.steps || []).map((x) => x.label),

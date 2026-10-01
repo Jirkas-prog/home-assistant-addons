@@ -16,8 +16,13 @@ tool:
   schema: 1
   kind: journal
   date: 2026-10-01
+  endDate: 2026-10-07
+  period: week
   minutes: 30
   next: Verify the result.
+  places:
+    - id: workshop
+      label: Workshop
 ---
 
 # Notes

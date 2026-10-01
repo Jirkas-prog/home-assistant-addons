@@ -62,6 +62,18 @@ Remote text and PDF previews require the remote server to allow browser access t
 
 Uploads accept files up to 50 MB and never overwrite an existing filename. The upload saves the file immediately; saving the record attaches its link. A cancelled record may therefore leave an unattached file. Text editing supports UTF-8 files up to 2 MB and saves a previous version in a `.history` folder beside the edited file. PDFs support pages, zoom, passwords and copying available page text. Scanned PDFs do not gain OCR automatically.
 
+## Journal
+
+Open **Work tools → Journal** for one chronological journal across the library. Entries can cover a day, seven days, the rest of a month, or any inclusive start/end range. Older/Newer moves between actual entries and skips empty calendar gaps. Date filters include entries whose ranges overlap the selected period. A project filter also includes entries linked to that project through related records.
+
+An entry can link to any project, skill or knowledge record. Add a named place, coordinates, or multiple places. Previously saved place names are searchable locally. The coordinate overview works offline and plots saved WGS84 latitude/longitude; it is not a street map or an online address search. No location provider is contacted. Unknown places can remain unspecified.
+
+Upload multiple attachments in the journal editor and edit their captions. Each file is limited to 50 MB and saved under the managed document root with a unique name; the original bytes are preserved. Removing an attachment removes its link, not its stored file. Saving the entry completes the links. JPG/PNG/WebP/TIFF/HEIC metadata can suggest a date range and GPS places when embedded EXIF is readable; use the suggestion buttons to apply it. File modification time is never treated as capture time. Camera dates have not been independently verified, and the original local calendar date is retained without a timezone shift.
+
+Photos appear in a gallery in journal entries and record details, with previous/next controls in the viewer. PDF, Markdown, plain text and supported media use the integrated viewers. DOCX, ODT, PPTX and ODP have a read-only text preview limited to 2 MB of extracted XML: layout, embedded images, macros and external links are not executed. Legacy binary Office documents and other special formats can always be downloaded. **Open as text** attempts an inert, read-only preview of any accessible local file (UTF-8 or BOM-marked UTF-16, first 2 MB); binary or undecodable data is explicitly marked. Download preserves the complete original.
+
+Journal data, captions, dates, coordinates and links live in the standard Markdown files and participate in automatic refresh, search and statistics. See [the journal format](docs/JOURNAL.md). Full backups include journal entries and files uploaded to the managed document root. External links and device paths are not copies: upload important files for offline preservation. The installed app, bundled viewers and local coordinates work without internet while the add-on and local network are running.
+
 ## Projects, tasks and inventory
 
 Create a **Project**, then use **Add project task**. A task can reference a project with `projectId`, independently of its tree parent. The board has four fixed statuses: To plan, In progress, Waiting and Done. Drag a card or use its status selector. Every matching task appears on the timeline; click its name inside the bar to edit it. Task dependencies, custom columns and recurring tasks are not implemented in this release.

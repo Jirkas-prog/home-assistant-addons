@@ -8,7 +8,7 @@ import { readRemoteText } from "./remote-text.js";
 import { documentType } from "../shared/document-types.js";
 import "./document-preview.css";
 const Pdf = lazy(() => import("./pdf-viewer.jsx"));
-export function DocumentViewer({ resource, onClose }) {
+export function DocumentViewer({ resource, onClose, navigation }) {
   const [doc, setDoc] = useState(null),
     [body, setBody] = useState(""),
     [error, setError] = useState(""),
@@ -18,6 +18,7 @@ export function DocumentViewer({ resource, onClose }) {
     [leaving, setLeaving] = useState(false),
     [editing, setEditing] = useState(false),
     [textLoaded, setTextLoaded] = useState(false);
+  const [asText, setAsText] = useState(false);
   const base = `nodes/${resource.nodeId}/resources/${resource.resourceId}`,
     fileURL = `./api/${base}/file`;
   const markdown =
@@ -39,7 +40,11 @@ export function DocumentViewer({ resource, onClose }) {
     let live = true;
     const abort = new AbortController();
     const timeout = setTimeout(() => abort.abort(), 30_000);
-    api(base)
+    setError("");
+    setDoc(null);
+    setTextLoaded(false);
+    setEditing(false);
+    api(asText ? `${base}/as-text` : base)
       .then(async (r) => {
         if (!live) return;
         setDoc(r);
@@ -67,7 +72,7 @@ export function DocumentViewer({ resource, onClose }) {
       abort.abort();
       clearTimeout(timeout);
     };
-  }, [base]);
+  }, [base, asText]);
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
@@ -158,6 +163,15 @@ export function DocumentViewer({ resource, onClose }) {
           />
         )}
         {!doc && !error && <div className="empty">{t("m008")}</div>}
+        {doc?.office && (
+          <p className="document-notice">{t("journal.officeHelp")}</p>
+        )}
+        {doc?.binary && (
+          <p className="document-notice">{t("journal.binaryHelp")}</p>
+        )}
+        {doc?.truncated && (
+          <p className="document-notice">{t("journal.truncatedHelp")}</p>
+        )}
         {doc?.kind === "pdf" && (
           <Suspense fallback={<div className="empty">{t("m009")}</div>}>
             <Pdf url={doc.url || fileURL} />
@@ -240,7 +254,13 @@ export function DocumentViewer({ resource, onClose }) {
                 </button>
               </div>
               <span>
-                {doc.editable ? (dirty ? t("m010") : t("m011")) : t("m012")}
+                {doc.editable
+                  ? dirty
+                    ? t("m010")
+                    : t("m011")
+                  : asText || doc.office
+                    ? t("journal.readOnly")
+                    : t("m012")}
               </span>
               <span>
                 {body.length.toLocaleString(locale())}
@@ -278,6 +298,40 @@ export function DocumentViewer({ resource, onClose }) {
           </div>
         )}
         <footer>
+          {navigation && (
+            <div className="journal-navigation">
+              <button
+                className="secondary-button"
+                disabled={navigation.index <= 0}
+                onClick={navigation.onPrevious}
+              >
+                {t("journal.previousPhoto")}
+              </button>
+              <span>
+                {navigation.index + 1} / {navigation.total}
+              </span>
+              <button
+                className="secondary-button"
+                disabled={navigation.index >= navigation.total - 1}
+                onClick={navigation.onNext}
+              >
+                {t("journal.nextPhoto")}
+              </button>
+            </div>
+          )}
+          <button
+            className="secondary-button"
+            disabled={dirty || busy}
+            onClick={() => setAsText(!asText)}
+          >
+            {t(asText ? "journal.originalView" : "journal.openAsText")}
+          </button>
+          {!doc && error && (
+            <a className="secondary-button" href={`${fileURL}?download=1`}>
+              <Download size={15} />
+              {t("m018")}
+            </a>
+          )}
           {doc?.url && (
             <a
               className="secondary-button"
