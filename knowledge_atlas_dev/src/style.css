@@ -69,6 +69,37 @@ textarea:focus {
 }
 select {
   cursor: pointer;
+  color-scheme: dark;
+}
+select option,
+select optgroup {
+  color: #e7ebf2;
+  background-color: #171c23;
+}
+select option:checked {
+  color: #101318;
+  background-color: #b0ef88;
+}
+select option:disabled,
+select optgroup:disabled {
+  color: #a4aebd;
+  background-color: #171c23;
+}
+@media (forced-colors: active) {
+  select option,
+  select optgroup {
+    color: CanvasText;
+    background-color: Canvas;
+  }
+  select option:checked {
+    color: HighlightText;
+    background-color: Highlight;
+  }
+  select option:disabled,
+  select optgroup:disabled {
+    color: GrayText;
+    background-color: Canvas;
+  }
 }
 input::placeholder,
 textarea::placeholder {
@@ -620,6 +651,7 @@ button:hover {
   pointer-events: auto;
 }
 .map-bottom > span {
+  pointer-events: none;
   font-size: 10px;
   color: #78859a;
   background: #11151ca8;

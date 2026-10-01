@@ -626,7 +626,7 @@
   "data.title": "Data safety and maintenance",
   "data.description": "Back up records, settings, managed attachments and history together. External devices, remote links and other server locations remain references.",
   "data.backup": "Download full backup",
-  "data.upload": "Preview a backup",
+  "data.upload": "Preview and restore backup",
   "data.migrate": "Preview schema upgrade",
   "data.diagnostics": "Diagnostics",
   "data.busy": "Working with the library. Keep this window open.",
@@ -699,5 +699,11 @@
   "backup.created": "Created: {0}",
   "backup.noHistory": "This archive was exported without file history.",
   "backup.changed": "The library changed during backup. Retry when external editors are idle.",
-  "backup.identity": "Invalid library identity."
+  "backup.identity": "Invalid library identity.",
+  "navigation.path": "Page path",
+  "navigation.recordPath": "Record path",
+  "navigation.hint": "{0}: click to open; right-click for other paths.",
+  "navigation.otherPaths": "Other paths at {0}",
+  "navigation.sameLevel": "Paths at this level",
+  "navigation.sections": "Workspace sections"
 }

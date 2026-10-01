@@ -24,6 +24,14 @@ File history is kept under `.history` and archived records under `.trash`. A rec
 
 Concurrent saves reject stale content. The editor can compare the original, your draft and the latest saved version. Independent metadata changes are merged; overlapping fields require a choice before another save. Attachment writes also bind the attachment ID, settings revision and target file identity. Reordering references cannot redirect an open editor. The server rechecks file revisions immediately before replacement. External programs do not participate in its write queue, so an OS-wide atomic compare-and-swap guarantee is not claimed.
 
+## Navigation and maps
+
+Click a level in the page or record path to open it. Right-click that level, select its dropdown arrow or press **Arrow Down** / **Shift+F10** to open sibling branches or workspace sections. Use the arrow keys, **Home**, **End** and **Enter** to choose a destination; **Escape** closes the menu. Paths and sibling choices update automatically when records change.
+
+Every visible map bubble can open its record regardless of the currently selected hierarchy level. Click the bubble or its visible label. Small bubbles retain a larger click target, and visible bubbles take priority over overlapping labels and padded targets. Area and search filters determine which records appear in the map.
+
+Use the mouse wheel to zoom in either map. Wheel sensitivity is increased by 25%; in 2D, the point under the cursor stays in place. Drag to pan in 2D or rotate in 3D. **Fit entire map** resets the view to the visible records.
+
 ## Files and locations
 
 The default document root is `/config/documents`. An attachment with location **Add-on** and path `school/physics.pdf` resolves to `/config/documents/school/physics.pdf`.
@@ -62,9 +70,9 @@ V5 provides a dedicated **Backup and restore** page. See [the full backup guide]
 
 **Download full backup** includes the record directory, settings, managed document root (including unattached files), history and trash, with a SHA-256 manifest. Files stream through the ZIP writer; complete PDFs or ZIPs are not buffered in RAM. `api/export?history=0` omits history. The current limits are 20 GiB of source/extracted data, 20 GiB of upload data and fewer than 50,000 files. Symbolic links, special files and a document root containing the library directory are rejected. Pause external file edits while backing up; a file changing during archive creation aborts the download.
 
-External devices, web URLs and additional server roots such as `/share` are references, not included files. Back those roots up separately. Home Assistant backups remain important; the add-on uses cold backup mode. Real Supervisor backup/restore has not yet been verified for V2.
+External devices, web URLs and additional server roots such as `/share` are references, not included files. Back those roots up separately. Home Assistant backups remain important; the add-on uses cold backup mode. Real Supervisor backup and restore have not been verified in this environment.
 
-**Preview a backup** streams an uploaded ZIP into an isolated staging directory, rejects unsafe or duplicate paths, verifies each checksum and validates records and settings. The preview reports counts, collisions and the new managed-document path. Confirming replaces the active library as a whole; it does not merge libraries. The previous directory is preserved, and external document roots are untouched. Managed files move to `.restored-documents` inside the new library, with settings updated accordingly. External location paths must be checked on the destination machine.
+**Preview and restore backup** streams an uploaded ZIP into an isolated staging directory, rejects unsafe or duplicate paths, verifies each checksum and validates records and settings. The preview reports counts, collisions and the new managed-document path. Confirming replaces the active library as a whole; it does not merge libraries. The previous directory is preserved, and external document roots are untouched. Managed files move to `.restored-documents` inside the new library, with settings updated accordingly. External location paths must be checked on the destination machine.
 
 Changes to current files after the preview invalidate it. A failed final replacement restores the original directory; startup can recover an interrupted directory swap before initializing a fresh library. These safeguards have process/fault-injection tests, not physical power-loss certification. Preview tokens expire after 24 hours. Use **Discard preview** to remove staged uploads. Preserved libraries and successful operation files are retained in the sibling `.<library-name>-operations` directory; their location appears in diagnostics. Keep enough free disk space for the upload, extracted library and preserved original. Cleanup of preserved libraries is a deliberate manual storage operation.
 

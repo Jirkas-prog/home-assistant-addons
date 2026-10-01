@@ -626,7 +626,7 @@
   "data.title": "Ochrana dat a údržba",
   "data.description": "Zálohujte záznamy, nastavení, spravované přílohy a historii společně. Externí zařízení, internetové odkazy a ostatní serverová umístění zůstávají odkazy.",
   "data.backup": "Stáhnout úplnou zálohu",
-  "data.upload": "Náhled zálohy",
+  "data.upload": "Náhled a obnova zálohy",
   "data.migrate": "Náhled změny formátu",
   "data.diagnostics": "Diagnostika",
   "data.busy": "Pracuji s knihovnou. Nechte toto okno otevřené.",
@@ -699,5 +699,11 @@
   "backup.created": "Vytvořeno: {0}",
   "backup.noHistory": "Tento archiv byl exportován bez historie souborů.",
   "backup.changed": "Knihovna se během zálohování změnila. Zkuste to znovu, až externí editory nebudou provádět změny.",
-  "backup.identity": "Neplatná identita knihovny."
+  "backup.identity": "Neplatná identita knihovny.",
+  "navigation.path": "Cesta stránky",
+  "navigation.recordPath": "Cesta záznamu",
+  "navigation.hint": "{0}: kliknutím otevřete, pravým tlačítkem zobrazíte sousední cesty.",
+  "navigation.otherPaths": "Sousední cesty u úrovně {0}",
+  "navigation.sameLevel": "Cesty na této úrovni",
+  "navigation.sections": "Sekce pracovního prostoru"
 }

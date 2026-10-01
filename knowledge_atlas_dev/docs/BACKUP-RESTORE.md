@@ -13,7 +13,7 @@ External PC/phone paths, physical places, remote URLs and additional server root
 ## Restore
 
 1. On a fresh V5 installation, choose the interface language. The library starts empty.
-2. Open **Backup and restore** and choose **Preview a backup**.
+2. Open **Backup and restore** and choose **Preview and restore backup**.
 3. Select the ZIP. The server extracts it to a separate staging directory, checks every checksum, validates records and settings, and displays record/file counts and matching IDs.
 4. Review the preview and select the confirmation checkbox. Restoring replaces the complete active library; it does not merge records. The current library is preserved for rollback.
 5. Select **Restore this backup**. The interface reloads records, statistics and the language saved in the archive.

@@ -90,6 +90,13 @@ import {
   filterNodes,
 } from "./atlas-model.js";
 import { createAtlasSync } from "./atlas-sync.js";
+import { Breadcrumbs } from "./breadcrumbs.jsx";
+import { createRecordNavigation } from "./breadcrumb-model.js";
+import {
+  mapNodeGeometry,
+  paintMapNodePointer,
+  pickMapNode2D,
+} from "./map-node-geometry.js";
 const Graph3D = lazy(() => import("./map3d.jsx"));
 const TYPES = {
   get category() {
@@ -353,10 +360,55 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
     const timer = setTimeout(() => graphRef.current?.zoomToFit(450, 65), 350);
     return () => clearTimeout(timer);
   }, [data, mode, size.width, size.height]);
+  useEffect(() => {
+    if (mode !== "2d") return;
+    const host = ref.current;
+    const wheel = (event) => {
+      const graph = graphRef.current;
+      const canvas = host.querySelector("canvas");
+      if (!graph || !canvas || !event.deltaY) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const rect = canvas.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const before = graph.screen2GraphCoords(x, y);
+      // Match native wheel units and pinch gestures, with 25% more sensitivity.
+      const unit = event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002;
+      const delta = -event.deltaY * unit * (event.ctrlKey ? 10 : 1) * 1.25;
+      graph.zoom(Math.max(0.08, Math.min(8, graph.zoom() * 2 ** delta)));
+      const after = graph.screen2GraphCoords(x, y);
+      const center = graph.centerAt();
+      graph.centerAt(
+        center.x + before.x - after.x,
+        center.y + before.y - after.y,
+      );
+    };
+    host.addEventListener("wheel", wheel, { capture: true, passive: false });
+    return () => host.removeEventListener("wheel", wheel, true);
+  }, [mode, graphRef]);
   const label = (n) => {
     const el = document.createElement("span");
     el.textContent = n.title;
     return el;
+  };
+  const select2DAtClick = (event) => {
+    const canvas = ref.current?.querySelector("canvas");
+    const instance = graphRef.current;
+    if (!canvas || !instance) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
+    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
+    const node = pickMapNode2D(
+      data.nodes,
+      canvas.getContext("2d"),
+      instance.zoom(),
+      instance.screen2GraphCoords(x, y),
+      selected,
+      hover,
+    );
+    if (node) onSelect(node);
   };
   return (
     <div className="map-canvas" ref={ref}>
@@ -398,7 +450,10 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
           enableNodeDrag={false}
           minZoom={0.08}
           maxZoom={8}
-          onNodeClick={onSelect}
+          onNodeClick={(_, event) => select2DAtClick(event)}
+          onLinkClick={(_, event) => select2DAtClick(event)}
+          onBackgroundClick={select2DAtClick}
+          showPointerCursor={(node) => !!node?.id}
           onNodeHover={(n) => setHover(n?.id)}
           linkVisibility={(l) => relations || l.kind === "tree"}
           linkColor={(l) =>
@@ -407,9 +462,14 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
           linkWidth={(l) => (l.kind === "tree" ? 1.25 : 0.8)}
           linkLineDash={(l) => (l.kind === "related" ? [4, 5] : null)}
           nodeCanvasObject={(node, ctx, scale) => {
-            const active = node.id === selected,
-              hovered = node.id === hover,
-              r = node.r;
+            const { active, hovered, label } = mapNodeGeometry(
+              node,
+              ctx,
+              scale,
+              selected,
+              hover,
+            );
+            const r = node.r;
             if (active || hovered) {
               ctx.beginPath();
               ctx.arc(node.x, node.y, r + 7, 0, 2 * Math.PI);
@@ -446,49 +506,23 @@ function MapView({ data, mode, selected, onSelect, relations, graphRef }) {
             );
             ctx.fillStyle = "#ffffff30";
             ctx.fill();
-            if (
-              node.depth <= 1 ||
-              node.matched ||
-              scale > 0.85 ||
-              active ||
-              hovered
-            ) {
-              const fontSize = (active ? 14 : 12) / scale;
-              ctx.font = `${active || node.depth < 2 ? "600" : "400"} ${fontSize}px Inter, Segoe UI, sans-serif`;
-              ctx.textAlign = "center";
+            if (label) {
+              ctx.font = label.font;
+              ctx.textAlign = label.align;
               ctx.textBaseline = "top";
-              const title =
-                node.title.length > 30
-                  ? node.title.slice(0, 28) + "…"
-                  : node.title;
-              const width = ctx.measureText(title).width;
-              const side = node.depth === 1 ? (node.x >= 0 ? 1 : -1) : 0;
-              const tx = node.x + side * (r + 9 / scale),
-                ty = side ? node.y - fontSize / 2 : node.y + r + 9;
-              ctx.textAlign = side > 0 ? "left" : side < 0 ? "right" : "center";
-              const left =
-                side > 0 ? tx : side < 0 ? tx - width : tx - width / 2;
               ctx.fillStyle = "#11151ce8";
-              ctx.fillRect(
-                left - 4 / scale,
-                ty - 2 / scale,
-                width + 8 / scale,
-                fontSize + 4 / scale,
-              );
+              ctx.fillRect(...label.box);
               ctx.fillStyle = active
                 ? "#ffffff"
                 : node.depth <= 1
                   ? "#e6eaf2"
                   : "#a7afbe";
-              ctx.fillText(title, tx, ty);
+              ctx.fillText(label.title, label.x, label.y);
             }
           }}
-          nodePointerAreaPaint={(n, color, ctx) => {
-            ctx.fillStyle = color;
-            ctx.beginPath();
-            ctx.arc(n.x, n.y, n.r + 5, 0, 2 * Math.PI);
-            ctx.fill();
-          }}
+          nodePointerAreaPaint={(n, color, ctx, scale) =>
+            paintMapNodePointer(n, color, ctx, scale, selected, hover)
+          }
         />
       )}
     </div>
@@ -744,13 +778,86 @@ function App() {
     }
     return rows;
   }, [nodes, collapsed]);
-  const breadcrumb = [];
-  let ancestor = node;
-  const visited = new Set();
-  while (ancestor && !visited.has(ancestor.id)) {
-    visited.add(ancestor.id);
-    breadcrumb.unshift(ancestor);
-    ancestor = nodes.find((n) => n.id === ancestor.parent);
+  const recordNavigation = useMemo(
+    () => createRecordNavigation(nodes),
+    [nodes],
+  );
+  const breadcrumb = recordNavigation.path(selected);
+  const sections = [
+    ["map", t("m101")],
+    ["library", t("m102")],
+    ["tasks", t("m103")],
+    ["inventory", t("m104")],
+    ["tools", t("tools.title")],
+    ["settings", t("m029")],
+    ["backups", t("backup.title")],
+  ].map(([id, label]) => ({
+    id: "section:" + id,
+    label,
+    target: { kind: "section", id },
+  }));
+  const recordChoice = (record, kind = "record") => ({
+    id: "record:" + record.id,
+    label: record.title,
+    target: { kind, id: record.id },
+  });
+  const recordCrumbs = (path, kind = "record") =>
+    path.map((record) => ({
+      ...recordChoice(record, kind),
+      choices: recordNavigation
+        .siblings(record.id)
+        .map((sibling) => recordChoice(sibling, kind)),
+    }));
+  const section = sections.find((item) => item.id === "section:" + view);
+  const showRecordPath = detail && node && view !== "backups";
+  const topPath = [
+    {
+      id: "workspace",
+      label: t("m117"),
+      target: { kind: "section", id: "map" },
+      choices: sections,
+      activeId: section.id,
+      menuLabel: t("navigation.sections"),
+    },
+    { ...section, choices: sections, menuLabel: t("navigation.sections") },
+    ...recordCrumbs(
+      showRecordPath
+        ? breadcrumb
+        : view !== "backups"
+          ? recordNavigation.path(scope)
+          : [],
+      showRecordPath ? "record" : "scope",
+    ),
+  ];
+  function navigatePath(target) {
+    setQuery("");
+    setFilter("all");
+    setSidebar(false);
+    if (target.kind === "section") {
+      if (target.id === "settings") {
+        setShowSettings(true);
+        return;
+      }
+      setView(target.id);
+      setScope("");
+      setToolProject("");
+      setSelected(homeId);
+      location.hash = homeId ? encodeURIComponent(homeId) : "";
+      setDetail(false);
+      return;
+    }
+    const destination = nodes.find((record) => record.id === target.id);
+    if (!destination) return;
+    if (target.kind === "scope" && destination.type === "category") {
+      setScope(
+        destination.id === structure.container?.id ? "" : destination.id,
+      );
+      setDetail(false);
+      return;
+    }
+    setScope("");
+    if (!["map", "library"].includes(view)) setView("library");
+    choose(destination);
   }
   const related = node
     ? nodes.filter(
@@ -1019,20 +1126,11 @@ function App() {
             >
               <Menu size={21} />
             </button>
-            <span className="topbar-crumb">{t("m117")}</span>
-            <ChevronRight size={14} />
-            <strong>
-              {
-                {
-                  map: t("m101"),
-                  library: t("m102"),
-                  tasks: t("m103"),
-                  inventory: t("m104"),
-                  tools: t("tools.title"),
-                  backups: t("backup.title"),
-                }[view]
-              }
-            </strong>
+            <Breadcrumbs
+              items={topPath}
+              label={t("navigation.path")}
+              onNavigate={navigatePath}
+            />
           </div>
           <div className="topbar-actions">
             <span className="local-status">
@@ -1392,14 +1490,12 @@ function App() {
                       </div>
                     </div>
                     <div className="detail-content">
-                      <div className="breadcrumb">
-                        {breadcrumb.slice(0, -1).map((n) => (
-                          <button key={n.id} onClick={() => choose(n)}>
-                            {n.title}
-                            <ChevronRight size={11} />
-                          </button>
-                        ))}
-                      </div>
+                      <Breadcrumbs
+                        items={recordCrumbs(breadcrumb)}
+                        label={t("navigation.recordPath")}
+                        onNavigate={navigatePath}
+                        className="record-path"
+                      />
                       <h2>{node.title}</h2>
                       <p className="detail-summary">{node.summary}</p>
                       {node.type === "item" && (

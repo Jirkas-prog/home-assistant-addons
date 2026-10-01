@@ -1,7 +1,8 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import ForceGraph3D from "react-force-graph-3d";
 import * as THREE from "three";
 import SpriteText from "three-spritetext";
+import { pickMapNode3D } from "./map-picking-3d.js";
 export default function Map3D({
   data,
   size,
@@ -24,6 +25,28 @@ export default function Map3D({
     }),
     [data],
   );
+  useEffect(() => {
+    const controls = graphRef.current?.controls();
+    if (!controls) return;
+    const previous = controls.zoomSpeed;
+    controls.zoomSpeed = previous * 1.25;
+    return () => {
+      controls.zoomSpeed = previous;
+    };
+  }, [graphRef]);
+  const selectAtClick = (event) => {
+    const instance = graphRef.current;
+    if (!instance) return;
+    const node = pickMapNode3D({
+      scene: instance.scene(),
+      camera: instance.camera(),
+      rect: instance.renderer().domElement.getBoundingClientRect(),
+      nodes: graph.nodes,
+      clientX: event.clientX,
+      clientY: event.clientY,
+    });
+    if (node) onSelect(node);
+  };
   return (
     <ForceGraph3D
       ref={graphRef}
@@ -39,9 +62,13 @@ export default function Map3D({
         el.textContent = n.title;
         return el;
       }}
-      onNodeClick={onSelect}
+      onNodeClick={(_, event) => selectAtClick(event)}
+      onLinkClick={(_, event) => selectAtClick(event)}
+      onBackgroundClick={selectAtClick}
+      showPointerCursor={(node) => !!node}
       nodeThreeObject={(n) => {
         const group = new THREE.Group();
+        group.userData.atlasNodeId = n.id;
         const mesh = new THREE.Mesh(
           new THREE.SphereGeometry(n.r, 24, 20),
           new THREE.MeshPhongMaterial({
@@ -51,6 +78,7 @@ export default function Map3D({
             emissiveIntensity: n.id === selected ? 0.5 : 0.14,
           }),
         );
+        mesh.userData.atlasPart = "bubble";
         group.add(mesh);
         if (n.depth < 3 || n.id === selected) {
           const label = new SpriteText(n.title);
@@ -59,6 +87,7 @@ export default function Map3D({
           label.backgroundColor = "#11151cdd";
           label.padding = 2;
           label.position.y = -n.r - 12;
+          label.userData.atlasPart = "label";
           group.add(label);
         }
         if (n.id === selected) {
@@ -71,6 +100,7 @@ export default function Map3D({
               opacity: 0.16,
             }),
           );
+          halo.raycast = () => {};
           group.add(halo);
         }
         return group;
