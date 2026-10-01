@@ -6,7 +6,7 @@ Open **Backup and restore** in the sidebar. The file counts come from the curren
 
 Select **Download full backup**. The ZIP contains every saved record, including knowledge, projects, tasks, inventory, links and structured work tools; settings and language; managed attachments, including unattached files; record and attachment history; archived records; and empty folders. A manifest lists sizes and SHA-256 hashes. Each stream is verified, and additions, deletions or edits detected before finalization abort the backup. Keep external editors idle while exporting; this is a verified file copy, not an operating-system snapshot.
 
-Keep the ZIP outside the application's data and document directories. The ZIP contains the library's private content in readable form. Version 5 add-on source and installable packages contain no personal library; export archives belong to their owner and must not be committed or uploaded with the add-on.
+Keep the ZIP outside the application's data and document directories. The ZIP contains the library's private content in readable form. Export archives contain saved library data and should be stored separately from installation files.
 
 External PC/phone paths, physical places, remote URLs and additional server roots such as `/share` are preserved as references. Their external contents are not files owned by the active library. Browser drafts have not been saved to the server; save them as records before exporting. Temporary uploads, generated caches and rollback copies of previous libraries are outside the active library backup. Back those up separately if needed.
 
@@ -24,7 +24,7 @@ Restoring is rejected if the current library or staged archive changed after pre
 
 ## Format and limits
 
-V5 writes manifest version 2, including empty directories, and reads version 1 backups produced by V2 through V4. Older add-ons cannot import the new version 2 format. V1 record-only exports do not have a full-backup manifest and require manual migration. The default export includes history. The advanced `api/export?history=0` variant omits history and the restore preview reports this omission.
+Exports use backup manifest version 2, including empty directories. Restore accepts manifest versions 1 and 2. Record-only ZIP files lack the required full-backup manifest and cannot be restored through this workflow. The default export includes history. The advanced `api/export?history=0` variant omits history and the restore preview reports this omission.
 
 Limits are 20 GiB of uncompressed data, 20 GiB of uploaded archive data and fewer than 50,000 archive entries. Symbolic links, special files, traversal paths, duplicate names and checksum mismatches are rejected. Large archives require enough space for the upload, extracted library and preserved previous library. Home Assistant's own backups remain a separate recovery option.
 

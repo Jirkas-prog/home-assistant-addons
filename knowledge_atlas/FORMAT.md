@@ -2,7 +2,7 @@
 
 One file describes one record. Its filename is `<id>.md`. Keep records directly in the library directory; express hierarchy with `parent`, not nested folders.
 
-V3 work tools use the same record format with a validated `tool` extension. See [Work tools](docs/V3-TOOLS.md) and the five additional files in `templates/` for manually editable examples. Tool records use `type: knowledge` and are counted separately from ordinary knowledge notes.
+Work tools use the same record format with a validated `tool` extension. See [Work tools](docs/WORK-TOOLS.md) and the five additional files in `templates/` for manually editable examples. Tool records use `type: knowledge` and are counted separately from ordinary knowledge notes.
 
 ```yaml
 ---

@@ -46,4 +46,4 @@ for (const { file } of files) {
 if (violations.length) {
   console.error(violations.join("\n"));
   process.exitCode = 1;
-} else console.log(`Public-content check passed for ${files.length} indexed files and the configured commit identity. History and public GitHub surfaces require a separate audit.`);
+} else console.log(`Public-content check passed for ${files.length} indexed files and the configured commit identity.`);

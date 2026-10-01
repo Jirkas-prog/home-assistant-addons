@@ -40,7 +40,7 @@ Use the **+** action in the location selector to manage locations. The available
 
 Device paths are informational in Home Assistant: installing the add-on does not mount your PC or phone. A standalone Windows server can additionally open local PC directories. Changing the document root changes path resolution; it does not move files. Renaming a location preserves its ID. Referenced locations cannot be removed until their references are reassigned.
 
-The `/config` mapping corresponds to the add-on's directory under `/addon_configs/<repository-id>_knowledge_atlas_v5` on the host. V5 has its own configuration directory, independent of the original Knowledge Atlas add-on. `/share` is also mapped with write capability, but its location is read-only in the app by default. Enable writes deliberately in location settings when needed. Do not expose this app directly on the internet outside authenticated Ingress.
+The `/config` mapping corresponds to the add-on's directory under `/addon_configs/<repository-id>_knowledge_atlas_v5` on the host. Each channel has its own configuration directory and library. `/share` is also mapped with write capability, but its location is read-only in the app by default. Enable writes deliberately in location settings when needed. Do not expose this app directly on the internet outside authenticated Ingress.
 
 Uploads accept files up to 50 MB and never overwrite an existing filename. The upload saves the file immediately; saving the record attaches its link. A cancelled record may therefore leave an unattached file. Text editing supports UTF-8 files up to 2 MB and saves a previous version in a `.history` folder beside the edited file. PDFs support pages, zoom, passwords and copying available page text. Scanned PDFs do not gain OCR automatically.
 
@@ -68,7 +68,7 @@ External devices, web URLs and additional server roots such as `/share` are refe
 
 Changes to current files after the preview invalidate it. A failed final replacement restores the original directory; startup can recover an interrupted directory swap before initializing a fresh library. These safeguards have process/fault-injection tests, not physical power-loss certification. Preview tokens expire after 24 hours. Use **Discard preview** to remove staged uploads. Preserved libraries and successful operation files are retained in the sibling `.<library-name>-operations` directory; their location appears in diagnostics. Keep enough free disk space for the upload, extracted library and preserved original. Cleanup of preserved libraries is a deliberate manual storage operation.
 
-The old 1.2.0 record-only export lacks a checksum manifest and cannot be used as a full V2 restore archive. Restore such an export manually while the service is stopped, including its separately backed-up attachments, then create a V2 full backup. Language changes never migrate record contents. See [V2 verification](docs/VERIFICATION-V2.md) for current evidence and limits.
+Full-library restore requires a supported backup manifest with file checksums. Record-only ZIP files cannot be restored through this workflow. Language changes leave record contents unchanged. See [Validation](docs/VERIFICATION.md) for tested behavior and limits.
 
 ## Local development
 

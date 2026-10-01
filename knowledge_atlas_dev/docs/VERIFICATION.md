@@ -1,25 +1,15 @@
-# Release verification: 1.2.0
+# Validation
 
-Date: 2026-09-30. Local environment: Windows, Node.js 24.15.0. Browser checks use a separate temporary library; no personal records were changed or included in the release.
+Validated for stable `5.0.1` and development `5.0.1-dev.1` on 2026-10-01.
 
-| Check | Result |
-| --- | --- |
-| `npm ci` | Passed with the committed lockfile. |
-| `npm test` | 20 passed, 0 failed. Includes record CRUD, conflicts, file history, traversal/symlink restrictions, external Markdown refresh, inventory, tasks, dates, both languages and restart persistence. |
-| Existing repository tests, `node --test tests/addon.test.js` from the repository root | 3 passed, 0 failed. |
-| `npm run build` | Passed; PDF worker and supporting assets included. |
-| `npm run check:languages` | Passed; 394 paired messages; Czech source text restricted to `shared/locales/cs.json`. |
-| Language and code preservation | AST identifier comparison during extraction; runtime enum-ID checks; byte comparison of records before and after language saves. |
-| English browser UI | Navigation, settings, 2D/3D maps, task board, timeline dates, record code display, PDF rendering and TXT editing verified. |
-| Czech browser UI | Navigation, settings, board statuses, task creation, date editing, timeline, PDF rendering, TXT editing and persistence after reload verified. |
-| Generic seed library | Six valid records; existing files and edited samples preserved on restart. |
-| Logo | SVG application mark and matching 256×256 PNG icon/logo inspected. |
-| Base container image | Registry manifest for `node:24.15.0-alpine` includes Linux amd64 and arm64/v8. |
-| Container build/runtime | Not verified: local Docker Desktop failed before the engine started, in its Inference Manager socket initialization. No factory reset or system reconfiguration was performed. |
-| Real Home Assistant installation, restart and backup restore | Not verified in this environment. Release remains experimental. |
+- All 57 application tests pass in each channel. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, concurrent editing and language persistence.
+- Both production web builds pass.
+- English/Czech language audits pass with 701 matching translation keys in each channel.
+- Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
+- The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 
-The Home Assistant configuration, version consistency, Dockerfile copy paths, documentation and PNG structure are checked by `npm run check:addon`. The configuration follows the [official app configuration documentation](https://developers.home-assistant.io/docs/apps/configuration/); graphics follow the [presentation requirements](https://developers.home-assistant.io/docs/apps/presentation/).
+Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
 
-Repository publication adds only `knowledge_atlas/`. Existing `mybrowser/`, `fakturocel/`, root files and tests are preserved. Runtime data, personal notes, logs, dependency directories and build output are excluded from Git and from the Docker build context.
+## Validation limits
 
-Known product limitations are documented in [DOCS.md](../DOCS.md), especially that the in-app ZIP export does not include attachments. This release does not claim to implement the separate development roadmap.
+A real Home Assistant Supervisor installation, container startup and update have not been verified in this environment. Backup recovery has automated process and fault-injection coverage; this is not physical power-loss certification. External documents remain references unless they are stored in the managed document directory. Save browser drafts before exporting a library.

@@ -22,7 +22,7 @@ These two names and installation identities are permanent. A future `6.0.0-dev.1
 
 English is the default. A fresh installation asks for English or Czech once; existing libraries keep their language during updates. The choice can always be changed in application settings.
 
-The stable add-on retains the existing V5 slug `knowledge_atlas_v5`, configuration volume and data paths so installed V5 instances can receive normal updates. Dev has its own slug `knowledge_atlas_dev` and separate library. Catalog entries for V1, V3 and V4 are retired; source history is preserved. Export an older library and import its archive into the desired channel when transferring saved data. No private archive is included in this repository.
+Stable uses the permanent slug `knowledge_atlas_v5`; Dev uses `knowledge_atlas_dev`. Each channel has its own configuration volume and library. Use **Backup and restore** to transfer a library between channels.
 
 ## Fakturocel
 

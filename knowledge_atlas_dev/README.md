@@ -24,7 +24,7 @@ This is the **development channel**, version **5.0.1-dev.1**. The add-on name an
 
 New installations start empty. Open **Backup and restore** to export all saved library data or import a verified ZIP. Personal backup archives are separate from the add-on source and packages. See [Backup and restore](docs/BACKUP-RESTORE.md) for the exact contents, import steps and recovery behavior.
 
-A fresh installation starts in English and asks you to choose **English** or **Czech**. Confirm once to store the choice on the server. An existing library keeps its current language without a new prompt after an update. You can change it later in **Settings and locations**. All inherited V3 work tools remain available.
+A fresh installation starts in English and asks you to choose **English** or **Czech**. Confirm once to store the choice on the server. An existing library keeps its current language without a new prompt after an update. You can change it later in **Settings and locations**.
 
 ## Install
 
@@ -41,7 +41,7 @@ Install **Knowledge Atlas Dev** from the repository:
 
 For a manual installation, copy this directory to `/addons/knowledge_atlas_dev`, then reload the local app store.
 
-Home Assistant builds the image locally from the Dockerfile. Supported architectures are `amd64` and `aarch64`. See [V5 verification notes](docs/VERIFICATION-V5.md) for tested environments and remaining limits.
+Home Assistant builds the image locally from the Dockerfile. Supported architectures are `amd64` and `aarch64`. See [Validation](docs/VERIFICATION.md) for tested environments and remaining limits.
 
 Fresh installations start with an empty library. Existing libraries are preserved. No personal library or machine-specific settings are included in this repository.
 
