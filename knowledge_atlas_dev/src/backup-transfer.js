@@ -1,6 +1,7 @@
 import { api } from "./client.js";
 import { TransferMeter } from "./transfer-progress.js";
 import { createDownloadSink } from "./backup-storage.js";
+import { fileIdentity, verifyUploadFile } from "./upload-identity.js";
 
 function uploadChunk(url, body, signal, onProgress) {
   return new Promise((resolve, reject) => {
@@ -131,8 +132,20 @@ export class BackupTransfer {
     this.controller?.abort();
     this.wake?.();
   }
-  clearPreview() {
+  async clearPreview() {
+    const id = this.previewSessionId;
+    this.previewSessionId = null;
     this.emit({ preview: null });
+    if (id)
+      await this.request(`backup-transfers/${id}`, {
+        method: "DELETE",
+        body: JSON.stringify({ keepPreview: true }),
+      }).catch(() =>
+        this.emit({
+          error:
+            "The saved transfer could not be removed. Try cancelling it again when the connection returns.",
+        }),
+      );
   }
   async gate() {
     if (this.cancelled) throw abortError();
@@ -172,10 +185,13 @@ export class BackupTransfer {
     });
     this.session = null;
   }
-  async start(direction, file) {
+  async start(direction, file, resumeSession = null) {
     if (this.active) return;
     // Open a picker before the first await consumes transient user activation.
-    const filename = `knowledge-atlas-backup-${new Date().toISOString().replaceAll(":", "-")}.zip`;
+    const filename =
+      direction === "upload"
+        ? file?.name || resumeSession?.source?.name || "backup.zip"
+        : `knowledge-atlas-backup-${new Date().toISOString().replaceAll(":", "-")}.zip`;
     const destination =
       direction === "download"
         ? this.createSink(filename)
@@ -184,20 +200,22 @@ export class BackupTransfer {
     const previousSink = this.sink;
     if (this.state.url) URL.revokeObjectURL(this.state.url);
     this.sink = null;
-    this.session = null;
+    this.session = resumeSession;
     this.cancelled = this.paused = false;
-    this.committed = 0;
-    this.pendingLoaded = 0;
+    this.committed = resumeSession?.offset || 0;
+    this.pendingLoaded = this.committed;
     this.lastPaint = null;
     this.state = {
       ...idle,
       direction,
       filename,
-      total: file?.size ?? null,
+      total: resumeSession?.total ?? file?.size ?? null,
+      loaded: this.committed,
       preview: direction === "download" ? this.state.preview : null,
     };
     this.emit({ phase: "starting" });
     const beforeUnload = (event) => {
+      if (direction === "upload") return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -210,10 +228,37 @@ export class BackupTransfer {
         await previousSink?.discard();
       }
       if (this.cancelled) throw abortError();
-      this.session = await this.request("backup-transfers", {
-        method: "POST",
-        body: JSON.stringify({ direction, size: file?.size }),
-      });
+      if (resumeSession) {
+        const proof = await this.request(
+          `backup-transfers/${resumeSession.id}/proof`,
+        );
+        this.session = proof;
+        this.committed = proof.offset;
+        this.pendingLoaded = proof.offset;
+        this.emit({ loaded: proof.offset, total: proof.total });
+        if (proof.offset < proof.total) {
+          this.controller = new AbortController();
+          this.emit({
+            phase: "checking",
+            checked: 0,
+            checkTotal: proof.offset,
+          });
+          await verifyUploadFile(
+            file,
+            proof,
+            (checked, checkTotal) => this.emit({ checked, checkTotal }),
+            this.controller.signal,
+          );
+        }
+      } else {
+        const source =
+          direction === "upload" ? await fileIdentity(file) : undefined;
+        if (this.cancelled) throw abortError();
+        this.session = await this.request("backup-transfers", {
+          method: "POST",
+          body: JSON.stringify({ direction, size: file?.size, source }),
+        });
+      }
       if (this.cancelled) throw abortError();
       if (direction === "download") {
         this.emit({ phase: "preparing" });
@@ -221,7 +266,7 @@ export class BackupTransfer {
         this.emit({ total: status.total });
       }
       this.emit({ phase: "transferring" });
-      this.meter.reset(0);
+      this.meter.reset(this.committed);
       ticker = setInterval(() => {
         if (this.state.phase === "transferring")
           this.progress(this.pendingLoaded);
@@ -327,14 +372,11 @@ export class BackupTransfer {
         const status = await this.poll("verifying");
         if (this.cancelled) throw abortError();
         this.emit({ phase: "saving" });
-        let warning = "";
-        await this.release(true).catch(() => {
-          warning = cleanupWarning;
-        });
+        this.previewSessionId = this.session.id;
         this.emit({
           phase: "complete",
           preview: status.preview,
-          error: warning,
+          error: "",
         });
       } else {
         this.emit({ phase: "saving" });
@@ -348,10 +390,14 @@ export class BackupTransfer {
       }
     } catch (error) {
       let cleanupError;
-      try {
-        await this.release();
-      } catch (e) {
-        cleanupError = e;
+      // Disconnection, a closed page or a wrong selected file must never erase
+      // an upload. Only an explicit Cancel discards confirmed server bytes.
+      if (direction !== "upload" || this.cancelled) {
+        try {
+          await this.release();
+        } catch (e) {
+          cleanupError = e;
+        }
       }
       try {
         await this.sink?.discard();
@@ -365,7 +411,9 @@ export class BackupTransfer {
         rate: 0,
         eta: null,
         error: cleanupError
-          ? cleanupWarning
+          ? direction === "upload"
+            ? "The saved transfer could not be removed. Try cancelling it again when the connection returns."
+            : cleanupWarning
           : this.cancelled || error.name === "AbortError"
             ? ""
             : errorMessage(error),

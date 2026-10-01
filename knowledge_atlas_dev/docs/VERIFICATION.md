@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.8` on 2026-10-01.
+Validated for Knowledge Atlas Dev `5.0.1-dev.9` on 2026-10-01.
 
-- All 106 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 116 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 877 matching translation keys.
+- English/Czech language audits pass with 893 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -31,3 +31,7 @@ A real Home Assistant Supervisor installation, container startup and update have
 Development release 5.0.1-dev.8 adds regression coverage for localized hundredth-percent formatting, 20 GiB progress arithmetic, throughput/ETA sampling, lost acknowledgements, confirmed upload offsets, interrupted and oversized chunks, validated download ranges, pause/resume, cancellation and isolated temporary cleanup. The HTTP round trip verifies the complete backup manifest and every attached byte while preserving saved settings. Existing backup, restore, record, language and update-preservation tests remain part of the suite.
 
 Browser verification used a generic 32 MiB binary attachment in an embedded frame: download, pause/resume, save the ZIP, upload that same file, pause/resume during in-app navigation, successful SHA-256 preview, and cancellation in both directions. English and Czech controls and numeric formats were checked. This verifies local embedded-browser behavior; it does not substitute for testing on a running Home Assistant Supervisor, all browser storage implementations or a real multi-gigabyte network transfer.
+
+Development release 5.0.1-dev.9 adds durable upload journals, recovery endpoints, local original-file verification and retained restore previews. Ten additional tests cover restarted services, truncated unacknowledged tails, failed journal commits, old upload retention, malformed journals, interrupted verification, renewed previews, cancellation, file mismatches outside the sampled fingerprint, lost verification responses, saved settings and preserved rollback libraries.
+
+The embedded-browser test closed an upload at 24.99% (8 MiB of a generic 32.01 MiB ZIP), stopped and restarted the local server, then reopened the page. English and Czech recovery dialogs retained the exact progress. Selecting the original ZIP resumed successfully through the SHA-256 restore preview. Reloading at 100% recovered and reverified the ZIP without selecting a file again. Discarding the preview removed the recovery prompt on the next reload. Tests do not simulate physical power loss or certify every browser/storage implementation.

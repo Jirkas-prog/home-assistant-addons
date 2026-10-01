@@ -60,6 +60,14 @@ export function BackupTransferPanel({ floating = false }) {
         {formatBytes(state.loaded, locale())}
         {state.total != null && ` / ${formatBytes(state.total, locale())}`}
       </p>
+      {state.phase === "checking" && (
+        <p role="status">
+          {t(
+            "transfer.checkingProgress",
+            formatPercent(state.checked, state.checkTotal, locale()),
+          )}
+        </p>
+      )}
       <div className="data-actions">
         {pausable && (
           <button
@@ -109,7 +117,13 @@ export function BackupTransferPanel({ floating = false }) {
         <p className="field-help">{t("transfer.saveHelp")}</p>
       ) : (
         backupTransfer.active && (
-          <p className="field-help">{t("transfer.keepOpen")}</p>
+          <p className="field-help">
+            {t(
+              state.direction === "upload"
+                ? "transfer.uploadKept"
+                : "transfer.keepOpen",
+            )}
+          </p>
         )
       )}
     </section>

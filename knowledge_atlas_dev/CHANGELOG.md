@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.9
+
+- Persist confirmed upload chunks across page closure, connection loss and add-on restarts. Offer Resume, Later and Cancel when returning, with the saved filename, size and precise progress.
+- Check the selected original ZIP locally, including hashes of every confirmed chunk, before continuing without resending the uploaded prefix. Retain unfinished uploads until explicitly cancelled or completed.
+- Keep fully uploaded archives available for verification retries and renewed restore previews. Preserve library records, settings and restore rollback data.
+- Add English and Czech recovery controls and regression tests for restart, interrupted writes, file mismatch, cancellation and restored libraries.
+
 ## 5.0.1-dev.8
 
 - Show backup upload and download percentages with two decimal places, the current direction's transfer speed, transferred size and an approximate remaining time.

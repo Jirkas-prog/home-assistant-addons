@@ -236,7 +236,10 @@ test("cancel stops queued preparation and expired transfer cleanup preserves rol
   unblock();
   await removing;
   assert.equal(service.sessions.size, 0);
-  const expired = await service.create({ direction: "upload", size: 10 });
+  const retained = await service.create({ direction: "upload", size: 10 });
+  service.sessions.get(retained.id).touched = 0;
+  const expired = await service.create({ direction: "download" });
+  await service.get(expired.id).job;
   service.sessions.get(expired.id).touched = 0;
   const preserved = path.join(
     service.backups.root,
@@ -246,7 +249,7 @@ test("cancel stops queued preparation and expired transfer cleanup preserves rol
   await fs.mkdir(preserved, { recursive: true });
   await fs.writeFile(path.join(preserved, "keep.txt"), "keep");
   await service.sweep();
-  assert.equal(service.sessions.size, 0);
+  assert.deepEqual([...service.sessions.keys()], [retained.id]);
   assert.equal(
     await fs.readFile(path.join(preserved, "keep.txt"), "utf8"),
     "keep",
@@ -294,6 +297,8 @@ test("client upload pause, resume after lost acknowledgement and cancel use conf
   assert.equal(sends, 3);
   assert.equal(transfer.state.phase, "complete");
   assert.equal(transfer.state.preview.id, "preview");
+  assert.equal(deleted, false);
+  await transfer.clearPreview();
   assert.equal(deleted, true);
 
   deleted = false;

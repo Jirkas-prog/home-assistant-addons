@@ -66,6 +66,7 @@ import { ResizableWorkspace } from "./resizable-workspace.jsx";
 import "./backups.css";
 import { BackupTransferPanel } from "./backup-transfer-panel.jsx";
 import { backupTransfer } from "./backup-transfer.js";
+import { UploadRecovery } from "./upload-recovery.jsx";
 import { LanguageSetup } from "./language-setup.jsx";
 import { api, useDialogKeys } from "./client.js";
 import {
@@ -1807,6 +1808,12 @@ function App() {
         </section>
       </main>
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
+      <UploadRecovery
+        onContinue={() => {
+          setView("backups");
+          setShowSettings(false);
+        }}
+      />
       <input
         ref={importRef}
         type="file"

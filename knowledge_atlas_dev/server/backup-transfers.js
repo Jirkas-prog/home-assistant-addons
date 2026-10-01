@@ -1,10 +1,16 @@
 import fs from "node:fs/promises";
 import { createReadStream, createWriteStream } from "node:fs";
-import { randomUUID } from "node:crypto";
+import { randomUUID, createHash } from "node:crypto";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { byteLimit } from "./backups.js";
 import { fail } from "./store.js";
+import {
+  recoverUpload,
+  saveUpload,
+  syncFile,
+  validateSource,
+} from "./upload-journal.js";
 
 export const TRANSFER_CHUNK = 2 * 1024 ** 2;
 const MAX_BYTES = 20 * 1024 ** 3;
@@ -24,6 +30,19 @@ export class BackupTransfers {
     for (const folder of [this.backups.root, this.root])
       if ((await fs.lstat(folder)).isSymbolicLink())
         fail("The operations directory must not be a symlink.");
+    for (const entry of await fs.readdir(this.root, { withFileTypes: true })) {
+      if (!ID.test(entry.name) || !entry.isDirectory()) continue;
+      try {
+        const session = await recoverUpload(
+          path.join(this.root, entry.name),
+          this.backups,
+          TRANSFER_CHUNK,
+        );
+        if (session) this.sessions.set(session.id, session);
+      } catch (error) {
+        console.error(`Upload recovery: ${error.message}`);
+      }
+    }
     await this.sweep();
   }
   async sweep() {
@@ -31,6 +50,12 @@ export class BackupTransfers {
       if (!ID.test(entry.name) || !entry.isDirectory()) continue;
       const session = this.sessions.get(entry.name);
       const folder = path.join(this.root, entry.name);
+      // Uploads are deliberately retained until the owner finishes or cancels.
+      if (
+        session?.direction === "upload" ||
+        (await fs.lstat(path.join(folder, "session.json")).catch(() => null))
+      )
+        continue;
       const touched = session?.touched ?? (await fs.stat(folder)).mtimeMs;
       if (Date.now() - touched <= TTL || session?.job) continue;
       if (session) await this.remove(session.id);
@@ -44,8 +69,18 @@ export class BackupTransfers {
     return session;
   }
   describe(session) {
-    const { id, direction, state, total, offset, filename, preview, error } =
-      session;
+    const {
+      id,
+      direction,
+      state,
+      total,
+      offset,
+      filename,
+      preview,
+      error,
+      source,
+      touched,
+    } = session;
     return {
       id,
       direction,
@@ -55,6 +90,8 @@ export class BackupTransfers {
       filename,
       preview,
       error,
+      source,
+      touched,
       chunkSize: TRANSFER_CHUNK,
     };
   }
@@ -70,12 +107,15 @@ export class BackupTransfers {
           console.error(error.message);
         }
       })
-      .finally(() => {
-        session.job = null;
+      .finally(async () => {
         session.touched = Date.now();
+        await saveUpload(session).catch((error) =>
+          console.error(error.message),
+        );
+        session.job = null;
       });
   }
-  async create({ direction, size }) {
+  async create({ direction, size, source }) {
     if (!["upload", "download"].includes(direction))
       fail("Invalid transfer direction.");
     if (
@@ -83,6 +123,7 @@ export class BackupTransfers {
       (!Number.isSafeInteger(size) || size <= 0 || size > MAX_BYTES)
     )
       fail("Choose a non-empty ZIP no larger than 20 GiB.");
+    source = direction === "upload" ? validateSource(source) : null;
     await this.sweep();
     if (this.sessions.size >= 4)
       fail("Cancel an existing backup transfer before starting another.", 409);
@@ -96,6 +137,8 @@ export class BackupTransfers {
       state: direction === "download" ? "preparing" : "transferring",
       total: direction === "upload" ? size : null,
       offset: 0,
+      source,
+      chunks: [],
       touched: Date.now(),
       controller: new AbortController(),
       filename: `knowledge-atlas-backup-${new Date().toISOString().replaceAll(":", "-")}.zip`,
@@ -105,6 +148,7 @@ export class BackupTransfers {
     try {
       await fs.mkdir(folder);
       await fs.writeFile(session.file, "", { flag: "wx" });
+      await saveUpload(session);
     } catch (error) {
       this.sessions.delete(id);
       await fs.rm(folder, { recursive: true, force: true });
@@ -142,6 +186,7 @@ export class BackupTransfers {
     if (remaining <= 0)
       fail("All upload bytes have already been received.", 409);
     const chunk = path.join(session.folder, "chunk.tmp");
+    const originalOffset = session.offset;
     // An interrupted request never advances the committed offset.
     session.job = (async () => {
       try {
@@ -150,14 +195,32 @@ export class BackupTransfers {
         });
         const size = (await fs.stat(chunk)).size;
         if (!size) fail("The transfer chunk is empty.");
+        if (session.chunks.length >= 50000)
+          fail("The upload contains too many chunks.");
+        const hash = createHash("sha256");
+        for await (const bytes of createReadStream(chunk)) hash.update(bytes);
         await pipeline(
           createReadStream(chunk),
           createWriteStream(session.file, { flags: "a" }),
           { signal: session.controller.signal },
         );
-        session.offset += size;
+        const committed = {
+          ...session,
+          offset: originalOffset + size,
+          chunks: [
+            ...session.chunks,
+            { bytes: size, sha256: hash.digest("hex") },
+          ],
+          touched: Date.now(),
+        };
+        await syncFile(session.file);
+        await saveUpload(committed);
+        // Status and recovery proof expose only durable, acknowledged bytes.
+        session.offset = committed.offset;
+        session.chunks = committed.chunks;
+        session.touched = committed.touched;
       } catch (error) {
-        await fs.truncate(session.file, session.offset);
+        await fs.truncate(session.file, originalOffset);
         throw error;
       } finally {
         await fs.rm(chunk, { force: true });
@@ -174,21 +237,29 @@ export class BackupTransfers {
   complete(id) {
     const session = this.get(id);
     if (session.direction !== "upload") fail("Invalid transfer direction.");
-    if (["verifying", "ready", "error"].includes(session.state))
-      return this.describe(session);
+    if (session.state === "verifying") return this.describe(session);
     if (session.job || session.offset !== session.total)
       fail("The upload is not complete.", 409);
     session.state = "verifying";
+    session.error = null;
     this.launch(session, () =>
       this.mutate(async () => {
         session.controller.signal.throwIfAborted();
+        // Persist the retry intent before replacing a previously ready preview.
+        await saveUpload(session);
+        if (session.verificationId)
+          await this.backups.discard(session.verificationId);
+        session.verificationId = randomUUID();
+        await saveUpload(session);
         session.preview = await this.backups.prepare(
           createReadStream(session.file),
-          { signal: session.controller.signal },
+          { signal: session.controller.signal, id: session.verificationId },
         );
         session.controller.signal.throwIfAborted();
         session.state = "ready";
-        await fs.rm(session.file, { force: true });
+        await saveUpload(session);
+        // Retain the source until restore/discard so a returning user can
+        // refresh an expired preview without uploading the archive again.
       }),
     );
     return this.describe(session);
@@ -198,6 +269,10 @@ export class BackupTransfers {
     session.state = "cancelling";
     session.controller.abort();
     await session.job?.catch(() => {});
+    session.state = "cancelling";
+    // Acknowledged completion keeps the preview; cancellation removes it.
+    if (keepPreview) session.verificationId = null;
+    await saveUpload(session);
     if (session.preview && !keepPreview)
       await this.mutate(() => this.backups.discard(session.preview.id));
     await fs.rm(session.folder, { recursive: true, force: true });
@@ -213,6 +288,20 @@ export async function registerBackupTransfers(app, backups, mutate) {
   app.post(route, async (req, res) =>
     res.status(201).json(await transfers.create(req.body)),
   );
+  app.get(route, (req, res) =>
+    res.set("Cache-Control", "no-store").json({
+      uploads: [...transfers.sessions.values()]
+        .filter((session) => session.direction === "upload")
+        .map((session) => transfers.describe(session)),
+    }),
+  );
+  app.get(`${route}/:id/proof`, (req, res) => {
+    const session = transfers.get(req.params.id);
+    if (session.direction !== "upload") fail("Invalid transfer direction.");
+    res
+      .set("Cache-Control", "no-store")
+      .json({ ...transfers.describe(session), chunks: session.chunks });
+  });
   app.get(`${route}/:id`, (req, res) =>
     res
       .set("Cache-Control", "no-store")
@@ -255,15 +344,13 @@ export async function registerBackupTransfers(app, backups, mutate) {
         .status(416)
         .set("Content-Range", `bytes */${session.total}`)
         .end();
-    res
-      .status(206)
-      .set({
-        "Content-Type": "application/zip",
-        "Content-Length": end - start + 1,
-        "Content-Range": `bytes ${start}-${end}/${session.total}`,
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "private, no-store, no-transform",
-      });
+    res.status(206).set({
+      "Content-Type": "application/zip",
+      "Content-Length": end - start + 1,
+      "Content-Range": `bytes ${start}-${end}/${session.total}`,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "private, no-store, no-transform",
+    });
     await pipeline(
       createReadStream(session.file, {
         start,

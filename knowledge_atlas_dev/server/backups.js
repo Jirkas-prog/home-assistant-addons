@@ -332,16 +332,19 @@ export class Backups {
       throw error;
     }
   }
-  async prepare(input, { signal } = {}) {
+  async prepare(input, { signal, id: requestedId } = {}) {
     signal?.throwIfAborted();
     await fs.mkdir(this.root, { recursive: true });
     if ((await fs.lstat(this.root)).isSymbolicLink())
       fail("The operations directory must not be a symlink.");
-    const id = randomUUID(),
+    if (requestedId != null && !ID.test(requestedId))
+      fail("Invalid restore ID.");
+    const id = requestedId || randomUUID(),
       stage = path.join(this.root, id),
       zipPath = path.join(stage, "upload.zip"),
       extracted = path.join(stage, "extracted");
-    await fs.mkdir(extracted, { recursive: true });
+    await fs.mkdir(stage);
+    await fs.mkdir(extracted);
     try {
       await pipeline(
         input,
@@ -518,9 +521,14 @@ export class Backups {
         rollbackDirectory: path.join(stage, "previous-library"),
       };
       signal?.throwIfAborted();
-      await fs.writeFile(path.join(stage, "plan.json"), JSON.stringify(plan), {
+      await fs.writeFile(path.join(stage, "plan.tmp"), JSON.stringify(plan), {
         flag: "wx",
+        flush: true,
       });
+      await fs.rename(
+        path.join(stage, "plan.tmp"),
+        path.join(stage, "plan.json"),
+      );
       await fs.unlink(zipPath);
       return plan;
     } catch (error) {

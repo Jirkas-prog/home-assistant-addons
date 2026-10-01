@@ -131,7 +131,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
                       body: "{}",
                     });
                   setPreview(null);
-                  backupTransfer.clearPreview();
+                  await backupTransfer.clearPreview();
                   setConfirmed(false);
                   await backupTransfer.start("upload", file);
                 });
@@ -237,7 +237,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
                     body: JSON.stringify({ revision: preview.revision }),
                   });
                   setPreview(null);
-                  backupTransfer.clearPreview();
+                  await backupTransfer.clearPreview();
                   setMessage(t("data.restored"));
                   await onChanged();
                   await refreshCoverage();
@@ -257,7 +257,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
                     body: "{}",
                   });
                   setPreview(null);
-                  backupTransfer.clearPreview();
+                  await backupTransfer.clearPreview();
                 })
               }
             >
