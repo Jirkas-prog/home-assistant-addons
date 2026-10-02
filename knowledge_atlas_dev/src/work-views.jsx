@@ -16,12 +16,21 @@ import { Timeline } from "./timeline.jsx";
 import { checkpoints, taskUrgencies } from "../shared/checkpoints.js";
 import { useToday } from "./use-today.js";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
-export function Inventory({ nodes, settings, query, scope, onSelect, onNew }) {
+export function Inventory({
+  importance = [],
+  nodes,
+  settings,
+  query,
+  scope,
+  onSelect,
+  onNew,
+}) {
   const [place, setPlace] = useState("");
   const items = filterNodes(nodes, {
     query,
     scope,
     type: "item",
+    importance,
     location: place,
     locations: settings.locations,
   });
@@ -60,6 +69,7 @@ export function Inventory({ nodes, settings, query, scope, onSelect, onNew }) {
             scope,
             query,
             location: place,
+            importance: importance.join(","),
           })}`}
         >
           <Download size={15} />
@@ -114,6 +124,7 @@ export function Inventory({ nodes, settings, query, scope, onSelect, onNew }) {
   );
 }
 export function Tasks({
+  importance = [],
   nodes,
   settings,
   query,
@@ -142,13 +153,14 @@ export function Tasks({
         query,
         scope,
         type: "task",
+        importance,
         locations: settings.locations,
       }).filter(
         (n) =>
           (!project || projectFor(n, nodes)?.id === project) &&
           (mode === "timeline" || status === "all" || n.status === status),
       ),
-    [nodes, query, scope, project, status, mode, settings],
+    [nodes, query, scope, project, status, mode, settings, importance],
   );
   const today = useToday();
   const allTasks = useMemo(

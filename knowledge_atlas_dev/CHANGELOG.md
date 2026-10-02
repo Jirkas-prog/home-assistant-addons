@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.14
+
+- Keep the original map and add selectable spacious groups, hierarchical nebulae and regular grids in 2D and 3D. Compute geometry in a background worker, cache it locally and preserve the camera during filtering and record updates.
+- Add constant-size, collision-aware labels and progressive detail on zoom. Combine exact importance ratings with topic, record type and text filters; retain dimmed ancestor context.
+- Add a dedicated Journal notebook with day, week and month contents, inclusive date ranges and navigation that skips empty periods. Mark journal entries as experiences and link tasks using existing Markdown records and attachments.
+- Start the sidebar tree collapsed and expose importance controls on all record types. Preserve existing libraries, journal entries, settings and backup formats.
+
 ## 5.0.1-dev.13
 
 - Maintain a persistent, incremental record index and update it in the background. Reuse unchanged Markdown across reads and restarts, retain the last completed map during rebuilding, and detect external edits and restored libraries automatically.

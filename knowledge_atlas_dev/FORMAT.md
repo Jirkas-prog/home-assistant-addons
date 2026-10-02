@@ -108,3 +108,7 @@ task:
 ```
 
 Dates use `YYYY-MM-DD`; empty strings mean unbounded endpoints on the timeline. An empty start extends into the past, an empty due date extends into the future, and both empty span the whole visible axis. Due dates are inclusive through the end of that calendar day. A due date cannot precede the start date. Priority is `low`, `normal` or `high`. Date-only values remain date-only when changing languages. UI labels do not alter these field names or enum values.
+
+### Journal experience marker
+
+Journal records retain `type: knowledge` and `tool.kind: journal`. The optional boolean `tool.experience` marks a journal entry as a reusable experience. Omission is equivalent to `false`. Use ordinary `related` record IDs to link tasks, knowledge or other entries. No second copy of the record is created. The notebook derives its date contents from `tool.date`, `tool.endDate` and `tool.period`; externally edited Markdown participates automatically.

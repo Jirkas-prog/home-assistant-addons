@@ -95,6 +95,15 @@ import {
 } from "./locations.jsx";
 import { DocumentViewer } from "./documents.jsx";
 import { AttachmentGallery } from "./journal.jsx";
+import { JournalNotebook } from "./journal-notebook.jsx";
+import { MAP_LAYOUTS, mapGraph } from "./map-layout.js";
+import {
+  useMapLayout,
+  readMapLayout,
+  saveMapLayout,
+} from "./use-map-layout.js";
+import { labelEligible, declutterLabels } from "./map-labels.js";
+import "./map-layout.css";
 import { Inventory, Tasks } from "./work-views.jsx";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
 import {
@@ -107,7 +116,6 @@ import { createAtlasSync } from "./atlas-sync.js";
 import { Breadcrumbs } from "./breadcrumbs.jsx";
 import { createRecordNavigation } from "./breadcrumb-model.js";
 import {
-  mapNodeRadius,
   mapNodeGeometry,
   paintMapNodePointer,
   pickMapNode2D,
@@ -171,141 +179,6 @@ function Glyph({ type, ...props }) {
   const Icon = ICONS[type] || Circle;
   return <Icon size={17} {...props} />;
 }
-function graphLayout(nodes, scope, query, type, locations = []) {
-  const source = new Map(nodes.map((n) => [n.id, n]));
-  const allowed = scope ? descendants(nodes, scope) : new Set(source.keys());
-  let keep = new Set([...allowed]);
-  if (query || type !== "all") {
-    keep = new Set();
-    for (const n of nodes)
-      if (allowed.has(n.id) && matchesQuery(n, query, type, locations)) {
-        let current = n;
-        const seen = new Set();
-        while (current && allowed.has(current.id) && !seen.has(current.id)) {
-          keep.add(current.id);
-          seen.add(current.id);
-          current = source.get(current.parent);
-        }
-      }
-  }
-  const visible = nodes.filter((n) => keep.has(n.id));
-  const children = new Map();
-  for (const n of visible) {
-    const parent = keep.has(n.parent) ? n.parent : null;
-    if (!children.has(parent)) children.set(parent, []);
-    children.get(parent).push(n);
-  }
-  const roots = children.get(null) || [];
-  const ordered = [],
-    seen = new Set(),
-    queue = roots.map((n) => ({
-      n,
-      depth: 0,
-    }));
-  for (let i = 0; i < queue.length; i++) {
-    const item = queue[i];
-    if (seen.has(item.n.id)) continue;
-    seen.add(item.n.id);
-    ordered.push(item);
-    for (const c of children.get(item.n.id) || [])
-      queue.push({
-        n: c,
-        depth: item.depth + 1,
-      });
-  }
-  const weights = new Map();
-  for (const { n } of [...ordered].reverse())
-    weights.set(
-      n.id,
-      Math.max(
-        1,
-        (children.get(n.id) || []).reduce(
-          (s, c) => s + (weights.get(c.id) || 1),
-          0,
-        ),
-      ),
-    );
-  const positioned = [],
-    tasks = roots.map((n, i) => ({
-      n,
-      depth: 0,
-      start: (i * Math.PI * 2) / roots.length,
-      end: ((i + 1) * Math.PI * 2) / roots.length,
-    })),
-    visited = new Set();
-  for (let i = 0; i < tasks.length; i++) {
-    const { n, depth, start, end } = tasks[i];
-    if (visited.has(n.id)) continue;
-    visited.add(n.id);
-    const angle = (start + end) / 2 - Math.PI / 2,
-      radius = depth * 145 + (roots.length > 1 ? 90 : 0),
-      r = mapNodeRadius(n, depth);
-    positioned.push({
-      ...n,
-      matched: !!query || type !== "all",
-      depth,
-      r,
-      x: Math.cos(angle) * radius,
-      y: Math.sin(angle) * radius,
-      fx: Math.cos(angle) * radius,
-      fy: Math.sin(angle) * radius,
-      fz: depth === 0 ? 0 : Math.sin(angle * 2 + depth) * 90 * depth,
-    });
-    let cursor = start;
-    for (const c of children.get(n.id) || []) {
-      const span =
-        ((end - start) * (weights.get(c.id) || 1)) / (weights.get(n.id) || 1);
-      tasks.push({
-        n: c,
-        depth: depth + 1,
-        start: cursor,
-        end: cursor + span,
-      });
-      cursor += span;
-    }
-  }
-  const links = [];
-  for (const n of positioned) {
-    if (keep.has(n.parent))
-      links.push({
-        source: n.parent,
-        target: n.id,
-        kind: "tree",
-        color: n.color,
-      });
-    for (const id of n.related)
-      if (keep.has(id) && n.id < id)
-        links.push({
-          source: n.id,
-          target: id,
-          kind: "related",
-          color: n.color,
-        });
-  }
-  // Related links may be one-way in Markdown; display each undirected pair once.
-  const pairs = new Set(
-    links
-      .filter((l) => l.kind === "related")
-      .map((l) => [l.source, l.target].sort().join("|")),
-  );
-  for (const n of positioned)
-    for (const id of n.related) {
-      const key = [n.id, id].sort().join("|");
-      if (keep.has(id) && !pairs.has(key)) {
-        links.push({
-          source: n.id,
-          target: id,
-          kind: "related",
-          color: n.color,
-        });
-        pairs.add(key);
-      }
-    }
-  return {
-    nodes: positioned,
-    links,
-  };
-}
 class MapBoundary extends React.Component {
   state = {
     error: false,
@@ -338,7 +211,9 @@ function MapView({
   graphRef,
 }) {
   const callbacks = useRef(),
-    fitTimer = useRef();
+    fitTimer = useRef(),
+    fitted = useRef(false),
+    visibleLabels = useRef(new Set());
   callbacks.current = { onSelect, onOpen, viewerOpen };
   const activation = useMemo(
     () =>
@@ -375,9 +250,13 @@ function MapView({
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    if (callbacks.current.viewerOpen) return;
+    if (callbacks.current.viewerOpen || fitted.current || !data.nodes.length)
+      return;
     const timer = setTimeout(() => {
-      if (!callbacks.current.viewerOpen) graphRef.current?.zoomToFit(0, 65);
+      if (!callbacks.current.viewerOpen && graphRef.current) {
+        graphRef.current.zoomToFit(0, 65);
+        fitted.current = true;
+      }
     }, 350);
     fitTimer.current = timer;
     return () => clearTimeout(timer);
@@ -398,7 +277,7 @@ function MapView({
       // Match native wheel units and pinch gestures, with 25% more sensitivity.
       const unit = event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002;
       const delta = -event.deltaY * unit * (event.ctrlKey ? 10 : 1) * 1.25;
-      graph.zoom(Math.max(0.08, Math.min(8, graph.zoom() * 2 ** delta)));
+      graph.zoom(Math.max(0.002, Math.min(20, graph.zoom() * 2 ** delta)));
       const after = graph.screen2GraphCoords(x, y);
       const center = graph.centerAt();
       graph.centerAt(
@@ -429,6 +308,7 @@ function MapView({
       instance.screen2GraphCoords(x, y),
       selected,
       hover,
+      visibleLabels.current,
     );
     activation.click(node, event);
   };
@@ -442,13 +322,14 @@ function MapView({
         event.stopPropagation();
       }}
     >
-      {data.nodes.length === 0 ? (
-        <div className="empty">
+      {data.nodes.length === 0 && (
+        <div className="empty map-empty">
           <Search />
           <h3>{t("m089")}</h3>
           <p>{t("m090")}</p>
         </div>
-      ) : mode === "3d" ? (
+      )}
+      {mode === "3d" ? (
         <MapBoundary key="3d">
           <Suspense
             fallback={
@@ -478,8 +359,42 @@ function MapView({
           nodeLabel={label}
           cooldownTicks={0}
           enableNodeDrag={false}
-          minZoom={0.08}
-          maxZoom={8}
+          minZoom={0.002}
+          maxZoom={20}
+          onRenderFramePre={(ctx, scale) => {
+            const graph = graphRef.current;
+            if (!graph) return;
+            const candidates = [];
+            const eligible = new Set(
+              data.nodes
+                .filter((n) => labelEligible(n, scale, selected, hover))
+                .map((n) => n.id),
+            );
+            for (const node of data.nodes) {
+              if (!eligible.has(node.id)) continue;
+              const { label } = mapNodeGeometry(
+                node,
+                ctx,
+                scale,
+                selected,
+                hover,
+                eligible,
+              );
+              const [x, y, w, h] = label.box,
+                point = graph.graph2ScreenCoords(x, y);
+              candidates.push({
+                node,
+                box: [point.x, point.y, w * scale, h * scale],
+              });
+            }
+            visibleLabels.current = declutterLabels(
+              candidates,
+              size.width,
+              size.height,
+              selected,
+              hover,
+            );
+          }}
           onNodeClick={(_, event) => select2DAtClick(event)}
           onLinkClick={(_, event) => select2DAtClick(event)}
           onBackgroundClick={select2DAtClick}
@@ -498,8 +413,15 @@ function MapView({
               scale,
               selected,
               hover,
+              visibleLabels.current,
             );
-            const r = node.r;
+            ctx.save();
+            ctx.globalAlpha = node.context
+              ? 0.3
+              : node.r * scale > 80 && !active && !hovered
+                ? 0.2
+                : 1;
+            const r = Math.max(node.r, 0.8 / scale);
             if (active || hovered) {
               ctx.beginPath();
               ctx.arc(node.x, node.y, r + 7, 0, 2 * Math.PI);
@@ -549,9 +471,18 @@ function MapView({
                   : "#a7afbe";
               ctx.fillText(label.title, label.x, label.y);
             }
+            ctx.restore();
           }}
           nodePointerAreaPaint={(n, color, ctx, scale) =>
-            paintMapNodePointer(n, color, ctx, scale, selected, hover)
+            paintMapNodePointer(
+              n,
+              color,
+              ctx,
+              scale,
+              selected,
+              hover,
+              visibleLabels.current,
+            )
           }
         />
       )}
@@ -583,6 +514,8 @@ function App() {
     [filter, setFilter] = useState("all"),
     [scope, setScope] = useState(""),
     [mode, setMode] = useState("2d"),
+    [mapLayout, setMapLayout] = useState(readMapLayout),
+    [importanceFilter, setImportanceFilter] = useState([]),
     [view, setView] = useState(() => {
       const chosen = new URLSearchParams(location.search).get("view");
       return [
@@ -591,24 +524,26 @@ function App() {
         "tasks",
         "inventory",
         "tools",
+        "journal",
         "backups",
       ].includes(chosen)
         ? chosen
         : "map";
     }),
     [relations, setRelations] = useState(true),
-    [collapsed, setCollapsed] = useState(new Set()),
+    [expanded, setExpanded] = useState(new Set()),
     [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState(
       () =>
-        !["tasks", "inventory", "tools", "backups"].includes(
+        !["tasks", "inventory", "tools", "journal", "backups"].includes(
           new URLSearchParams(location.search).get("view"),
         ),
     ),
     [editing, setEditing] = useState(null),
     [reader, setReader] = useState(null),
     [toast, setToast] = useState(""),
-    [toolProject, setToolProject] = useState("");
+    [toolProject, setToolProject] = useState(""),
+    [journalCreate, setJournalCreate] = useState(false);
   const graphRef = useRef(),
     importRef = useRef(),
     searchRef = useRef(),
@@ -726,9 +661,25 @@ function App() {
   }, []);
   const node = nodes.find((n) => n.id === selected);
   const groups = structure.categories;
+  const layoutState = useMapLayout(nodes, mapLayout, mode);
   const graph = useMemo(
-    () => graphLayout(nodes, scope, query, filter, settings.locations),
-    [nodes, scope, query, filter, settings],
+    () =>
+      mapGraph(nodes, layoutState.positions, {
+        scope,
+        query,
+        type: filter,
+        importance: importanceFilter,
+        locations: settings.locations,
+      }),
+    [
+      nodes,
+      layoutState.positions,
+      scope,
+      query,
+      filter,
+      importanceFilter,
+      settings.locations,
+    ],
   );
   const choose = (n) => {
     const id = typeof n === "string" ? n : n.id;
@@ -818,7 +769,7 @@ function App() {
         ...row,
         hasChildren: !!children.get(row.n.id)?.length,
       });
-      if (!collapsed.has(row.n.id))
+      if (expanded.has(row.n.id))
         for (const n of [...(children.get(row.n.id) || [])].reverse())
           stack.push({
             n,
@@ -826,7 +777,7 @@ function App() {
           });
     }
     return rows;
-  }, [nodes, collapsed]);
+  }, [nodes, expanded]);
   const recordNavigation = useMemo(
     () => createRecordNavigation(nodes),
     [nodes],
@@ -838,6 +789,7 @@ function App() {
     ["tasks", t("m103")],
     ["inventory", t("m104")],
     ["tools", t("tools.title")],
+    ["journal", t("journal.title")],
     ["settings", t("m029")],
     ["backups", t("backup.title")],
   ].map(([id, label]) => ({
@@ -881,6 +833,7 @@ function App() {
   function navigatePath(target) {
     setQuery("");
     setFilter("all");
+    setImportanceFilter([]);
     setSidebar(false);
     if (target.kind === "section") {
       if (target.id === "settings") {
@@ -935,9 +888,10 @@ function App() {
         scope,
         query,
         type: filter,
+        importance: importanceFilter,
         locations: settings.locations,
       }),
-    [nodes, scope, query, filter, settings],
+    [nodes, scope, query, filter, importanceFilter, settings],
   );
   const liveReader = reader?.nodeId
     ? nodes.find((n) => n.id === reader.nodeId)
@@ -1033,6 +987,20 @@ function App() {
           <span className="nav-badge">{stats.items}</span>
         </button>
         <button
+          className={`nav-button ${view === "journal" ? "active" : ""}`}
+          onClick={() => {
+            setView("journal");
+            setDetail(false);
+            setSidebar(false);
+          }}
+        >
+          <BookOpen size={18} />
+          {t("journal.title")}
+          <span className="nav-badge">
+            {nodes.filter((n) => n.tool?.kind === "journal").length}
+          </span>
+        </button>
+        <button
           className={`nav-button ${view === "tools" ? "active" : ""}`}
           onClick={() => {
             setView("tools");
@@ -1101,16 +1069,17 @@ function App() {
             >
               <button
                 className={`tree-toggle ${!hasChildren ? "invisible" : ""}`}
-                aria-label={`${collapsed.has(n.id) ? t("m395") : t("m396")} ${n.title}`}
+                aria-expanded={hasChildren ? expanded.has(n.id) : undefined}
+                aria-label={`${!expanded.has(n.id) ? t("m395") : t("m396")} ${n.title}`}
                 onClick={() =>
-                  setCollapsed((old) => {
+                  setExpanded((old) => {
                     const next = new Set(old);
                     next.has(n.id) ? next.delete(n.id) : next.add(n.id);
                     return next;
                   })
                 }
               >
-                {collapsed.has(n.id) ? (
+                {!expanded.has(n.id) ? (
                   <ChevronRight size={13} />
                 ) : (
                   <ChevronDown size={13} />
@@ -1202,18 +1171,20 @@ function App() {
             <button
               className="primary-button"
               onClick={() =>
-                newNode(
-                  selected || homeId,
-                  view === "tasks"
-                    ? "task"
-                    : view === "inventory"
-                      ? "item"
-                      : "knowledge",
-                )
+                view === "journal"
+                  ? setJournalCreate(true)
+                  : newNode(
+                      selected || homeId,
+                      view === "tasks"
+                        ? "task"
+                        : view === "inventory"
+                          ? "item"
+                          : "knowledge",
+                    )
               }
             >
               <Plus size={17} />
-              {t("m120")}
+              {view === "journal" ? t("tools.new.journal") : t("m120")}
             </button>
           </div>
         </header>
@@ -1227,6 +1198,7 @@ function App() {
                   tasks: t("m103"),
                   inventory: t("m104"),
                   tools: t("tools.title"),
+                  journal: t("journal.title"),
                   backups: t("backup.title"),
                 }[view]
               }
@@ -1239,6 +1211,7 @@ function App() {
                   tasks: t("m128"),
                   inventory: t("m129"),
                   tools: t("tools.description"),
+                  journal: t("journal.description"),
                   backups: t("backup.description"),
                 }[view]
               }
@@ -1302,7 +1275,58 @@ function App() {
                 </option>
               ))}
             </select>
+            {view !== "backups" && (
+              <fieldset className="importance-filter">
+                <legend>{t("importance.label")}</legend>
+                {[1, 2, 3, 4, 5].map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-label={t("map.importanceExact", value)}
+                    aria-pressed={importanceFilter.includes(value)}
+                    className={
+                      importanceFilter.includes(value) ? "selected" : ""
+                    }
+                    onClick={() =>
+                      setImportanceFilter((old) =>
+                        old.includes(value)
+                          ? old.filter((n) => n !== value)
+                          : [...old, value],
+                      )
+                    }
+                  >
+                    {value}
+                    <span aria-hidden="true">★</span>
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  aria-pressed={!importanceFilter.length}
+                  onClick={() => setImportanceFilter([])}
+                >
+                  {t("m144")}
+                </button>
+              </fieldset>
+            )}
             <div className="toolbar-spacer" />
+            {view === "map" && (
+              <select
+                aria-label={t("map.layout")}
+                className="map-layout-select"
+                title={t("map.layoutHelp")}
+                value={mapLayout}
+                onChange={(e) => {
+                  setMapLayout(e.target.value);
+                  saveMapLayout(e.target.value);
+                }}
+              >
+                {MAP_LAYOUTS.map((name, index) => (
+                  <option key={name} value={name}>
+                    {index + 1}. {t(`map.layout.${name}`)}
+                  </option>
+                ))}
+              </select>
+            )}
             {view === "map" && (
               <div className="segmented">
                 <button
@@ -1330,7 +1354,7 @@ function App() {
             </button>
           </div>
           <div
-            className={`filter-bar ${["inventory", "tasks", "tools", "backups"].includes(view) ? "hidden-filter" : ""}`}
+            className={`filter-bar ${["inventory", "tasks", "tools", "journal", "backups"].includes(view) ? "hidden-filter" : ""}`}
           >
             <button
               className={filter === "all" ? "selected" : ""}
@@ -1339,7 +1363,11 @@ function App() {
               {t("m144") + " "}
               <span>{nodes.length}</span>
             </button>
-            {Object.entries(TYPES).map(([key, label]) => (
+            {[
+              ...Object.entries(TYPES),
+              ["journal", t("journal.title")],
+              ["experience", t("journal.experience")],
+            ].map(([key, label]) => (
               <button
                 key={key}
                 className={filter === key ? "selected" : ""}
@@ -1350,8 +1378,14 @@ function App() {
               </button>
             ))}
             <span className="filter-caption">
-              {graph.nodes.length}
+              {graph.matchCount}
               {" " + t("m145")}
+              {graph.nodes.length > graph.matchCount && (
+                <small>
+                  {" "}
+                  · {t("map.context", graph.nodes.length - graph.matchCount)}
+                </small>
+              )}
             </span>
           </div>
           {error && (
@@ -1387,8 +1421,26 @@ function App() {
                 <div className="backup-page">
                   <DataTools backupOnly onChanged={load} />
                 </div>
+              ) : view === "journal" ? (
+                <JournalNotebook
+                  nodes={nodes}
+                  settings={settings}
+                  query={query}
+                  scope={scope}
+                  importance={importanceFilter}
+                  homeId={homeId}
+                  onRefresh={load}
+                  focusId={node?.tool?.kind === "journal" ? node.id : ""}
+                  createRequested={journalCreate}
+                  onCreated={() => setJournalCreate(false)}
+                  onSelect={(n) => {
+                    choose(n);
+                    setView(n.type === "task" ? "tasks" : "library");
+                  }}
+                />
               ) : view === "tools" ? (
                 <WorkTools
+                  importance={importanceFilter}
                   nodes={nodes}
                   settings={settings}
                   query={query}
@@ -1408,6 +1460,7 @@ function App() {
                 />
               ) : view === "inventory" ? (
                 <Inventory
+                  importance={importanceFilter}
                   nodes={nodes}
                   settings={settings}
                   query={query}
@@ -1417,6 +1470,7 @@ function App() {
                 />
               ) : view === "tasks" ? (
                 <Tasks
+                  importance={importanceFilter}
                   onRefresh={load}
                   nodes={nodes}
                   settings={settings}
@@ -1447,8 +1501,20 @@ function App() {
                       : t("m149")}
                     <small>{mode === "2d" ? t("m399") : t("m150")}</small>
                   </div>
+                  {layoutState.building && (
+                    <div className="map-building" role="status">
+                      <LoaderCircle className="spin" />
+                      {t("map.building")}
+                    </div>
+                  )}
+                  {layoutState.error && (
+                    <div className="map-building" role="alert">
+                      {t("map.failed")}
+                    </div>
+                  )}
                   <MapView
                     data={graph}
+                    key={`${mapLayout}:${mode}`}
                     mode={mode}
                     selected={selected}
                     onSelect={choose}
@@ -1529,13 +1595,11 @@ function App() {
               >
                 {node ? (
                   <>
-                    {["project", "item", "task"].includes(node.type) && (
-                      <RecordImportance
-                        key={node.id}
-                        node={node}
-                        onSaved={load}
-                      />
-                    )}
+                    <RecordImportance
+                      key={node.id}
+                      node={node}
+                      onSaved={load}
+                    />
                     <div className="detail-content">
                       <AttachmentGallery node={node} settings={settings} />
                       <section className="detail-files" aria-label={t("m170")}>
@@ -1675,7 +1739,11 @@ function App() {
                         <button
                           className="secondary-button project-task-button"
                           onClick={() => {
-                            setView("tools");
+                            setView(
+                              node.tool?.kind === "journal"
+                                ? "journal"
+                                : "tools",
+                            );
                             setToolProject(
                               node.type === "project" ? node.id : "",
                             );
@@ -2106,22 +2174,20 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
               </select>
             </label>
           </div>
-          {["project", "item", "task"].includes(form.type) && (
-            <div className="importance-field">
-              <span>{t("importance.label")}</span>
-              <ImportanceStars
-                value={recordImportance(form)}
-                onChange={(importance) => set("importance", importance)}
-              />
-              <p className="field-help">
-                {t(
-                  form.type === "task"
-                    ? "importance.taskHelp"
-                    : "importance.help",
-                )}
-              </p>
-            </div>
-          )}
+          <div className="importance-field">
+            <span>{t("importance.label")}</span>
+            <ImportanceStars
+              value={recordImportance(form)}
+              onChange={(importance) => set("importance", importance)}
+            />
+            <p className="field-help">
+              {t(
+                form.type === "task"
+                  ? "importance.taskHelp"
+                  : "importance.help",
+              )}
+            </p>
+          </div>
           {form.type === "item" && (
             <InventoryEditor
               node={form}

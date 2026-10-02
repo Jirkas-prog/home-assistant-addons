@@ -63,3 +63,19 @@ export function photoSuggestions(resources) {
   }
   return { start: dates[0], end: dates.at(-1), places: places.slice(0, 100) };
 }
+
+// Ranged entries appear once, under their start date; blank periods are skipped.
+export function journalGroups(entries, period = "month") {
+  const groups = new Map();
+  for (const entry of entries) {
+    const date = new Date(entry.tool.date + "T12:00:00Z");
+    if (period === "month") date.setUTCDate(1);
+    if (period === "week")
+      date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
+    const start = date.toISOString().slice(0, 10);
+    if (!groups.has(start))
+      groups.set(start, { start, end: periodEnd(start, period), entries: [] });
+    groups.get(start).entries.push(entry);
+  }
+  return [...groups.values()].sort((a, b) => b.start.localeCompare(a.start));
+}

@@ -1,0 +1,64 @@
+.toolbar {
+  flex-wrap: wrap;
+}
+.toolbar .map-layout-select {
+  width: auto;
+  max-width: 100%;
+  min-width: 220px;
+}
+.importance-filter {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.importance-filter legend {
+  float: left;
+  margin-right: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.importance-filter button {
+  color: var(--muted);
+  background: #121920;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 7px;
+}
+.importance-filter button span {
+  color: #e7be66;
+  margin-left: 3px;
+}
+.importance-filter button.selected {
+  border-color: var(--accent);
+  background: #293526;
+  color: #effbe8;
+}
+.map-building {
+  position: absolute;
+  top: 55px;
+  left: 20px;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  background: #1b252fee;
+  border-radius: 6px;
+  color: var(--text);
+}
+.map-building svg {
+  width: 16px;
+}
+.filter-caption small {
+  white-space: nowrap;
+}
+
+.map-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}

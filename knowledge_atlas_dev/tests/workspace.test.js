@@ -399,6 +399,14 @@ test("manual item and task Markdown drives filters, statistics, board data and t
   assert.match(csv.headers.get("content-disposition"), /attachment/);
   assert.match(await csv.text(), /"tool";"3";"Dormitory · Cabinet"/);
   assert.doesNotMatch(
+    await (await f.request("inventory.csv?importance=4,5")).text(),
+    /"tool"/,
+  );
+  assert.match(
+    await (await f.request("inventory.csv?importance=3,5")).text(),
+    /"tool"/,
+  );
+  assert.doesNotMatch(
     await (await f.request("inventory.csv?location=dilna")).text(),
     /tool/,
   );

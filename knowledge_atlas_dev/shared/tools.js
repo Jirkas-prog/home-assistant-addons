@@ -45,6 +45,10 @@ export function validateTool(tool, fail) {
     "kind",
   );
   if (tool.kind === "journal") {
+    check(
+      tool.experience == null || typeof tool.experience === "boolean",
+      "experience",
+    );
     check(validDate(tool.date), "date");
     check(
       tool.endDate == null ||

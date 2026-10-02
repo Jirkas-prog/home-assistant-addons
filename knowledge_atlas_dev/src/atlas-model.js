@@ -3,6 +3,7 @@
 import { locationDescendants, locationLabel } from "../shared/locations.js";
 import { itemQuantity } from "../shared/inventory.js";
 import { toolSearchText } from "../shared/tools.js";
+import { recordImportance } from "../shared/importance.js";
 export function atlasStructure(nodes) {
   const ids = new Set(nodes.map((n) => n.id));
   const roots = nodes.filter((n) => !n.parent || !ids.has(n.parent));
@@ -59,7 +60,14 @@ export const resourceLocation = (r) =>
   r.locationId ||
   (r.url || /^https?:\/\//i.test(r.path || "") ? "internet" : "pc");
 export function matchesQuery(node, query, type = "all", locations = []) {
-  if (type !== "all" && node.type !== type) return false;
+  if (
+    type === "experience"
+      ? node.tool?.experience !== true
+      : type === "journal"
+        ? node.tool?.kind !== "journal"
+        : type !== "all" && node.type !== type
+  )
+    return false;
   const text = normalize(
     [
       node.title,
@@ -90,13 +98,21 @@ export function matchesQuery(node, query, type = "all", locations = []) {
 }
 export function filterNodes(
   nodes,
-  { scope = "", query = "", type = "all", location = "", locations = [] } = {},
+  {
+    scope = "",
+    query = "",
+    type = "all",
+    importance = [],
+    location = "",
+    locations = [],
+  } = {},
 ) {
   const allowed = scope ? descendants(nodes, scope) : null;
   const places = location ? locationDescendants(locations, location) : null;
   return nodes.filter(
     (n) =>
       (!allowed || allowed.has(n.id)) &&
+      (!importance.length || importance.includes(recordImportance(n))) &&
       (!places ||
         (n.stock
           ? n.stock.placements.some(

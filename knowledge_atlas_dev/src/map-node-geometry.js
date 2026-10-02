@@ -10,13 +10,24 @@ export function mapNodeRadius(node, depth) {
 }
 
 // Keep the visible labels and the canvas picking layer in the same coordinates.
-export function mapNodeGeometry(node, ctx, scale, selected, hover) {
+export function mapNodeGeometry(
+  node,
+  ctx,
+  scale,
+  selected,
+  hover,
+  visibleLabels,
+) {
   const active = node.id === selected;
   const hovered = node.id === hover;
   const hitRadius = Math.max(node.r + 4 / scale, 12 / scale);
   let label = null;
-  if (node.depth <= 1 || node.matched || scale > 0.85 || active || hovered) {
-    const fontSize = (active ? 14 : 12) / scale;
+  if (
+    visibleLabels
+      ? visibleLabels.has(node.id)
+      : node.depth <= 1 || node.matched || scale > 0.85 || active || hovered
+  ) {
+    const fontSize = (active ? 14 : 13) / scale;
     const font = `${active || node.depth < 2 ? "600" : "400"} ${fontSize}px Inter, Segoe UI, sans-serif`;
     ctx.font = font;
     const title =
@@ -43,9 +54,24 @@ export function mapNodeGeometry(node, ctx, scale, selected, hover) {
   return { active, hovered, hitRadius, label };
 }
 
-export function paintMapNodePointer(node, color, ctx, scale, selected, hover) {
+export function paintMapNodePointer(
+  node,
+  color,
+  ctx,
+  scale,
+  selected,
+  hover,
+  visibleLabels,
+) {
   ctx.save();
-  const geometry = mapNodeGeometry(node, ctx, scale, selected, hover);
+  const geometry = mapNodeGeometry(
+    node,
+    ctx,
+    scale,
+    selected,
+    hover,
+    visibleLabels,
+  );
   ctx.fillStyle = color;
   ctx.beginPath();
   ctx.arc(node.x, node.y, geometry.hitRadius, 0, 2 * Math.PI);
@@ -54,7 +80,15 @@ export function paintMapNodePointer(node, color, ctx, scale, selected, hover) {
   ctx.restore();
 }
 
-export function pickMapNode2D(nodes, ctx, scale, point, selected, hover) {
+export function pickMapNode2D(
+  nodes,
+  ctx,
+  scale,
+  point,
+  selected,
+  hover,
+  visibleLabels,
+) {
   const ranked = nodes
     .map((node) => ({
       node,
@@ -67,7 +101,14 @@ export function pickMapNode2D(nodes, ctx, scale, point, selected, hover) {
   ctx.save();
   try {
     for (const node of [...nodes].reverse()) {
-      const { label } = mapNodeGeometry(node, ctx, scale, selected, hover);
+      const { label } = mapNodeGeometry(
+        node,
+        ctx,
+        scale,
+        selected,
+        hover,
+        visibleLabels,
+      );
       if (!label) continue;
       const [x, y, width, height] = label.box;
       if (

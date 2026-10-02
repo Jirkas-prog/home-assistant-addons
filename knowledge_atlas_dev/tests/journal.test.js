@@ -19,6 +19,7 @@ import {
   journalDays,
   periodEnd,
   photoSuggestions,
+  journalGroups,
 } from "../shared/journal.js";
 import { translate } from "../shared/i18n.js";
 import { photoMetadata } from "../server/photo-metadata.js";
@@ -42,6 +43,67 @@ const record = (id = "entry") => ({
     minutes: 0,
     next: "",
   },
+});
+
+test("notebook groups days, Monday weeks and months without duplicating ranged entries or blank pages", () => {
+  const entries = [record("first"), record("second"), record("third")];
+  entries[0].tool.date = "2026-10-02";
+  Object.assign(entries[1].tool, {
+    date: "2026-09-28",
+    endDate: "2026-10-07",
+    period: "custom",
+  });
+  entries[2].tool.date = "2026-08-10";
+  for (const mode of ["day", "week", "month"]) {
+    const groups = journalGroups(journalEntries(entries), mode);
+    assert.equal(groups.flatMap((g) => g.entries).length, 3);
+    assert.equal(
+      new Set(groups.flatMap((g) => g.entries.map((n) => n.id))).size,
+      3,
+    );
+  }
+  const weeks = journalGroups(journalEntries(entries), "week");
+  assert.equal(weeks.length, 2);
+  assert.equal(weeks[0].start, "2026-09-28");
+  assert.equal(weeks[0].end, "2026-10-04");
+  const months = journalGroups(journalEntries(entries), "month");
+  assert.deepEqual(
+    months.map((g) => g.start),
+    ["2026-10-01", "2026-09-01", "2026-08-01"],
+  );
+});
+
+test("manual journal experiences and task connections survive store reload and remain searchable", async (t) => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "atlas-notebook-"));
+  t.after(() => fs.rm(root, { recursive: true, force: true }));
+  const entry = record();
+  entry.tool.experience = true;
+  entry.related = ["task"];
+  entry.importance = 5;
+  const task = {
+    ...record("task"),
+    type: "task",
+    tool: undefined,
+    title: "Verify prototype",
+    task: { priority: "normal" },
+  };
+  await fs.writeFile(path.join(root, "entry.md"), serialize(entry));
+  await fs.writeFile(path.join(root, "task.md"), serialize(task));
+  const snapshot = await new Store(root).read();
+  assert.deepEqual(snapshot.errors, []);
+  assert.deepEqual(
+    journalEntries(snapshot.nodes).map((n) => n.id),
+    [entry.id],
+  );
+  const experiences = filterNodes(snapshot.nodes, {
+    type: "experience",
+    importance: [5],
+  });
+  assert.equal(experiences.length, 1);
+  assert.deepEqual(experiences[0].related, [task.id]);
+  assert.equal(snapshot.nodes.find((n) => n.id === task.id).status, "active");
+  entry.tool.experience = "true";
+  assert.throws(() => validateNode(entry), /experience/);
 });
 
 test("journal preserves old daily entries and supports inclusive ranges without empty day records", () => {

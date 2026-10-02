@@ -183,3 +183,130 @@
     padding: 8px;
   }
 }
+.workspace:has(.journal-notebook) {
+  height: max(680px, calc(100dvh - 290px));
+}
+.journal-notebook {
+  padding: 20px;
+}
+.journal-experience-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.journal-experience-filter input {
+  width: auto;
+}
+.notebook-spread {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid #39414b;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 20px;
+}
+.notebook-index {
+  background: #141c24;
+  padding: 18px 14px;
+}
+.notebook-index section + section {
+  margin-top: 28px;
+}
+.notebook-index h3 {
+  color: #aec597;
+  font-size: 12px;
+  margin: 0 0 9px;
+  text-transform: capitalize;
+}
+.notebook-index button {
+  display: grid;
+  width: 100%;
+  text-align: left;
+  padding: 11px 10px;
+  border-left: 2px solid #333c48;
+  gap: 6px;
+  color: #c3ccd8;
+  border-radius: 0 6px 6px 0;
+}
+.notebook-index button[aria-current] {
+  border-color: #b0ef88;
+  background: #27362c;
+  color: #f1f7ed;
+}
+.notebook-index small {
+  font-size: 11px;
+  color: #99a8bb;
+  line-height: 1.5;
+}
+.notebook-index strong {
+  font-weight: 500;
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.notebook-page {
+  min-width: 0;
+  background: #1b232c;
+  border-left: 1px solid #414b54;
+  padding: 26px 30px;
+  box-shadow: inset 8px 0 14px #0003;
+}
+.notebook-page > header {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 15px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #3a4550;
+}
+.notebook-page > header h2 {
+  font-size: 23px;
+  margin: 8px 0 12px;
+  overflow-wrap: anywhere;
+}
+.notebook-page > header small {
+  color: #aab9c8;
+}
+.notebook-page > header button {
+  flex-shrink: 0;
+}
+.notebook-page .importance-header {
+  background: transparent;
+  padding: 12px 0;
+}
+.notebook-summary {
+  color: #b6c2cf;
+  line-height: 1.8;
+  padding-bottom: 15px;
+}
+.notebook-page .markdown {
+  font-size: 15px;
+  line-height: 1.95;
+}
+.notebook-badge {
+  display: inline-block;
+  width: fit-content;
+  padding: 3px 7px;
+  border: 1px solid #736298;
+  border-radius: 4px;
+  color: #d1bcf4;
+  font-size: 11px;
+}
+@media (max-width: 800px) {
+  .notebook-spread {
+    grid-template-columns: 1fr;
+  }
+  .notebook-index {
+    max-height: 240px;
+    overflow-y: auto;
+  }
+  .notebook-page {
+    border-left: 0;
+    border-top: 1px solid #414b54;
+    padding: 18px;
+  }
+  .notebook-page > header {
+    flex-wrap: wrap;
+  }
+}

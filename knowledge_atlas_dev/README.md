@@ -4,14 +4,16 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.7**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.14**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Nested branches, cross-links, searchable records and live statistics.
+- Four retained map layouts in 2D and 3D, cached geometry and readable labels with progressive detail.
+- Combined topic, type and multi-value importance filters.
 - Projects, a task board and a timeline with start and due dates.
-- Five-star importance controls on projects, inventory items and timeline tasks; project and item bubbles scale with importance.
+- Five-star importance controls on records and timeline tasks; importance influences bubble sizes.
 - A resizable details panel with a remembered width and keyboard controls.
 - Work journals, inventory-linked bills of materials and shopping lists.
-- One journal for days or date ranges, linked records, photo galleries, EXIF suggestions and offline places.
+- A dedicated notebook journal with day/week/month contents, date ranges, experience markers, linked tasks, photo galleries, EXIF suggestions and offline places.
 - Multiple journal attachments, Office text previews and an explicit open-as-text fallback for local files.
 - Reusable procedures with independent, persistent checklist runs.
 - Source-linked flashcards, review history and deterministic review schedules.

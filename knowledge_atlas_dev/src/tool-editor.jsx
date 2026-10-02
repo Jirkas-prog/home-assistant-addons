@@ -6,6 +6,8 @@ import { VIEW_RULES } from "../shared/tools.js";
 import { api, useDialogKeys } from "./client.js";
 import { useDraft, DraftNotice, DraftExit, ConflictReview } from "./drafts.jsx";
 import { localDate } from "./work-model.js";
+import { ImportanceStars } from "./importance.jsx";
+import { recordImportance } from "../shared/importance.js";
 import { JournalFields } from "./journal.jsx";
 
 const uid = () => crypto.randomUUID();
@@ -179,6 +181,13 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
               }}
             />
           )}
+          <div className="importance-field">
+            <span>{t("importance.label")}</span>
+            <ImportanceStars
+              value={recordImportance(form)}
+              onChange={(value) => set("importance", value)}
+            />
+          </div>
           <label>
             {t("m189")}
             <input

@@ -385,6 +385,10 @@ export async function createApp({
       query: text(req.query.query),
       scope: text(req.query.scope),
       location: text(req.query.location),
+      importance: text(req.query.importance)
+        .split(",")
+        .map(Number)
+        .filter((n) => Number.isInteger(n) && n >= 1 && n <= 5),
       locations: config.locations,
     });
     const cell = (value) => {

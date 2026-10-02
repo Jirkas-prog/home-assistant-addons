@@ -204,6 +204,7 @@ function Study({ deck, nodes, today, onRefresh, onSelect }) {
   );
 }
 export function WorkTools({
+  importance = [],
   nodes,
   settings,
   query,
@@ -253,6 +254,7 @@ export function WorkTools({
   }, [tab, activeId]);
   const scoped = filterNodes(nodes, {
     query,
+    importance,
     scope: tab === "journal" ? "" : scope,
     locations: settings.locations,
   }).filter(

@@ -197,6 +197,15 @@ export function JournalFields({ form, setForm, nodes, busy, onBusy }) {
   }
   return (
     <section className="journal-fields">
+      <label className="journal-experience-filter">
+        <input
+          type="checkbox"
+          checked={tool.experience === true}
+          onChange={(e) => change({ experience: e.target.checked })}
+        />
+        {t("journal.markExperience")}
+      </label>
+      <p className="field-help">{t("journal.experienceHelp")}</p>
       <div className="form-grid">
         <label>
           {t("journal.period")}
@@ -352,6 +361,7 @@ export function JournalFields({ form, setForm, nodes, busy, onBusy }) {
       </button>
       <p className="field-help">{t("journal.placeHelp")}</p>
       <h3>{t("journal.links")}</h3>
+      <p className="field-help">{t("journal.taskLinksHelp")}</p>
       <input
         aria-label={t("journal.findLink")}
         placeholder={t("journal.findLink")}
@@ -385,6 +395,7 @@ export function JournalFields({ form, setForm, nodes, busy, onBusy }) {
                 }
               />
               {n.title}
+              {n.type === "task" && <small> · {t("m079")}</small>}
             </label>
           ))}
       </div>
@@ -555,6 +566,7 @@ export function JournalEntry({
               onClick={() => onSelect(n)}
             >
               {n.title}
+              {n.type === "task" && <small> · {t("m079")}</small>}
             </button>
           ))}
         </section>

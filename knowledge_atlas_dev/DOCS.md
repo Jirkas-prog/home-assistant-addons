@@ -16,6 +16,29 @@ Open **Settings and locations**, choose **English** or **Czech** under **Interfa
 
 Only interface labels, date formats and known displayed errors are translated. Record text, code, filenames, field names, IDs and custom location names remain unchanged. The server API, operational logs, documentation and bundled examples use English. The entire Czech catalog is in `shared/locales/cs.json`.
 
+## Map layouts and filters
+
+Use **Map layout** to switch between four retained experiments in both 2D and 3D:
+
+1. **Original rings** preserves the circular arrangement for comparison.
+2. **Spacious groups** allocates separate regions to nested groups and their descendants.
+3. **Hierarchical nebula** packs child groups around stars throughout a plane or a three-dimensional volume.
+4. **Regular grid** puts records into uniform rows or a volume lattice.
+
+The original layout remains the initial choice. The selected experiment is remembered in this browser. New layouts reserve space for complete subtrees, including importance-dependent bubble sizes. Three-dimensional projection can still place distant stars behind each other; rotate or approach a group to inspect it. Labels keep a constant screen size, yield to more important/selected labels when space is limited, and reveal finer detail as you zoom. Large ancestors fade when viewed close up. The existing click, double-click document, wheel and touch controls remain available.
+
+Geometry is computed in a Web Worker and cached in browser IndexedDB for each layout/dimension pair. Only record IDs, hierarchy, types, ratings and coordinates are cached, not notes or attachments. Changed content and filters reuse positions; hierarchy and importance changes recompute them. Cache loss is harmless. Filters and record updates preserve the current camera; switching experiments fits the new layout. **Fit entire map** fits the currently displayed records.
+
+Combine the topic dropdown, record-type buttons, text search and exact star ratings. Select both **4** and **5** to include either rating; **All** clears the rating filter. Unrated records use the existing default of three stars. Matching records are counted separately from dimmed ancestors retained for navigation. The importance filter also applies to tasks, inventory, work tools and the journal. Sidebar branches start collapsed on each page load; expand only the branches you need.
+
+## Journal notebook
+
+Open **Journal** directly from the main navigation. Existing work-journal records appear automatically; no migration or duplicate copy is needed. Organize the contents by days, Monday-based weeks or months. Each entry appears once under its start date, with its entire inclusive date range displayed. **Older entry** and **Newer entry** skip periods without entries. Date filters include any entry whose range overlaps the selected interval.
+
+Create daily entries, seven-day summaries, summaries through month end or custom date ranges. **Also save as an experience** adds `tool.experience: true` while preserving the entry's journal identity; the **Experience** filter finds it in the map and library. Search under **Related projects, knowledge and tasks** to select a task or another record. These are normal `related` links, visible from both records, and never alter task completion status.
+
+The notebook reuses the existing photo gallery, local document viewer, text fallback, place records, drafts and conflict protection. Managed attachments and journal Markdown remain part of full backups and incremental packages. It works without external services when the local add-on is reachable. User content is never included in the distributed add-on.
+
 ## Library and automatic updates
 
 Each top-level `.md` file in `/config/knowledge` describes one record. See [FORMAT.md](FORMAT.md) and [templates](templates/README.md). Edit files externally or use the web editor. A visible browser checks for changes about every three seconds and refreshes after returning to the window. Search, counters, maps, inventory and task views are derived from the current records; no rebuild or AI is needed.

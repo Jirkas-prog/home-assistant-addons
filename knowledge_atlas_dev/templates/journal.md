@@ -15,6 +15,7 @@ resources: []
 tool:
   schema: 1
   kind: journal
+  experience: false
   date: 2026-10-01
   endDate: 2026-10-07
   period: week
