@@ -5,6 +5,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { gzip } from "node:zlib";
+import { promisify } from "node:util";
 import { Backups, recoverRestore } from "./backups.js";
 import { registerBackupTransfers } from "./backup-transfers.js";
 import { PackageImports, recoverPackage } from "./packages.js";
@@ -19,6 +21,7 @@ import { registerTools } from "./tools.js";
 import { photoMetadata } from "./photo-metadata.js";
 import { readAsText, readOffice } from "./document-preview.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const compress = promisify(gzip);
 export async function createApp({
   directory = process.env.DATA_DIR || path.join(root, "data"),
   ingress = process.env.HA_INGRESS === "1",
@@ -26,7 +29,7 @@ export async function createApp({
 } = {}) {
   await recoverRestore(directory);
   await recoverPackage(directory);
-  const store = new Store(directory);
+  const store = new Store(directory, { persistentIndex: true });
   await store.init();
   const settings = new Settings(directory, ingress);
   await settings.init();
@@ -41,10 +44,20 @@ export async function createApp({
       );
   };
   let queue = Promise.resolve();
+  let mutationActive = false;
   const mutate = (fn) => {
-    const result = queue.then(() => {
+    const result = queue.then(async () => {
       checkPackageRecovery();
-      return fn();
+      mutationActive = true;
+      const resumeIndex = store.background;
+      store.stopBackground();
+      try {
+        await store.reading?.catch(() => {});
+        return await fn();
+      } finally {
+        mutationActive = false;
+        if (resumeIndex) store.startBackground();
+      }
     });
     queue = result.catch(() => {});
     return result;
@@ -110,7 +123,10 @@ export async function createApp({
     }),
   );
   app.use(async (req, res, next) => {
-    if (!/^\/api\/packages\/[^/]+\/status$/.test(req.path)) {
+    if (
+      !/^\/api\/packages\/[^/]+\/status$/.test(req.path) &&
+      req.path !== "/api/atlas"
+    ) {
       if (req.method === "GET") await packageImports?.wait();
       checkPackageRecovery();
     }
@@ -133,8 +149,37 @@ export async function createApp({
       .set("Cache-Control", "no-store")
       .json(await packageImports.status(req.params.id)),
   );
-  app.get("/api/nodes", async (req, res) => {
-    const snapshot = await store.read();
+  let atlasResponse;
+  const backgroundServers = new WeakSet();
+  app.get(["/api/nodes", "/api/atlas"], async (req, res) => {
+    const indexed = req.path === "/api/atlas";
+    if (indexed) {
+      const server = req.socket.server;
+      if (server && !backgroundServers.has(server)) {
+        backgroundServers.add(server);
+        server.once("close", () => store.stopBackground());
+      }
+      if (!mutationActive) store.startBackground();
+      if (req.query.refresh === "1" && !mutationActive) await store.read();
+      const progress = {
+        ...store.progress,
+        ageMs: store.progress.finishedAt
+          ? Date.now() - store.progress.finishedAt
+          : 0,
+        elapsedMs: store.progress.startedAt
+          ? (store.progress.finishedAt || Date.now()) - store.progress.startedAt
+          : 0,
+      };
+      res.set("X-Atlas-Index", JSON.stringify(progress));
+      if (!store.snapshot)
+        return res
+          .status(store.progress.phase === "error" ? 503 : 202)
+          .set("Cache-Control", "no-store")
+          .json({ index: store.progress });
+    }
+    const snapshot = indexed
+      ? { ...store.snapshot, errors: [...store.snapshot.errors] }
+      : await store.read();
     let config;
     try {
       config = await settings.read();
@@ -146,38 +191,52 @@ export async function createApp({
         revision: digest(await fs.readFile(settings.file)),
       };
     }
-    for (const n of snapshot.nodes)
-      for (const r of [...n.resources, ...(n.stock?.placements || [])])
-        if (!config.locations.some((l) => l.id === locationId(r)))
-          snapshot.errors.push({
-            file: n.file,
-            message: `Missing location: ${locationId(r)}`,
-          });
-    for (const n of snapshot.nodes)
-      for (const p of n.stock?.placements || [])
-        if (
-          config.locations.find((l) => l.id === p.locationId)?.kind !==
-          "physical"
-        )
-          snapshot.errors.push({
-            file: n.file,
-            message: "Inventory placements require an existing physical place.",
-          });
-    const etag = `"${version}-${snapshot.revision}-${config.revision}"`;
-    res.set("Cache-Control", "private, no-cache").set("ETag", etag);
+    const etag = `W/"${version}-${snapshot.revision}-${config.revision}"`;
+    res
+      .set("Cache-Control", "private, no-cache")
+      .set("ETag", etag)
+      .vary("Accept-Encoding");
     if (req.get("If-None-Match") === etag) return res.status(304).end();
-    res.json({
-      ...snapshot,
-      settings: config,
-      environment: {
-        ingress,
-        canOpenFolders: allowOpen,
-        dataDirectory: directory,
-        name: release.name,
-        channel: release.channel,
-        version,
-      },
-    });
+    if (atlasResponse?.etag !== etag) {
+      for (const n of snapshot.nodes)
+        for (const r of [...n.resources, ...(n.stock?.placements || [])])
+          if (!config.locations.some((l) => l.id === locationId(r)))
+            snapshot.errors.push({
+              file: n.file,
+              message: `Missing location: ${locationId(r)}`,
+            });
+      for (const n of snapshot.nodes)
+        for (const p of n.stock?.placements || [])
+          if (
+            config.locations.find((l) => l.id === p.locationId)?.kind !==
+            "physical"
+          )
+            snapshot.errors.push({
+              file: n.file,
+              message:
+                "Inventory placements require an existing physical place.",
+            });
+      const body = JSON.stringify({
+        ...snapshot,
+        settings: config,
+        environment: {
+          ingress,
+          canOpenFolders: allowOpen,
+          dataDirectory: directory,
+          name: release.name,
+          channel: release.channel,
+          version,
+        },
+      });
+      atlasResponse = { etag, body, compressed: compress(body) };
+      // Attach a handler immediately; concurrent requests can share this encoding.
+      atlasResponse.compressed.catch(() => {});
+    }
+    const response = atlasResponse;
+    res.type("json");
+    if (req.acceptsEncodings("gzip"))
+      res.set("Content-Encoding", "gzip").send(await response.compressed);
+    else res.send(response.body);
   });
   app.get("/api/settings", async (req, res) => res.json(await settings.read()));
   app.post("/api/settings/language", async (req, res) =>
@@ -529,12 +588,14 @@ if (
   process.argv[1] &&
   path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  const { app } = await createApp();
+  const { app, store } = await createApp();
   const port = Number(process.env.PORT || 8099),
     host = process.env.HOST || "127.0.0.1";
   const server = app.listen(port, host, () =>
     console.log(`Knowledge Atlas: http://${host}:${port}`),
   );
+  store.startBackground();
+  server.once("close", () => store.stopBackground());
   for (const signal of ["SIGTERM", "SIGINT"])
     process.on(signal, () => server.close(() => process.exit(0)));
 }

@@ -8,11 +8,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const directory = process.env.DATA_DIR || path.join(root, "data");
 await recoverRestore(directory);
 await initializeLibrary(directory);
-const { app } = await createApp({ directory });
+const { app, store } = await createApp({ directory });
 const host = process.env.HOST || "127.0.0.1";
 const port = Number(process.env.PORT || 8099);
 const server = app.listen(port, host, () =>
-  console.log(`${release.name} ${release.version} ready at http://${host}:${port}`),
+  console.log(
+    `${release.name} ${release.version} ready at http://${host}:${port}`,
+  ),
 );
+store.startBackground();
+server.once("close", () => store.stopBackground());
 for (const signal of ["SIGTERM", "SIGINT"])
   process.on(signal, () => server.close(() => process.exit(0)));

@@ -65,6 +65,7 @@ import { DataTools } from "./data-tools.jsx";
 import { ResizableWorkspace } from "./resizable-workspace.jsx";
 import "./backups.css";
 import { BackupTransferPanel } from "./backup-transfer-panel.jsx";
+import { IndexProgress } from "./index-progress.jsx";
 import { backupTransfer } from "./backup-transfer.js";
 import { UploadRecovery } from "./upload-recovery.jsx";
 import { LanguageSetup } from "./language-setup.jsx";
@@ -572,6 +573,8 @@ function App() {
     [errors, setErrors] = useState([]),
     [env, setEnv] = useState({}),
     [loading, setLoading] = useState(true),
+    [hasSnapshot, setHasSnapshot] = useState(false),
+    [indexProgress, setIndexProgress] = useState(null),
     [error, setError] = useState("");
   const [selected, setSelected] = useState(
       () => decodeURIComponent(location.hash.slice(1)) || "",
@@ -614,11 +617,14 @@ function App() {
     setToast(message);
     setTimeout(() => setToast(""), 4500);
   };
-  const load = () => syncRef.current?.refresh();
+  const load = () => syncRef.current?.refresh({ fresh: true });
   useEffect(() => {
     const sync = createAtlasSync({
       isVisible: () => document.visibilityState !== "hidden",
+      onIndex: (progress) =>
+        setIndexProgress({ ...progress, receivedAt: Date.now() }),
       onSnapshot: (r) => {
+        setHasSnapshot(true);
         setDraftLibrary(r.settings.libraryId);
         setLanguage(r.settings.language);
         setNodes(r.nodes);
@@ -630,8 +636,8 @@ function App() {
         setError("");
         setLoading(false);
       },
-      onError: () => {
-        setError(t("m092"));
+      onError: (error) => {
+        setError(error.name === "TimeoutError" ? t("sync.timeout") : t("m092"));
         setLoading(false);
       },
     });
@@ -1354,6 +1360,7 @@ function App() {
               <button onClick={load}>{t("m146")}</button>
             </div>
           )}
+          <IndexProgress state={indexProgress} />
           {errors.length > 0 && (
             <div className="error-banner" role="alert">
               <strong>{t("m147")}</strong>
@@ -1370,6 +1377,11 @@ function App() {
                 <div className="empty">
                   <LoaderCircle className="spin" />
                   {t("m148")}
+                </div>
+              ) : !hasSnapshot && view !== "backups" ? (
+                <div className="empty" role="status">
+                  <LoaderCircle className="spin" />
+                  {t("sync.waiting")}
                 </div>
               ) : view === "backups" ? (
                 <div className="backup-page">

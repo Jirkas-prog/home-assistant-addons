@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.13
+
+- Maintain a persistent, incremental record index and update it in the background. Reuse unchanged Markdown across reads and restarts, retain the last completed map during rebuilding, and detect external edits and restored libraries automatically.
+- Show map indexing progress, percentage, elapsed time and estimated remaining time. Load cached snapshots without waiting for a rebuild and reuse compressed API responses.
+- Allow longer explicit refreshes, distinguish slow loading from connection errors and avoid presenting an unloaded library as empty. Preserve search, statistics, records and saved settings.
+
 ## 5.0.1-dev.12
 
 - Scroll the entire navigation sidebar together, including the logo, navigation, expanded branches and footer, on desktop and mobile. Remove the separate branch-tree scrollbar and preserve the themed scrollbar appearance.

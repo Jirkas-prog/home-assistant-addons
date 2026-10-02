@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import YAML from "yaml";
+import { release } from "../shared/release.js";
 import { historyDirectory } from "./file-safety.js";
 import { toolReferences } from "../shared/tools.js";
 export {
@@ -37,6 +38,10 @@ export function serialize(node) {
   return `---\n${YAML.stringify(meta)}---\n\n${body}\n`;
 }
 const revisionOf = (raw) => createHash("sha256").update(raw).digest("hex");
+const stampOf = (stat) =>
+  `${stat.dev}:${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+const rootOf = (stat) => `${stat.dev}:${stat.ino}:${stat.birthtimeNs}`;
+const INDEX_LIMIT = 128 * 1024 * 1024;
 export function upgradeNode(node) {
   const occurrences = new Map();
   return {
@@ -59,9 +64,16 @@ export function upgradeNode(node) {
   };
 }
 export class Store {
-  constructor(directory) {
+  constructor(directory, { persistentIndex = false } = {}) {
     this.directory = directory;
     this.queue = Promise.resolve();
+    this.persistentIndex = persistentIndex;
+    this.entries = new Map();
+    this.snapshot = null;
+    this.reading = null;
+    this.rootIdentity = null;
+    this.progress = { phase: "waiting", processed: 0, total: 0 };
+    this.background = false;
   }
   async init() {
     await fs.mkdir(this.directory, {
@@ -69,36 +81,203 @@ export class Store {
     });
   }
   async read() {
-    const nodes = [],
-      errors = [];
-    for (const name of (await fs.readdir(this.directory))
+    // Concurrent readers share one scan. Callers receive their own mutable copy.
+    if (!this.reading)
+      this.reading = this.scan()
+        .catch((error) => {
+          this.progress = { ...this.progress, phase: "error" };
+          throw error;
+        })
+        .finally(() => {
+          this.reading = null;
+        });
+    return structuredClone(await this.reading);
+  }
+  startBackground() {
+    if (this.background) return;
+    this.background = true;
+    this.refreshBackground();
+  }
+  refreshBackground(delay = 0) {
+    if (!this.background) return;
+    clearTimeout(this.backgroundTimer);
+    this.backgroundTimer = setTimeout(async () => {
+      try {
+        await this.read();
+      } catch {
+        /* Keep the last successful snapshot and retry on the next scan. */
+      } finally {
+        this.refreshBackground(3000);
+      }
+    }, delay);
+    this.backgroundTimer.unref();
+  }
+  stopBackground() {
+    this.background = false;
+    clearTimeout(this.backgroundTimer);
+  }
+  async loadIndex() {
+    if (!this.persistentIndex) return;
+    try {
+      const folder = path.join(this.directory, ".cache");
+      const folderStat = await fs.lstat(folder);
+      if (!folderStat.isDirectory() || folderStat.isSymbolicLink()) return;
+      const file = path.join(folder, "atlas-index.json");
+      const stat = await fs.lstat(file);
+      if (!stat.isFile() || stat.isSymbolicLink() || stat.size > INDEX_LIMIT)
+        return;
+      const index = JSON.parse(await fs.readFile(file, "utf8"));
+      if (
+        index.version !== release.version ||
+        index.root !== this.rootIdentity ||
+        !Array.isArray(index.entries) ||
+        index.digest !== revisionOf(JSON.stringify(index.entries))
+      )
+        return;
+      const entries = new Map();
+      for (const [name, entry] of index.entries) {
+        const node = validateNode(entry.node);
+        if (
+          name !== `${node.id}.md` ||
+          node.file !== name ||
+          typeof entry.stamp !== "string" ||
+          !/^[a-f0-9]{64}$/.test(node.revision)
+        )
+          return;
+        entries.set(name, entry);
+      }
+      this.entries = entries;
+    } catch {
+      // A derived index is disposable; missing or damaged caches rebuild from Markdown.
+    }
+  }
+  async saveIndex(rootIdentity) {
+    if (!this.persistentIndex) return;
+    let temporary;
+    try {
+      if (
+        rootOf(await fs.lstat(this.directory, { bigint: true })) !==
+        rootIdentity
+      )
+        return;
+      const entries = [...this.entries].filter(
+        ([, entry]) => entry.node && entry.stamp,
+      );
+      const data = JSON.stringify({
+        version: release.version,
+        root: rootIdentity,
+        entries,
+        digest: revisionOf(JSON.stringify(entries)),
+      });
+      if (Buffer.byteLength(data) > INDEX_LIMIT) return;
+      const folder = await historyDirectory(this.directory, ".cache");
+      temporary = path.join(folder, `atlas-index-${randomUUID()}.tmp`);
+      await fs.writeFile(temporary, data, { flag: "wx", mode: 0o600 });
+      await fs.rename(temporary, path.join(folder, "atlas-index.json"));
+    } catch {
+      // Read-only storage or a full disk must not prevent reading the original records.
+    } finally {
+      if (temporary) await fs.unlink(temporary).catch(() => {});
+    }
+  }
+  async scan() {
+    const previousProgress = this.progress;
+    const progress = (this.progress = {
+      phase: this.snapshot ? "checking" : "building",
+      processed: 0,
+      total: 0,
+      startedAt: Date.now(),
+      finishedAt: null,
+    });
+    const rootIdentity = rootOf(
+      await fs.lstat(this.directory, { bigint: true }),
+    );
+    if (rootIdentity !== this.rootIdentity) {
+      this.rootIdentity = rootIdentity;
+      this.entries = new Map();
+      this.snapshot = null;
+      await this.loadIndex();
+    }
+    const names = (await fs.readdir(this.directory))
       .filter((f) => f.endsWith(".md"))
-      .sort()) {
+      .sort();
+    progress.total = names.length;
+    const entries = new Array(names.length);
+    let cursor = 0;
+    const readFile = async (name) => {
       try {
         const file = path.join(this.directory, name);
-        const stat = await fs.lstat(file);
+        const stat = await fs.lstat(file, { bigint: true });
         if (!stat.isFile() || stat.isSymbolicLink())
           fail("Symlinks are not supported.");
         if (stat.size > 1_100_000) fail("The file is too large.");
+        const stamp = stampOf(stat);
+        const cached = this.entries.get(name);
+        if (cached?.stamp === stamp) return cached;
+        progress.phase = "building";
         const raw = await fs.readFile(file, "utf8");
-        const node = validateNode(parseMarkdown(raw));
-        if (name !== `${node.id}.md`)
-          fail("The filename must match the record ID.");
-        nodes.push({
-          ...node,
-          resources: upgradeNode(node).resources,
-          revision: revisionOf(raw),
-          file: name,
-        });
+        // Do not cache a file that an external editor changed while it was being read.
+        const stable =
+          stamp === stampOf(await fs.lstat(file, { bigint: true }));
+        try {
+          const node = validateNode(parseMarkdown(raw));
+          if (name !== `${node.id}.md`)
+            fail("The filename must match the record ID.");
+          return {
+            stamp: stable ? stamp : null,
+            node: {
+              ...node,
+              resources: upgradeNode(node).resources,
+              revision: revisionOf(raw),
+              file: name,
+            },
+          };
+        } catch (error) {
+          return {
+            stamp: stable ? stamp : null,
+            error: { file: name, message: error.message },
+          };
+        }
       } catch (e) {
-        errors.push({
-          file: name,
-          message: e.message,
-        });
+        progress.phase = "building";
+        return { error: { file: name, message: e.message } };
       }
+    };
+    // Bounded I/O avoids both serial disk latency and thousands of open handles.
+    await Promise.all(
+      Array.from({ length: Math.min(16, names.length) }, async () => {
+        while (cursor < names.length) {
+          const i = cursor++;
+          entries[i] = await readFile(names[i]);
+          progress.processed++;
+        }
+      }),
+    );
+    if (
+      rootOf(await fs.lstat(this.directory, { bigint: true })) !== rootIdentity
+    )
+      return this.scan();
+    if (
+      this.snapshot &&
+      names.length === this.entries.size &&
+      entries.every((entry, i) => entry === this.entries.get(names[i]))
+    ) {
+      this.progress =
+        previousProgress.phase === "ready"
+          ? previousProgress
+          : { ...progress, phase: "ready", finishedAt: Date.now() };
+      return this.snapshot;
+    }
+    progress.phase = "building";
+    this.entries = new Map(names.map((name, i) => [name, entries[i]]));
+    const nodes = [],
+      errors = [];
+    for (const entry of entries) {
+      if (entry.node) nodes.push(entry.node);
+      else errors.push(entry.error);
     }
     errors.push(...graphIssues(nodes));
-    return {
+    this.snapshot = {
       nodes,
       errors,
       revision: revisionOf(
@@ -108,6 +287,10 @@ export class Store {
         }),
       ),
     };
+    await this.saveIndex(rootIdentity);
+    progress.phase = "ready";
+    progress.finishedAt = Date.now();
+    return this.snapshot;
   }
   lock(fn) {
     const task = this.queue.then(fn);

@@ -55,6 +55,9 @@
   border-radius: 12px;
   background: #18212a;
 }
+.index-progress {
+  margin: 12px;
+}
 .backup-transfer-heading,
 .backup-transfer-heading strong,
 .backup-transfer-numbers {
