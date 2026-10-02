@@ -58,7 +58,12 @@ const idle = {
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const abortError = () => new DOMException("Transfer stopped.", "AbortError");
 const cleanupWarning =
-  "Temporary transfer cleanup could not finish. The server removes expired transfers after 24 hours when a new transfer starts.";
+  "Temporary transfer cleanup could not finish. Inactive transfers are retained for 7 days and cleaned at startup or when another transfer starts.";
+const retryable = (error) =>
+  [0, 408, 409, 429].includes(error.status) ||
+  error.status >= 500 ||
+  ["TypeError", "NetworkError", "AbortError"].includes(error.name) ||
+  error.message === "The transfer connection was interrupted. Resume to retry.";
 function errorMessage(error) {
   if (
     [
@@ -83,8 +88,13 @@ export class BackupTransfer {
     sink = createDownloadSink,
     wait = delay,
     now,
+    events = globalThis,
+    page = globalThis.document,
+    retryDelay = (attempt) =>
+      Math.min(30000, 1000 * 2 ** Math.min(attempt - 1, 5)),
   } = {}) {
     Object.assign(this, { request, upload, fetcher, createSink: sink, wait });
+    Object.assign(this, { events, page, retryDelay });
     this.meter = new TransferMeter(now);
     this.state = idle;
     this.listeners = new Set();
@@ -99,6 +109,8 @@ export class BackupTransfer {
     for (const fn of this.listeners) fn();
   }
   progress(loaded) {
+    if (loaded !== this.pendingLoaded)
+      this.lastNetworkProgress = this.meter.now();
     this.pendingLoaded = loaded;
     const now = this.meter.now();
     if (loaded < this.state.total && now - (this.lastPaint ?? -Infinity) < 100)
@@ -112,10 +124,11 @@ export class BackupTransfer {
     );
   }
   pause() {
-    if (this.state.phase !== "transferring") return;
+    if (!["transferring", "reconnecting"].includes(this.state.phase)) return;
     this.paused = true;
     this.emit({ phase: "pausing", rate: 0, eta: null });
     this.controller?.abort();
+    this.wake?.();
   }
   resume() {
     if (this.state.phase !== "paused") return;
@@ -152,14 +165,14 @@ export class BackupTransfer {
   async gate() {
     if (this.cancelled) throw abortError();
     if (this.paused) {
-      this.emit({
-        phase: "paused",
-        loaded: this.committed,
-        rate: 0,
-        eta: null,
-      });
       await new Promise((resolve) => {
         this.wake = resolve;
+        this.emit({
+          phase: "paused",
+          loaded: this.committed,
+          rate: 0,
+          eta: null,
+        });
       });
       this.wake = null;
     }
@@ -167,12 +180,43 @@ export class BackupTransfer {
     this.controller = new AbortController();
   }
   async status() {
-    return this.request(`backup-transfers/${this.session.id}`);
+    return this.request(`backup-transfers/${this.session.id}`, {
+      signal: this.controller?.signal,
+    });
+  }
+  async reconnect(error) {
+    if (this.cancelled) throw abortError();
+    this.retryAttempt = (this.retryAttempt || 0) + 1;
+    await new Promise((resolve) => {
+      const timer = setTimeout(resolve, this.retryDelay(this.retryAttempt));
+      this.wake = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      this.emit({
+        phase: "reconnecting",
+        loaded: this.committed,
+        rate: 0,
+        eta: null,
+        error: errorMessage(error),
+      });
+    });
+    this.wake = null;
+    await this.gate();
+    this.meter.reset(this.committed);
+    this.emit({ phase: "transferring", error: "" });
   }
   async poll(phase) {
     for (;;) {
       if (this.cancelled) throw abortError();
-      const status = await this.status();
+      let status;
+      try {
+        status = await this.status();
+      } catch (error) {
+        if (!retryable(error) || this.cancelled) throw error;
+        await this.reconnect(error);
+        continue;
+      }
       if (status.state === "error") throw new Error(status.error);
       if (status.state === "ready") return status;
       this.emit({ phase });
@@ -233,6 +277,9 @@ export class BackupTransfer {
     this.sink = null;
     this.session = resumeSession;
     this.cancelled = this.paused = false;
+    this.controller = new AbortController();
+    this.retryAttempt = 0;
+    this.lastNetworkProgress = this.meter.now();
     this.committed = resumeSession?.offset || 0;
     this.pendingLoaded = this.committed;
     this.lastPaint = null;
@@ -252,6 +299,21 @@ export class BackupTransfer {
       event.returnValue = "";
     };
     globalThis.addEventListener?.("beforeunload", beforeUnload);
+    const returned = () => {
+      if (this.page?.visibilityState === "hidden") return;
+      if (this.state.phase === "reconnecting") this.wake?.();
+      else if (
+        this.state.phase === "transferring" &&
+        this.meter.now() - this.lastNetworkProgress > 60000
+      ) {
+        // A frozen tab may return with a stalled request. Abort only that
+        // request; the retry loop reconciles durable bytes with the server.
+        this.controller?.abort();
+      }
+    };
+    this.events.addEventListener?.("online", returned);
+    this.events.addEventListener?.("focus", returned);
+    this.page?.addEventListener("visibilitychange", returned);
     let ticker;
     try {
       try {
@@ -382,10 +444,15 @@ export class BackupTransfer {
             await this.sink.write(chunk);
             this.committed += bytes;
           }
+          this.retryAttempt = 0;
           this.progress(this.committed);
         } catch (error) {
           if (this.cancelled) throw error;
           if (!this.paused) {
+            if (retryable(error)) {
+              await this.reconnect(error);
+              continue;
+            }
             if (
               error.status >= 400 &&
               error.status < 500 &&
@@ -458,6 +525,9 @@ export class BackupTransfer {
     } finally {
       clearInterval(ticker);
       globalThis.removeEventListener?.("beforeunload", beforeUnload);
+      this.events.removeEventListener?.("online", returned);
+      this.events.removeEventListener?.("focus", returned);
+      this.page?.removeEventListener("visibilitychange", returned);
     }
   }
 }

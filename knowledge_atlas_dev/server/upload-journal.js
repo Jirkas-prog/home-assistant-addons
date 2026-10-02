@@ -165,10 +165,8 @@ export async function recoverUpload(folder, backups, chunkLimit) {
     } catch (error) {
       if (error.code !== "ENOENT") throw error;
     }
-    if (saved.state === "ready") {
-      await fs.rm(folder, { recursive: true, force: true });
-      return null;
-    }
+    // Losing a temporary preview must not erase the complete original upload.
+    // Rebuild the preview from the retained archive after returning.
     // Only the staging ID allocated by this transfer may be discarded.
     await backups.discard(saved.verificationId);
     session.verificationId = null;

@@ -9,6 +9,7 @@ import yauzl from "yauzl";
 import { Store, fail } from "./store.js";
 import { Settings } from "./settings.js";
 import { resourceLocation } from "../src/atlas-model.js";
+import { transferExpired } from "../shared/transfer-policy.js";
 
 const MAX_BYTES = 20 * 1024 ** 3;
 const MAX_ENTRIES = 50_000;
@@ -563,7 +564,7 @@ export class Backups {
       );
     if (plan.kind === "merge")
       fail("Use package import to merge this preview.");
-    if (Date.now() - Date.parse(plan.created) > 24 * 3600_000)
+    if (transferExpired(Date.parse(plan.created)))
       fail("The restore preview has expired. Upload the backup again.", 409);
     if (
       revision !== plan.revision ||

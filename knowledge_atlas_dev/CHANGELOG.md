@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.11
+
+- Retain inactive uploads, prepared downloads and restore previews for seven elapsed days. Show upload retention deadlines and preserve confirmed bytes across page closure and add-on restarts.
+- Retry temporary connection failures automatically from confirmed chunks, including after returning to a background tab. Keep deliberate pause and cancellation under user control.
+- Protect active transfers and package merges from expiry cleanup; preserve current records, settings and restore rollback libraries. Document browser background-sleep settings in English and Czech interface guidance.
+
 ## 5.0.1-dev.10
 
 - Import incremental data packages into an existing library without uploading or replacing a complete backup. Include nested records, tasks, work tools and managed documents.

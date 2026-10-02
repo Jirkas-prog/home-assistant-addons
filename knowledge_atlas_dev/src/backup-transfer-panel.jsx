@@ -18,7 +18,8 @@ export function BackupTransferPanel({ floating = false }) {
     return null;
   const percentage = transferPercent(state.loaded, state.total);
   const transferring = state.phase === "transferring";
-  const pausable = transferring || state.phase === "paused";
+  const pausable =
+    transferring || ["paused", "reconnecting"].includes(state.phase);
   const cancellable =
     backupTransfer.active &&
     !["saving", "cancelling", "merging"].includes(state.phase);
@@ -82,6 +83,9 @@ export function BackupTransferPanel({ floating = false }) {
             formatPercent(state.checked, state.checkTotal, locale()),
           )}
         </p>
+      )}
+      {state.phase === "reconnecting" && (
+        <p className="field-help">{t("transfer.reconnectHelp")}</p>
       )}
       {state.phase === "merging" && (
         <p role="status">

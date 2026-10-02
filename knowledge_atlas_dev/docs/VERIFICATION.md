@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.10` on 2026-10-01.
+Validated for Knowledge Atlas Dev `5.0.1-dev.11` on 2026-10-02.
 
-- All 128 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 135 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 939 matching translation keys.
+- English/Czech language audits pass with 942 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -41,3 +41,9 @@ The embedded-browser test closed an upload at 24.99% (8 MiB of a generic 32.01 M
 Development release 5.0.1-dev.10 adds twelve tests covering partial nested libraries, managed attachments, an optional destination branch, identical reimports, conflict choices and history, stale previews, changed staging files, graph validation, missing attachments and locations, rollback after a failed write, and recovery after abruptly terminating a separate server process during the commit. The suite also covers durable upload purpose, protected HTTP endpoints, duplicate concurrent requests, reserved property names as record IDs, symlink containment, and preservation of an external edit encountered during rollback. Complete backups include the merged records and original attachment bytes; existing settings and unrelated files remain unchanged.
 
 English and Czech browser checks used a generic school package in an embedded frame. They verified keeping an existing record, adding a category beneath an existing branch, explicitly replacing a conflicting record, reusing an already imported document, updated search and counts, and opening the imported notebook in the integrated text viewer. Import fixtures contained no personal data. These checks used a small package; a 500 MB package transfer and an import on a real Home Assistant installation have not been exercised.
+
+## Transfer retention and reconnection
+
+Development release 5.0.1-dev.11 adds seven regression tests for seven-day elapsed-time retention, crossing local midnight and a daylight-saving transition, restart with six-day-old uploads, durable renewal and new progress, preservation of active chunks and package merges, six-day restore previews, and rebuilding a missing preview from a retained complete ZIP. Client tests exercise automatic retry after lost acknowledgements, returning from a hidden or stalled page, deliberate pause, online/focus events and cancellation without duplicate bytes. Existing records, settings and rollback libraries remain protected.
+
+English and Czech browser checks verified the seven-day help text, localized retention deadline, unchanged 50% progress after page reload, persisted language choice and unchanged sample record identifiers. No browser console errors were observed. Browser sleep was simulated through lifecycle events in automated tests; operating-system suspension and a real Home Assistant installation have not been exercised. The application cannot force a suspended browser to continue executing.

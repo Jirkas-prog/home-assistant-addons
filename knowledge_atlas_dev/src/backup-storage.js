@@ -1,4 +1,5 @@
 import { t } from "../shared/i18n.js";
+import { transferExpired } from "../shared/transfer-policy.js";
 
 // Download chunks are written to a file or browser storage, never one giant
 // ArrayBuffer. The browser-storage fallback keeps only Blob references at finish.
@@ -18,7 +19,7 @@ async function indexedSink() {
   if (indexedDB.databases) {
     for (const database of await indexedDB.databases()) {
       const match = /^atlas-backup-(\d+)-[0-9a-f-]+$/.exec(database.name || "");
-      if (match && Date.now() - Number(match[1]) > 86400000)
+      if (match && transferExpired(Number(match[1])))
         await requestResult(indexedDB.deleteDatabase(database.name));
     }
   }
@@ -107,7 +108,7 @@ export async function createDownloadSink(filename) {
     for await (const [name, entry] of folder.entries()) {
       if (entry.kind !== "file" || !/^\d+-[0-9a-f-]+\.zip$/.test(name))
         continue;
-      if (Date.now() - Number(name.split("-")[0]) > 86400000)
+      if (transferExpired(Number(name.split("-")[0])))
         await folder.removeEntry(name).catch(() => {});
     }
     const name = `${Date.now()}-${uniqueId()}.zip`;

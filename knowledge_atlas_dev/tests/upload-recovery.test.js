@@ -12,6 +12,10 @@ import { recoverUpload, saveUpload } from "../server/upload-journal.js";
 import { BackupTransfer } from "../src/backup-transfer.js";
 import { fileIdentity, verifyUploadFile } from "../src/upload-identity.js";
 import { translate, setLanguage, localizeMessage } from "../shared/i18n.js";
+import {
+  TRANSFER_RETENTION_MS,
+  transferExpired,
+} from "../shared/transfer-policy.js";
 
 const hash = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const input = (bytes) => Readable.from([bytes]);
@@ -65,7 +69,7 @@ async function fixture(t) {
   };
 }
 
-test("restart retains confirmed upload bytes indefinitely and truncates only an unacknowledged tail", async (t) => {
+test("restart retains six-day-old upload bytes and truncates only an unacknowledged tail", async (t) => {
   const f = await fixture(t);
   const before = await fs.readFile(f.settings.file);
   const file = new File(["abcdefgh"], "sample.zip", { lastModified: 123 });
@@ -76,7 +80,7 @@ test("restart retains confirmed upload bytes indefinitely and truncates only an 
   });
   await f.service.upload(id, 0, input("abcd"));
   const session = f.service.get(id);
-  session.touched = 0;
+  session.touched = Date.now() - 6 * 86400000;
   await saveUpload(session);
   await fs.appendFile(session.file, "unacknowledged");
   await fs.writeFile(path.join(session.folder, "chunk.tmp"), "partial");
@@ -239,6 +243,29 @@ test("restart completes cancellation and rejects malformed journals without remo
   );
 });
 
+test("a missing preview after restart retains the complete upload for verification without a new ZIP", async (t) => {
+  const f = await fixture(t);
+  const exported = await f.service.create({ direction: "download" });
+  await f.service.get(exported.id).job;
+  const archive = await fs.readFile(f.service.get(exported.id).file);
+  const { id } = await f.service.create({
+    direction: "upload",
+    size: archive.length,
+  });
+  await f.service.upload(id, 0, input(archive));
+  f.service.complete(id);
+  await f.service.get(id).job;
+  const session = f.service.get(id);
+  await f.backups.discard(session.preview.id);
+  const restarted = await f.restart();
+  assert.equal(restarted.get(id).offset, archive.length);
+  assert.deepEqual(await fs.readFile(restarted.get(id).file), archive);
+  restarted.complete(id);
+  await restarted.get(id).job;
+  assert.equal(restarted.get(id).preview.checksumVerified, true);
+  assert.equal((await f.store.read()).nodes[0].body.trim(), "Saved notes");
+});
+
 test("local verification detects wrong files even outside the identity samples without uploading the prefix", async () => {
   const bytes = Buffer.alloc(1024 ** 2, 42);
   const file = new File([bytes], "sample.zip");
@@ -368,6 +395,9 @@ test("recovery controls and file validation errors are translated without changi
     "transfer.wrongFile",
     "transfer.wrongPrefix",
     "transfer.cancelRetry",
+    "transfer.reconnecting",
+    "transfer.reconnectHelp",
+    "transfer.expiresAt",
   ]) {
     assert.notEqual(translate("en", key), key);
     assert.notEqual(translate("cs", key), translate("en", key));
@@ -375,4 +405,117 @@ test("recovery controls and file validation errors are translated without changi
     assert.equal(localizeMessage(translate("en", key)), translate("cs", key));
   }
   setLanguage("en");
+});
+
+test("seven-day retention crosses midnight, survives restart and renews only on progress or deliberate resume", async (t) => {
+  const f = await fixture(t);
+  let time = Date.parse("2026-10-24T23:59:59+02:00");
+  t.mock.method(Date, "now", () => time);
+  const { id } = await f.service.create({ direction: "upload", size: 12 });
+  await f.service.upload(id, 0, input("abcd"));
+  const created = time;
+  time += 2000; // Local midnight, followed by the daylight-saving transition.
+  await f.service.sweep();
+  assert.equal(f.service.get(id).offset, 4);
+  time = created + 6 * 86400000;
+  let restarted = await f.restart();
+  assert.equal(restarted.get(id).offset, 4);
+  assert.equal(
+    restarted.describe(restarted.get(id)).expiresAt,
+    created + TRANSFER_RETENTION_MS,
+  );
+  assert.equal(
+    restarted.get(id).touched,
+    created,
+    "Reading status must not extend retention.",
+  );
+  await restarted.renew(id);
+  restarted = await f.restart();
+  assert.equal(
+    restarted.get(id).touched,
+    time,
+    "Resume must persist across restart.",
+  );
+  const resumed = time;
+  time += 6 * 86400000;
+  await restarted.sweep();
+  await restarted.upload(id, 4, input("efgh"));
+  assert.equal(restarted.get(id).touched, time);
+  const progressed = time;
+  time = progressed + TRANSFER_RETENTION_MS;
+  assert.equal(transferExpired(progressed), false);
+  await restarted.sweep();
+  assert.ok(restarted.sessions.has(id));
+  time++;
+  assert.equal(transferExpired(progressed), true);
+  await restarted.sweep();
+  assert.equal(restarted.sessions.has(id), false);
+  assert.equal((await f.store.read()).nodes[0].body.trim(), "Saved notes");
+  assert.equal((await f.settings.read()).language, "cs");
+  assert.ok(progressed > resumed);
+});
+
+test("expiry cleanup skips active upload chunks and active package merges", async (t) => {
+  const f = await fixture(t);
+  const { id } = await f.service.create({ direction: "upload", size: 8 });
+  const session = f.service.get(id);
+  session.touched = Date.now() - TRANSFER_RETENTION_MS - 1000;
+  const stream = new PassThrough();
+  const writing = f.service.upload(id, 0, stream);
+  await f.service.sweep();
+  assert.ok(f.service.sessions.has(id));
+  stream.end("abcd");
+  await writing;
+  assert.equal(session.offset, 4);
+  assert.equal(transferExpired(session.touched), false);
+  const previewId = randomUUID();
+  const stage = path.join(f.backups.root, previewId);
+  await fs.mkdir(stage);
+  await fs.writeFile(path.join(stage, "merge-active.json"), "{}");
+  session.preview = { id: previewId };
+  session.verificationId = previewId;
+  session.touched = Date.now() - TRANSFER_RETENTION_MS - 1000;
+  await saveUpload(session);
+  await f.service.sweep();
+  assert.ok(f.service.sessions.has(id));
+  assert.ok(await fs.stat(stage));
+  await fs.unlink(path.join(stage, "merge-active.json"));
+  await f.service.sweep();
+  assert.equal(f.service.sessions.has(id), false);
+  await assert.rejects(fs.stat(stage), { code: "ENOENT" });
+  assert.equal((await f.store.read()).nodes.length, 1);
+});
+
+test("restore preview accepts six elapsed days and rejects more than seven without changing the library", async (t) => {
+  const f = await fixture(t);
+  const exported = await f.service.create({ direction: "download" });
+  await f.service.get(exported.id).job;
+  const archive = await fs.readFile(f.service.get(exported.id).file);
+  const preview = await f.backups.prepare(input(archive));
+  const plan = path.join(f.backups.root, preview.id, "plan.json");
+  const before = await fs.readFile(f.settings.file);
+  await fs.writeFile(
+    plan,
+    JSON.stringify({
+      ...preview,
+      created: new Date(
+        Date.now() - TRANSFER_RETENTION_MS - 1000,
+      ).toISOString(),
+    }),
+  );
+  await assert.rejects(
+    f.backups.restore(preview.id, preview.revision),
+    /expired/,
+  );
+  assert.deepEqual(await fs.readFile(f.settings.file), before);
+  await fs.writeFile(
+    plan,
+    JSON.stringify({
+      ...preview,
+      created: new Date(Date.now() - 6 * 86400000).toISOString(),
+    }),
+  );
+  const restored = await f.backups.restore(preview.id, preview.revision);
+  assert.equal(restored.ok, true);
+  assert.equal((await f.store.read()).nodes[0].body.trim(), "Saved notes");
 });

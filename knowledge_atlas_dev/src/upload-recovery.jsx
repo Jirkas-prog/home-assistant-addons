@@ -113,6 +113,15 @@ function RecoveryDialog({ uploads, onClose, onResume, onRemoved }) {
               {formatBytes(upload.total, locale())}
             </p>
             <p className="field-help">
+              {Number.isFinite(upload.expiresAt) && (
+                <>
+                  {t(
+                    "transfer.expiresAt",
+                    new Date(upload.expiresAt).toLocaleString(locale()),
+                  )}
+                  <br />
+                </>
+              )}
               {t(
                 upload.offset === upload.total
                   ? upload.purpose === "merge"

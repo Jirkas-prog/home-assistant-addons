@@ -6,6 +6,10 @@ import { pipeline } from "node:stream/promises";
 import { byteLimit } from "./backups.js";
 import { fail } from "./store.js";
 import {
+  TRANSFER_RETENTION_MS,
+  transferExpired,
+} from "../shared/transfer-policy.js";
+import {
   recoverUpload,
   saveUpload,
   syncFile,
@@ -14,7 +18,6 @@ import {
 
 export const TRANSFER_CHUNK = 2 * 1024 ** 2;
 const MAX_BYTES = 20 * 1024 ** 3;
-const TTL = 24 * 60 * 60 * 1000;
 const ID = /^[0-9a-f-]{36}$/;
 
 // Transfers own only this separate temporary tree, never restore rollback data.
@@ -50,22 +53,47 @@ export class BackupTransfers {
       if (!ID.test(entry.name) || !entry.isDirectory()) continue;
       const session = this.sessions.get(entry.name);
       const folder = path.join(this.root, entry.name);
-      // Uploads are deliberately retained until the owner finishes or cancels.
+      // Preserve unreadable journals for recovery; only validated sessions expire.
       if (
-        session?.direction === "upload" ||
+        !session &&
         (await fs.lstat(path.join(folder, "session.json")).catch(() => null))
       )
         continue;
       const touched = session?.touched ?? (await fs.stat(folder)).mtimeMs;
-      if (Date.now() - touched <= TTL || session?.job) continue;
-      if (session) await this.remove(session.id);
-      else await fs.rm(folder, { recursive: true, force: true });
+      if (!transferExpired(touched) || session?.job || session?.readers)
+        continue;
+      if (session) {
+        try {
+          await this.remove(session.id, {
+            expiredBefore: Date.now() - TRANSFER_RETENTION_MS,
+          });
+        } catch (error) {
+          // An active merge owns its staging files until it has finished.
+          if (error.status !== 409) throw error;
+        }
+      } else await fs.rm(folder, { recursive: true, force: true });
     }
   }
   get(id) {
     const session = ID.test(id) && this.sessions.get(id);
     if (!session) fail("The transfer has expired. Start it again.", 404);
-    session.touched = Date.now();
+    return session;
+  }
+  async renew(id) {
+    const session = this.get(id);
+    if (session.job) return session;
+    // A deliberate resume extends retention durably, including a long local
+    // prefix check. Polling the recovery list does not extend retention.
+    session.job = Promise.resolve().then(async () => {
+      const touched = Date.now();
+      await saveUpload({ ...session, touched });
+      session.touched = touched;
+    });
+    try {
+      await session.job;
+    } finally {
+      session.job = null;
+    }
     return session;
   }
   describe(session) {
@@ -93,6 +121,7 @@ export class BackupTransfers {
       error,
       source,
       touched,
+      expiresAt: touched + TRANSFER_RETENTION_MS,
       purpose,
       chunkSize: TRANSFER_CHUNK,
     };
@@ -238,7 +267,6 @@ export class BackupTransfers {
       await session.job;
     } finally {
       session.job = null;
-      session.touched = Date.now();
     }
     return this.describe(session);
   }
@@ -276,8 +304,12 @@ export class BackupTransfers {
     );
     return this.describe(session);
   }
-  async remove(id, { keepPreview = false } = {}) {
+  async remove(id, { keepPreview = false, expiredBefore } = {}) {
     const session = this.get(id);
+    const retained = () =>
+      expiredBefore != null &&
+      (session.touched >= expiredBefore || session.job || session.readers);
+    if (retained()) return { ok: true, retained: true };
     if (
       session.preview &&
       (await fs
@@ -287,6 +319,7 @@ export class BackupTransfers {
         .catch(() => null))
     )
       fail("The package import is still running.", 409);
+    if (retained()) return { ok: true, retained: true };
     session.state = "cancelling";
     session.controller.abort();
     await session.job?.catch(() => {});
@@ -316,8 +349,8 @@ export async function registerBackupTransfers(app, backups, mutate) {
         .map((session) => transfers.describe(session)),
     }),
   );
-  app.get(`${route}/:id/proof`, (req, res) => {
-    const session = transfers.get(req.params.id);
+  app.get(`${route}/:id/proof`, async (req, res) => {
+    const session = await transfers.renew(req.params.id);
     if (session.direction !== "upload") fail("Invalid transfer direction.");
     res
       .set("Cache-Control", "no-store")
@@ -372,14 +405,21 @@ export async function registerBackupTransfers(app, backups, mutate) {
       "Accept-Ranges": "bytes",
       "Cache-Control": "private, no-store, no-transform",
     });
-    await pipeline(
-      createReadStream(session.file, {
-        start,
-        end,
-        signal: session.controller.signal,
-      }),
-      res,
-    );
+    session.readers = (session.readers || 0) + 1;
+    session.touched = Date.now();
+    try {
+      await pipeline(
+        createReadStream(session.file, {
+          start,
+          end,
+          signal: session.controller.signal,
+        }),
+        res,
+      );
+    } finally {
+      session.readers--;
+      session.touched = Date.now();
+    }
   });
   return transfers;
 }

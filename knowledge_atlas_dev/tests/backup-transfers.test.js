@@ -237,7 +237,7 @@ test("cancel stops queued preparation and expired transfer cleanup preserves rol
   await removing;
   assert.equal(service.sessions.size, 0);
   const retained = await service.create({ direction: "upload", size: 10 });
-  service.sessions.get(retained.id).touched = 0;
+  service.sessions.get(retained.id).touched = Date.now() - 6 * 86400000;
   const expired = await service.create({ direction: "download" });
   await service.get(expired.id).job;
   service.sessions.get(expired.id).touched = 0;
@@ -381,4 +381,124 @@ test("client downloads resume ranges, preserve bytes, and cancel the destination
   await cancelled;
   assert.equal(transfer.state.phase, "cancelled");
   assert.equal(discarded, true);
+});
+
+test("automatic reconnection reconciles a lost acknowledgement and wakes when a hidden page returns", async () => {
+  let offset = 0,
+    removed = false;
+  const sends = [],
+    events = new EventTarget();
+  const page = Object.assign(new EventTarget(), { visibilityState: "hidden" });
+  const transfer = new BackupTransfer({
+    events,
+    page,
+    retryDelay: () => 60000,
+    request: async (url, options) => {
+      if (url === "backup-transfers") return { id: "fixture", chunkSize: 4 };
+      if (options?.method === "DELETE") {
+        removed = true;
+        return {};
+      }
+      return {
+        offset,
+        state: offset === 8 ? "ready" : "transferring",
+        preview: { id: "preview" },
+      };
+    },
+    upload: async (url, data) => {
+      sends.push(Number(url.split("=")[1]));
+      offset += data.size;
+      if (sends.length === 1) throw new TypeError("Failed to fetch");
+      return { offset };
+    },
+  });
+  const running = transfer.start("upload", new Blob(["abcdefgh"]));
+  await until(() => transfer.state.phase === "reconnecting");
+  events.dispatchEvent(new Event("online"));
+  await wait();
+  assert.equal(transfer.state.phase, "reconnecting");
+  page.visibilityState = "visible";
+  page.dispatchEvent(new Event("visibilitychange"));
+  await running;
+  assert.deepEqual(sends, [0, 4]);
+  assert.equal(transfer.state.phase, "complete");
+  assert.equal(removed, false);
+});
+
+test("manual pause stops automatic retries and online events cannot override it; cancellation stops the retry timer", async () => {
+  const events = new EventTarget();
+  let attempts = 0,
+    removed = false;
+  const transfer = new BackupTransfer({
+    events,
+    retryDelay: () => 60000,
+    request: async (url, options) => {
+      if (url === "backup-transfers") return { id: "fixture", chunkSize: 4 };
+      if (options?.method === "DELETE") {
+        removed = true;
+        return {};
+      }
+      return { offset: 0 };
+    },
+    upload: async () => {
+      attempts++;
+      throw new TypeError("Failed to fetch");
+    },
+  });
+  const running = transfer.start("upload", new Blob(["abcd"]));
+  await until(() => transfer.state.phase === "reconnecting");
+  transfer.pause();
+  await until(() => transfer.state.phase === "paused");
+  events.dispatchEvent(new Event("online"));
+  events.dispatchEvent(new Event("focus"));
+  await wait();
+  assert.equal(transfer.state.phase, "paused");
+  assert.equal(attempts, 1);
+  transfer.resume();
+  await until(() => transfer.state.phase === "reconnecting");
+  assert.equal(attempts, 2);
+  transfer.cancel();
+  await running;
+  assert.equal(transfer.state.phase, "cancelled");
+  assert.equal(removed, true);
+});
+
+test("returning after browser suspension replaces a stalled request without resending confirmed upload parts", async () => {
+  let time = 0,
+    offset = 0;
+  const events = new EventTarget(),
+    sends = [];
+  const transfer = new BackupTransfer({
+    events,
+    now: () => time,
+    retryDelay: () => 1,
+    request: async (url) =>
+      url === "backup-transfers"
+        ? { id: "fixture", chunkSize: 4 }
+        : {
+            offset,
+            state: offset === 8 ? "ready" : "transferring",
+            preview: { id: "preview" },
+          },
+    upload: async (url, data, signal) => {
+      sends.push(Number(url.split("=")[1]));
+      offset += data.size;
+      if (sends.length === 1)
+        await new Promise((resolve, reject) => {
+          signal.addEventListener(
+            "abort",
+            () => reject(new DOMException("Stopped", "AbortError")),
+            { once: true },
+          );
+        });
+      return { offset };
+    },
+  });
+  const running = transfer.start("upload", new Blob(["abcdefgh"]));
+  await until(() => sends.length === 1);
+  time = 600000;
+  events.dispatchEvent(new Event("focus"));
+  await running;
+  assert.deepEqual(sends, [0, 4]);
+  assert.equal(transfer.state.phase, "complete");
 });

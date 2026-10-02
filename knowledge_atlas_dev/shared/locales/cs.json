@@ -1,4 +1,7 @@
 {
+  "transfer.reconnecting": "Automaticky obnovuji spojení",
+  "transfer.reconnectHelp": "Čekám na spojení a automaticky navážu na potvrzené části. Pozastavit zastaví automatické pokusy. Uspaný prohlížeč může přenášet data až po probuzení.",
+  "transfer.expiresAt": "Uchováno do {0}, pokud mezitím nepokračuješ nebo přenos nezrušíš.",
   "package.upload": "Importovat datový balíček",
   "package.alreadyUploaded": "Balíček je již nahraný. Pokračováním se ověří a aktualizuje náhled sloučení.",
   "package.verifying": "Nahrávání dokončeno; ověřuji datový balíček",
@@ -905,13 +908,13 @@
   "transfer.cancel": "Zrušit přenos",
   "transfer.save": "Uložit ZIP",
   "transfer.saveHelp": "ZIP je připraven v úložišti prohlížeče. Tlačítkem Uložit ZIP jej ulož do stažených souborů před zahájením dalšího přenosu nebo zavřením této karty.",
-  "transfer.keepOpen": "Při stahování nech tuto kartu otevřenou. V aplikaci se můžeš pohybovat. Pokračování naváže na potvrzené části. Připravené soubory ke stažení vyprší po 24 hodinách nečinnosti.",
+  "transfer.keepOpen": "Při stahování nech tuto kartu otevřenou. Pokračování naváže na potvrzené části. Připravené soubory ke stažení vyprší po 7 dnech nečinnosti. Uspání prohlížeče může přerušit přenos na pozadí; v jeho nastavení ponech tento web aktivní.",
   "transfer.checking": "Kontrola vybraného ZIPu",
   "transfer.checkingProgress": "Místní kontrola již nahraných částí: {0}",
-  "transfer.uploadKept": "Nahrané části jsou uložené v doplňku. Stránku můžeš zavřít a pokračovat později, i po restartu doplňku. Přerušená část se může přenést znovu.",
+  "transfer.uploadKept": "Nahrané části zůstávají v doplňku 7 dní od posledního pokroku nebo vědomého pokračování. Můžeš se vrátit po zavření stránky i restartu doplňku. Uspání prohlížeče může přerušit přenos na pozadí; v jeho nastavení ponech tento web aktivní.",
   "transfer.unfinished": "Rozpracovaná nahrávání: {0}",
   "transfer.recoveryTitle": "Pokračovat v nahrávání",
-  "transfer.recoveryHelp": "Doplněk zachoval tato nahrávání. Pokračuj od uloženého místa, nech je na později, nebo je zruš a odstraň jejich dočasné soubory.",
+  "transfer.recoveryHelp": "Pokračuj od uloženého místa, nech nahrávání na později, nebo zruš jeho dočasné soubory. Nahrávání se uchovává 7 dní od posledního pokroku nebo vědomého pokračování, podle uplynulého času, nikoli do půlnoci. Záznamy knihovny se tím nemění.",
   "transfer.alreadyUploaded": "Celý ZIP je již nahraný. Pokračováním se ověří a aktualizuje náhled obnovy.",
   "transfer.selectOriginal": "Znovu vyber původní ZIP. Již nahrané části se ověří místně bez opětovného nahrávání.",
   "transfer.resumeUpload": "Pokračovat v nahrávání",
@@ -937,5 +940,5 @@
   "transfer.storage": "Úložiště prohlížeče není dostupné. Zkontroluj volné místo a oprávnění úložiště.",
   "transfer.interrupted": "Spojení bylo přerušeno. Tlačítkem Pokračovat přenos zopakuj.",
   "transfer.invalidRange": "Server vrátil neplatný rozsah stahovaných dat.",
-  "transfer.cleanup": "Úklid dočasného přenosu se nepodařilo dokončit. Server odstraňuje přenosy starší než 24 hodin při zahájení nového přenosu."
+  "transfer.cleanup": "Úklid dočasného přenosu se nepodařilo dokončit. Neaktivní přenosy se uchovávají 7 dní a uklízejí při startu doplňku nebo zahájení dalšího přenosu."
 }
