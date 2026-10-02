@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.1-dev.12
+
+- Scroll the entire navigation sidebar together, including the logo, navigation, expanded branches and footer, on desktop and mobile. Remove the separate branch-tree scrollbar and preserve the themed scrollbar appearance.
+
 ## 5.0.1-dev.11
 
 - Retain inactive uploads, prepared downloads and restore previews for seven elapsed days. Show upload retention deadlines and preserve confirmed bytes across page closure and add-on restarts.

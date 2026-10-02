@@ -150,6 +150,9 @@ button:hover {
   display: flex;
   flex-direction: column;
 }
+.sidebar > * {
+  flex-shrink: 0;
+}
 .brand {
   display: flex;
   gap: 12px;
@@ -238,8 +241,7 @@ button:hover {
   background: #ffffff0b;
 }
 .tree {
-  overflow: auto;
-  flex: 1;
+  flex: 1 0 auto;
   min-height: 70px;
   padding: 0 9px 20px;
 }
