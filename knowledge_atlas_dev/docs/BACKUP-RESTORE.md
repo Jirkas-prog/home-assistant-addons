@@ -6,7 +6,7 @@ For additive imports, use **Import data package**. This separate workflow adds o
 
 ## Export
 
-Select **Download full backup**. The ZIP contains every saved record, including knowledge, projects, tasks, inventory, links and structured work tools; settings and language; managed attachments, including unattached files; record and attachment history; archived records; and empty folders. A manifest lists sizes and SHA-256 hashes. Each stream is verified, and additions, deletions or edits detected before finalization abort the backup. Keep external editors idle while exporting; this is a verified file copy, not an operating-system snapshot.
+Select **Download full backup**. The ZIP contains every saved record, including knowledge, projects, tasks, inventory, links and structured work tools; settings, language and the library-wide list order (`list-order.json`); managed attachments, including unattached files; record and attachment history; archived records; and empty folders. A manifest lists sizes and SHA-256 hashes. Each stream is verified, and additions, deletions or edits detected before finalization abort the backup. Keep external editors idle while exporting; this is a verified file copy, not an operating-system snapshot.
 
 Keep the ZIP outside the application's data and document directories. The ZIP contains the library's private content in readable form. Export archives contain saved library data and should be stored separately from installation files.
 

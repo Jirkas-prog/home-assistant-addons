@@ -84,6 +84,8 @@ import {
   withImportance,
 } from "../shared/importance.js";
 import { ImportanceStars, RecordImportance } from "./importance.jsx";
+import { ListSort, RecordStamp, RecordOrder } from "./record-list.jsx";
+import { LIST_SORTS, sortRecords } from "../shared/record-list.js";
 import { CheckpointEditor, TaskCheckpoints } from "./checkpoints.jsx";
 import { InventoryEditor } from "./inventory-editor.jsx";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
@@ -502,6 +504,7 @@ function App() {
     [openDocument, setDocument] = useState(null);
   const [nodes, setNodes] = useState([]),
     [errors, setErrors] = useState([]),
+    [orderRevision, setOrderRevision] = useState(""),
     [env, setEnv] = useState({}),
     [loading, setLoading] = useState(true),
     [hasSnapshot, setHasSnapshot] = useState(false),
@@ -516,6 +519,14 @@ function App() {
     [mode, setMode] = useState("2d"),
     [mapLayout, setMapLayout] = useState(readMapLayout),
     [importanceFilter, setImportanceFilter] = useState([]),
+    [listSort, setListSort] = useState(() => {
+      try {
+        const saved = localStorage.getItem("atlas-list-sort");
+        return LIST_SORTS.includes(saved) ? saved : "order";
+      } catch {
+        return "order";
+      }
+    }),
     [view, setView] = useState(() => {
       const chosen = new URLSearchParams(location.search).get("view");
       return [
@@ -563,6 +574,7 @@ function App() {
         setDraftLibrary(r.settings.libraryId);
         setLanguage(r.settings.language);
         setNodes(r.nodes);
+        setOrderRevision(r.orderRevision);
         setErrors(r.errors);
         setEnv(r.environment);
         setSettings(r.settings);
@@ -747,9 +759,19 @@ function App() {
           }
         : {}),
     });
+  const orderedNodes = useMemo(
+    () => sortRecords(nodes, listSort),
+    [nodes, listSort],
+  );
+  const changeListSort = (value) => {
+    setListSort(value);
+    try {
+      localStorage.setItem("atlas-list-sort", value);
+    } catch {}
+  };
   const tree = useMemo(() => {
     const children = new Map();
-    for (const n of nodes) {
+    for (const n of orderedNodes) {
       if (!children.has(n.parent)) children.set(n.parent, []);
       children.get(n.parent).push(n);
     }
@@ -777,7 +799,7 @@ function App() {
           });
     }
     return rows;
-  }, [nodes, expanded]);
+  }, [orderedNodes, expanded]);
   const recordNavigation = useMemo(
     () => createRecordNavigation(nodes),
     [nodes],
@@ -884,14 +906,14 @@ function App() {
   }
   const matched = useMemo(
     () =>
-      filterNodes(nodes, {
+      filterNodes(orderedNodes, {
         scope,
         query,
         type: filter,
         importance: importanceFilter,
         locations: settings.locations,
       }),
-    [nodes, scope, query, filter, importanceFilter, settings],
+    [orderedNodes, scope, query, filter, importanceFilter, settings],
   );
   const liveReader = reader?.nodeId
     ? nodes.find((n) => n.id === reader.nodeId)
@@ -1308,6 +1330,9 @@ function App() {
                 </button>
               </fieldset>
             )}
+            {["library", "tasks", "inventory"].includes(view) && (
+              <ListSort value={listSort} onChange={changeListSort} />
+            )}
             <div className="toolbar-spacer" />
             {view === "map" && (
               <select
@@ -1461,7 +1486,7 @@ function App() {
               ) : view === "inventory" ? (
                 <Inventory
                   importance={importanceFilter}
-                  nodes={nodes}
+                  nodes={orderedNodes}
                   settings={settings}
                   query={query}
                   scope={scope}
@@ -1472,7 +1497,7 @@ function App() {
                 <Tasks
                   importance={importanceFilter}
                   onRefresh={load}
-                  nodes={nodes}
+                  nodes={orderedNodes}
                   settings={settings}
                   query={query}
                   scope={scope}
@@ -1566,8 +1591,9 @@ function App() {
                           {TYPES[n.type]}
                           <span>{STATUS[n.status]}</span>
                         </div>
-                        <h3>{n.title}</h3>
-                        <p>{n.summary || t("m155")}</p>
+                        <h3 title={n.title}>{n.title}</h3>
+                        <p title={n.summary}>{n.summary || t("m155")}</p>
+                        <RecordStamp node={n} importance />
                         <div className="card-footer">
                           <span>
                             {nodes.find((p) => p.id === n.parent)?.title ||
@@ -1678,6 +1704,14 @@ function App() {
                         className="record-path"
                       />
                       <h2>{node.title}</h2>
+                      <RecordStamp node={node} />
+                      <RecordOrder
+                        key={node.id}
+                        node={node}
+                        count={nodes.length}
+                        revision={orderRevision}
+                        onSaved={load}
+                      />
                       <p className="detail-summary">{node.summary}</p>
                       {node.type === "item" && (
                         <div className="detail-extra">
@@ -2174,6 +2208,15 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
               </select>
             </label>
           </div>
+          <label>
+            {t("list.recordDate")}
+            <input
+              type="date"
+              value={form.date || ""}
+              onInput={(event) => set("date", event.currentTarget.value)}
+            />
+            <span className="field-help">{t("list.dateHelp")}</span>
+          </label>
           <div className="importance-field">
             <span>{t("importance.label")}</span>
             <ImportanceStars

@@ -5,6 +5,8 @@ import YAML from "yaml";
 import { release } from "../shared/release.js";
 import { historyDirectory } from "./file-safety.js";
 import { toolReferences } from "../shared/tools.js";
+import { reconcileOrder, moveInOrder } from "../shared/record-list.js";
+import { readOrder, writeOrder, orderRevision } from "./record-order.js";
 export {
   TYPES,
   STATUSES,
@@ -34,7 +36,7 @@ export function parseMarkdown(raw) {
   };
 }
 export function serialize(node) {
-  const { body = "", revision, file, ...meta } = node;
+  const { body = "", revision, file, position, ...meta } = node;
   return `---\n${YAML.stringify(meta)}---\n\n${body}\n`;
 }
 const revisionOf = (raw) => createHash("sha256").update(raw).digest("hex");
@@ -257,7 +259,17 @@ export class Store {
       rootOf(await fs.lstat(this.directory, { bigint: true })) !== rootIdentity
     )
       return this.scan();
+    let savedOrder = [],
+      orderError;
+    try {
+      savedOrder = await readOrder(this.directory);
+    } catch (error) {
+      orderError = { file: "list-order.json", message: error.message };
+    }
+    const savedRevision = orderRevision(savedOrder);
     if (
+      !orderError &&
+      this.orderFileRevision === savedRevision &&
       this.snapshot &&
       names.length === this.entries.size &&
       entries.every((entry, i) => entry === this.entries.get(names[i]))
@@ -277,13 +289,35 @@ export class Store {
       else errors.push(entry.error);
     }
     errors.push(...graphIssues(nodes));
-    this.snapshot = {
+    const ids = reconcileOrder(
       nodes,
+      savedOrder,
+      names.map((name) => name.slice(0, -3)),
+    );
+    const byId = new Map(nodes.map((node) => [node.id, node]));
+    const ordered = ids
+      .filter((id) => byId.has(id))
+      .map((id, index) => ({ ...byId.get(id), position: index + 1 }));
+    this.orderFileRevision = orderError ? null : savedRevision;
+    if (orderError) errors.push(orderError);
+    else if (this.persistentIndex && orderRevision(ids) !== savedRevision) {
+      try {
+        await writeOrder(this.directory, ids);
+        this.orderFileRevision = orderRevision(ids);
+      } catch (error) {
+        this.orderFileRevision = null;
+        errors.push({ file: "list-order.json", message: error.message });
+      }
+    }
+    this.snapshot = {
+      nodes: ordered,
       errors,
+      orderRevision: orderRevision(ids),
       revision: revisionOf(
         JSON.stringify({
-          nodes,
+          nodes: ordered,
           errors,
+          orderRevision: orderRevision(ids),
         }),
       ),
     };
@@ -299,6 +333,7 @@ export class Store {
   }
   async save(input, existingId = null, revision = null) {
     return this.lock(async () => {
+      const { position, ...metadata } = input;
       const { nodes, errors } = await this.read();
       const old = nodes.find((n) => n.id === existingId);
       if (existingId && !old) fail("The record does not exist.", 404);
@@ -310,7 +345,7 @@ export class Store {
       const now = new Date().toISOString();
       const node = validateNode(
         upgradeNode({
-          ...input,
+          ...metadata,
           id: existingId || input.id || randomUUID(),
           created: old?.created || input.created || now,
           updated: now,
@@ -324,6 +359,14 @@ export class Store {
         node,
       ]).filter((e) => !existingIssues.has(e.key));
       if (addedIssues.length) fail(addedIssues[0].message);
+      // Remember existing records before adding a new one, including legacy and
+      // manually created Markdown. New IDs are inserted ahead of this sequence.
+      if (!existingId) {
+        const saved = await readOrder(this.directory);
+        const ids = reconcileOrder(nodes, saved);
+        if (orderRevision(ids) !== orderRevision(saved))
+          await writeOrder(this.directory, ids);
+      }
       const file = path.join(this.directory, `${node.id}.md`);
       if (old) {
         await historyDirectory(this.directory, ".history", node.id);
@@ -371,9 +414,39 @@ export class Store {
       }
       return {
         ...node,
+        position: old?.position || 1,
         revision: revisionOf(raw),
         file: `${node.id}.md`,
       };
+    });
+  }
+  async move(id, position, revision) {
+    return this.lock(async () => {
+      if (!Number.isSafeInteger(position) || position < 1)
+        fail("List position must be a positive integer.");
+      const snapshot = await this.read();
+      if (snapshot.errors.some((error) => error.file === "list-order.json"))
+        fail("Invalid list order. Restore or repair list-order.json.", 409);
+      if (revision !== snapshot.orderRevision)
+        fail("The list order has changed. Refresh and try again.", 409);
+      if (!snapshot.nodes.some((node) => node.id === id))
+        fail("The record does not exist.", 404);
+      const ids = moveInOrder(
+        snapshot.nodes.map((node) => node.id),
+        id,
+        position,
+      );
+      // Retain temporarily invalid Markdown IDs so repairing a file does not
+      // discard the saved position of unrelated records.
+      const saved = await readOrder(this.directory);
+      if (orderRevision(saved) !== this.orderFileRevision)
+        fail("The list order has changed. Refresh and try again.", 409);
+      const known = new Set(ids);
+      await writeOrder(this.directory, [
+        ...ids,
+        ...saved.filter((value) => !known.has(value)),
+      ]);
+      return this.read();
     });
   }
   async archive(id, revision) {

@@ -158,3 +158,11 @@ npm start
 Open `http://127.0.0.1:8099`. Local records and settings are stored in `data`, which is ignored by Git. `DATA_DIR`, `DOCUMENT_ROOT`, `HOST` and `PORT` can override paths and binding. For Vite development, run the server and `npm run dev` in separate terminals; the default proxy targets port 8099. Production uses relative asset and API URLs to support Ingress prefixes.
 
 The app does not require Nextcloud, an AI service, a paid account or external synchronization. See [THIRD_PARTY.md](THIRD_PARTY.md) for the icon attribution.
+
+## Cards, dates and sorting
+
+Library cards wrap long titles and descriptions inside their boundaries. A preview displays up to three title lines and four description lines; select the card to read its full content. Each card shows its library position, relevant date and star importance. Edit **Record date** to specify when the record applies. With no explicit date, the app uses a journal date or task deadline/start, then the record's creation date, clearly labelled.
+
+Use **Sort by** in the library, task board or inventory to choose **List order**, **Date: newest first**, **Date: oldest first** or **Importance: highest first**. The choice is remembered in this browser and also orders siblings in the branch tree. Importance sorting uses manual order for ties. It never changes the saved positions.
+
+Select a record and enter a **List position** in its details, then choose **Move**. For example, moving position 1 to 50 shifts positions 2–50 up by one; moving 50 to 1 shifts positions 1–49 down by one. New entries take position 1. These are global positions, shared by all record types and independent of filters and star ratings. Task cards show the same number as the library; use their details arrow to change it. Full backups include the saved sequence.

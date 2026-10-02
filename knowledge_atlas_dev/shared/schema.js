@@ -31,6 +31,8 @@ export function validateNode(n) {
   if (!STATUSES.includes(n.status)) fail("Invalid status.");
   if (n.importance != null && !validImportance(n.importance))
     fail("Importance must be an integer from 1 to 5.");
+  if (n.date != null && n.date !== "" && !validDate(n.date))
+    fail("Invalid record date. Use YYYY-MM-DD.");
   if (n.parent !== null && !idPattern.test(n.parent || ""))
     fail("Invalid parent branch.");
   if (typeof n.body !== "string" || n.body.length > 1_000_000)

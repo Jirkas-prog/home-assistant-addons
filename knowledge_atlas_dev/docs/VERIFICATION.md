@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.11` on 2026-10-02.
+Validated for Knowledge Atlas Dev `5.0.1-dev.15` on 2026-10-02.
 
-- All 135 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 156 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 942 matching translation keys.
+- English/Czech language audits pass with 993 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -47,3 +47,9 @@ English and Czech browser checks used a generic school package in an embedded fr
 Development release 5.0.1-dev.11 adds seven regression tests for seven-day elapsed-time retention, crossing local midnight and a daylight-saving transition, restart with six-day-old uploads, durable renewal and new progress, preservation of active chunks and package merges, six-day restore previews, and rebuilding a missing preview from a retained complete ZIP. Client tests exercise automatic retry after lost acknowledgements, returning from a hidden or stalled page, deliberate pause, online/focus events and cancellation without duplicate bytes. Existing records, settings and rollback libraries remain protected.
 
 English and Czech browser checks verified the seven-day help text, localized retention deadline, unchanged 50% progress after page reload, persisted language choice and unchanged sample record identifiers. No browser console errors were observed. Browser sleep was simulated through lifecycle events in automated tests; operating-system suspension and a real Home Assistant installation have not been exercised. The application cannot force a suspended browser to continue executing.
+
+## Record cards and list ordering
+
+Automated coverage checks insertion at position one, moves in both directions and to position fifty, contiguous renumbering, stale-order conflicts, invalid inputs, manual Markdown additions and deletions, restart persistence, full backup restoration, failed atomic writes, cached API refresh, date validation, unknown-date placement and importance/date tie breaking. Incremental package reimports ignore derived positions and preserve the destination sequence. Reordering leaves Markdown bytes, content revisions, star ratings and record dates unchanged.
+
+English/Czech browser checks cover sort labels and choices, moves from 1 to 50 and 1 to 3, saved record dates, new-record insertion and matching task/timeline positions. Desktop and 390-pixel card layouts contain long titles, long descriptions and unbroken strings without horizontal page overflow. Sort choice and language survive reloads. Browser console checks report no errors. These checks use only generic fixtures.

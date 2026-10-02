@@ -13,6 +13,7 @@ import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { locationLabel } from "../shared/locations.js";
 import { importancePriority } from "../shared/importance.js";
 import { Timeline } from "./timeline.jsx";
+import { RecordStamp } from "./record-list.jsx";
 import { checkpoints, taskUrgencies } from "../shared/checkpoints.js";
 import { useToday } from "./use-today.js";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
@@ -99,6 +100,7 @@ export function Inventory({
                       <span>
                         {n.title}
                         <small>{n.summary}</small>
+                        <RecordStamp node={n} importance />
                       </span>
                       <ArrowUpRight size={15} />
                     </button>
@@ -199,6 +201,7 @@ export function Tasks({
         {n.title}
       </button>
       <p>{n.summary}</p>
+      <RecordStamp node={n} importance />
       <div className="task-meta">
         <span className={`priority ${importancePriority(n)}`}>
           {PRIORITIES[importancePriority(n)]}

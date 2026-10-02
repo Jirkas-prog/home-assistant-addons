@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.15
+
+- Prevent card text from overflowing, with wrapped titles, bounded previews and visible metadata.
+- Show each record's date and persistent list position; add newest-first, oldest-first, manual-order and importance sorting.
+- Insert new records at position one and move existing entries to a chosen position, shifting the rest automatically across the library, task board and branch tree.
+- Store the sequence atomically alongside Markdown and include it in full backups. Detect conflicting position changes without rewriting record content.
+
 ## 5.0.1-dev.14
 
 - Keep the original map and add selectable spacious groups, hierarchical nebulae and regular grids in 2D and 3D. Compute geometry in a background worker, cache it locally and preserve the camera during filtering and record updates.

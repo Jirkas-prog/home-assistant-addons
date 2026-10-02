@@ -325,6 +325,7 @@ export function Timeline({
                   onClick={() => onEdit(node)}
                   title={`${node.title} · ${range} · ${urgencyText}`}
                 >
+                  {node.position ? `#${node.position} · ` : ""}
                   {node.title}
                 </button>
                 <div className="timeline-inline-stars">

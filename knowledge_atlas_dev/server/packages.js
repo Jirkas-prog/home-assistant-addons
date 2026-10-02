@@ -46,7 +46,7 @@ function canonical(value) {
     );
   return value;
 }
-const content = ({ revision, file, created, updated, ...node }) =>
+const content = ({ revision, file, position, created, updated, ...node }) =>
   JSON.stringify(canonical(node));
 const detail = (node) =>
   node

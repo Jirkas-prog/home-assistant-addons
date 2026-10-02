@@ -304,6 +304,16 @@ export async function createApp({
       ok: true,
     });
   });
+  app.put("/api/nodes/:id/position", async (req, res) => {
+    const snapshot = await mutate(() =>
+      store.move(req.params.id, req.body.position, req.body.revision),
+    );
+    res.json({
+      position: snapshot.nodes.find((node) => node.id === req.params.id)
+        .position,
+      orderRevision: snapshot.orderRevision,
+    });
+  });
   app.post("/api/import", async (req, res) => {
     if (typeof req.body.markdown !== "string") fail("Choose a Markdown file.");
     const node = parseMarkdown(req.body.markdown);
