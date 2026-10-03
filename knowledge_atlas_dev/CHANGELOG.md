@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.18
+
+- Add Constellations: compact subtree regions with varied branch directions and extra separation, in 2D and 3D.
+- Add Hierarchy terraces: separate depth levels with parents centered over child branches.
+- Retain all four existing layouts, add descriptions to compare all six, and save manual arrangements independently for the new modes, including backup and restore.
+
 ## 5.0.1-dev.17
 
 - Add a Fixed position checkbox for every record type and a lock marker beside its list number.

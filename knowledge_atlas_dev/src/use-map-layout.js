@@ -17,7 +17,7 @@ export function saveMapLayout(layout) {
 }
 
 async function cache(slot, value) {
-  // Only eight geometry snapshots (four layouts in two dimensions), never bodies.
+  // One geometry snapshot per layout/dimension pair, never record bodies.
   const db = await new Promise((resolve, reject) => {
     const request = indexedDB.open("atlas-map-geometry", 1);
     request.onupgradeneeded = () => request.result.createObjectStore("layouts");

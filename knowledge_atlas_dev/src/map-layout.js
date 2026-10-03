@@ -2,12 +2,12 @@ import { filterNodes } from "./atlas-model.js";
 import { mapNodeRadius } from "./map-node-geometry.js";
 import { recordImportance } from "../shared/importance.js";
 
-export const MAP_LAYOUTS = ["classic", "clusters", "nebula", "grid"];
+export { MAP_LAYOUTS } from "../shared/map-layouts.js";
 
 // Content, translations and filters do not invalidate geometric positions.
 export function layoutKey(nodes, layout, dimensions) {
   return JSON.stringify([
-    5,
+    6,
     layout,
     dimensions,
     nodes
@@ -217,6 +217,146 @@ function nebula(items, dimensions) {
   };
 }
 
+function compactShelves(items, dimensions) {
+  return [1, 1.35, 1.8]
+    .map((factor) => shelves(items, dimensions, factor))
+    .sort(
+      (a, b) =>
+        Math.max(
+          a.size[0] / (dimensions === 2 ? 1.4 : 1),
+          a.size[1],
+          a.size[2],
+        ) -
+        Math.max(
+          b.size[0] / (dimensions === 2 ? 1.4 : 1),
+          b.size[1],
+          b.size[2],
+        ),
+    )[0];
+}
+
+// Keep compact subtree boxes, but vary the packing axes at every branch.
+// Bounded jitter stays inside each reserved cell, including its complete subtree.
+// Unlike nested bounding spheres, boxes do not inflate empty corners at each level.
+function constellation(items, dimensions, id) {
+  let seed = 2166136261;
+  for (const character of id)
+    seed = Math.imul(seed ^ character.charCodeAt(0), 16777619) >>> 0;
+  const random = () => {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    return (seed >>> 0) / 2 ** 32;
+  };
+  const axes = dimensions === 3 ? [0, 1, 2] : [0, 1];
+  for (let i = axes.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    [axes[i], axes[j]] = [axes[j], axes[i]];
+  }
+  const signs = axes.map(() => (random() < 0.5 ? -1 : 1));
+  const gap = items.length > 1 ? 32 : 0;
+  const group = compactShelves(
+    items.map((item) => {
+      const size = axes.map((axis) => item.size[axis] + gap);
+      if (dimensions === 2) size.push(0);
+      return { ...item, size };
+    }),
+    dimensions,
+  );
+  const size = [0, 0, 0];
+  axes.forEach((axis, i) => {
+    size[axis] = group.size[i];
+  });
+  for (const slot of group.slots) {
+    const center = [0, 0, 0];
+    axes.forEach((axis, i) => {
+      center[axis] = slot.center[i] * signs[i] + (random() - 0.5) * gap;
+    });
+    slot.center = center;
+  }
+  return { ...group, size };
+}
+
+// Reserve an entire horizontal column for each subtree. Parents sit above
+// their children; same-depth nodes cannot overlap and chains need no extra width.
+function terraces({ roots, ordered, children }, geometry, dimensions) {
+  const packed = new Map();
+  const pack = (items) => {
+    if (!items.length) return { slots: [], size: [120, 120, 0] };
+    if (items.length === 1)
+      return {
+        slots: [{ id: items[0].id, center: [0, 0, 0] }],
+        size: items[0].size,
+      };
+    if (dimensions === 3)
+      return shelves(
+        items.map((item) => ({
+          ...item,
+          size: [item.size[0] + 50, item.size[1] + 50, 0],
+        })),
+        2,
+      );
+    const width = items.reduce((sum, item) => sum + item.size[0] + 50, -50);
+    let cursor = -width / 2;
+    const slots = items.map((item) => {
+      const center = [cursor + item.size[0] / 2, 0, 0];
+      cursor += item.size[0] + 50;
+      return { id: item.id, center };
+    });
+    return { slots, size: [width, 0, 0] };
+  };
+  for (const { n } of [...ordered].reverse()) {
+    const items = (children.get(n.id) || []).map((child) => ({
+      id: child.id,
+      ...packed.get(child.id),
+    }));
+    const group = pack(items);
+    group.levels = items.reduce(
+      (levels, item) => Math.max(levels, item.levels + 1),
+      0,
+    );
+    packed.set(n.id, group);
+  }
+  const forest = pack(roots.map((n) => ({ id: n.id, ...packed.get(n.id) })));
+  const queue = forest.slots.map((slot) => ({
+    id: slot.id,
+    offset: slot.center,
+  }));
+  const maxDepth = ordered.reduce(
+    (depth, item) => Math.max(depth, item.depth),
+    0,
+  );
+  // Wide 3D trees need taller levels to make their depth readable from an angle.
+  const levelGap =
+    dimensions === 3
+      ? Math.max(200, Math.min(forest.size[0], forest.size[1]) / (maxDepth + 1))
+      : 200;
+  const middle = (maxDepth * levelGap) / 2;
+  const positions = [];
+  for (let i = 0; i < queue.length; i++) {
+    const { id, offset } = queue[i],
+      group = packed.get(id),
+      node = geometry.get(id);
+    positions.push({
+      ...node,
+      x: offset[0],
+      y: (node.depth * levelGap - middle) * (dimensions === 3 ? -1 : 1),
+      z: dimensions === 3 ? offset[1] : 0,
+      extent: Math.hypot(
+        group.size[0] / 2,
+        dimensions === 3 ? group.size[1] / 2 : 0,
+        group.levels * levelGap,
+      ),
+    });
+    for (const slot of group.slots)
+      queue.push({
+        id: slot.id,
+        offset: slot.center.map((v, axis) => v + offset[axis]),
+      });
+  }
+  return positions;
+}
+
 export function computeLayout(nodes, layout = "classic", dimensions = 2) {
   if (!nodes.length) return [];
   if (layout === "classic") return classicLayout(nodes);
@@ -234,6 +374,8 @@ export function computeLayout(nodes, layout = "classic", dimensions = 2) {
       },
     ]),
   );
+  if (layout === "terraces")
+    return terraces({ roots, ordered, children }, geometry, dimensions);
   if (layout === "grid") {
     const width = Math.ceil(nodes.length ** (1 / dimensions)),
       spacing = 160;
@@ -264,24 +406,12 @@ export function computeLayout(nodes, layout = "classic", dimensions = 2) {
     }));
   }
   const packed = new Map();
-  const pack = (items) =>
-    layout === "nebula"
-      ? nebula(items, dimensions)
-      : [1, 1.35, 1.8]
-          .map((factor) => shelves(items, dimensions, factor))
-          .sort(
-            (a, b) =>
-              Math.max(
-                a.size[0] / (dimensions === 2 ? 1.4 : 1),
-                a.size[1],
-                a.size[2],
-              ) -
-              Math.max(
-                b.size[0] / (dimensions === 2 ? 1.4 : 1),
-                b.size[1],
-                b.size[2],
-              ),
-          )[0];
+  const pack = (items, id) =>
+    layout === "constellations"
+      ? constellation(items, dimensions, id)
+      : layout === "nebula"
+        ? nebula(items, dimensions)
+        : compactShelves(items, dimensions);
   for (const { n } of [...ordered].reverse()) {
     const radius = geometry.get(n.id).r + 35;
     const own = {
@@ -294,9 +424,12 @@ export function computeLayout(nodes, layout = "classic", dimensions = 2) {
       ...packed.get(c.id),
     }));
     items.sort((a, b) => b.radius - a.radius || a.id.localeCompare(b.id));
-    packed.set(n.id, pack([own, ...items]));
+    packed.set(n.id, pack([own, ...items], n.id));
   }
-  const forest = pack(roots.map((n) => ({ id: n.id, ...packed.get(n.id) })));
+  const forest = pack(
+    roots.map((n) => ({ id: n.id, ...packed.get(n.id) })),
+    "forest",
+  );
   const queue = forest.slots.map((s) => ({ id: s.id, offset: s.center })),
     result = [];
   for (let i = 0; i < queue.length; i++) {

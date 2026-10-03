@@ -99,39 +99,42 @@ test("dragging each branch moves only its full subtree, including filtered desce
 });
 
 test("rebuilt geometry preserves saved positions and anchors new descendants to moved parents", () => {
-  for (const dimensions of [2, 3]) {
-    const base = computeLayout(tree, "nebula", dimensions);
-    const saved = positionSnapshot(base).map((p) => ({
-      ...p,
-      x: p.x + 2000,
-      y: p.y - 1300,
-    }));
-    const imported = [
-      ...tree,
-      node("new-child", "branch"),
-      node("new-leaf", "new-child"),
-    ];
-    const rebuilt = computeLayout(imported, "nebula", dimensions);
-    const placed = applyMapPositions(imported, rebuilt, saved);
-    for (const p of saved)
-      assert.deepEqual(coords(byId(placed, p.id)), coords(p));
-    for (const [id, parent] of [
-      ["new-child", "branch"],
-      ["new-leaf", "new-child"],
-    ])
+  for (const layout of MAP_LAYOUTS)
+    for (const dimensions of [2, 3]) {
+      const base = computeLayout(tree, layout, dimensions);
+      const saved = positionSnapshot(base).map((p) => ({
+        ...p,
+        x: p.x + 2000,
+        y: p.y - 1300,
+      }));
+      const imported = [
+        ...tree,
+        node("new-child", "branch"),
+        node("new-leaf", "new-child"),
+      ];
+      const rebuilt = computeLayout(imported, layout, dimensions);
+      const placed = applyMapPositions(imported, rebuilt, saved);
+      for (const p of saved)
+        assert.deepEqual(coords(byId(placed, p.id)), coords(p));
+      for (const [id, parent] of [
+        ["new-child", "branch"],
+        ["new-leaf", "new-child"],
+      ])
+        assert.deepEqual(
+          coords(byId(placed, id)),
+          coords(byId(placed, parent)).map(
+            (v, i) =>
+              v +
+              coords(byId(rebuilt, id))[i] -
+              coords(byId(rebuilt, parent))[i],
+          ),
+        );
       assert.deepEqual(
-        coords(byId(placed, id)),
-        coords(byId(placed, parent)).map(
-          (v, i) =>
-            v + coords(byId(rebuilt, id))[i] - coords(byId(rebuilt, parent))[i],
-        ),
+        applyMapPositions(imported, rebuilt),
+        rebuilt,
+        "reset restores computed positions exactly",
       );
-    assert.deepEqual(
-      applyMapPositions(imported, rebuilt),
-      rebuilt,
-      "reset restores computed positions exactly",
-    );
-  }
+    }
 });
 
 test("deep and malformed hierarchies do not recurse or hang during placement and dragging", () => {
@@ -238,11 +241,19 @@ test("full backup restores custom positions alongside records and rejects corrup
   await store.save(node("root"));
   const file = new MapPositions(library),
     initial = await file.read();
-  const saved = await file.save(
+  let saved = await file.save(
     "classic:2",
     [{ id: "root", x: 150, y: -50, z: 0 }],
     initial.revision,
   );
+  for (const layout of MAP_LAYOUTS)
+    for (const dimensions of [2, 3])
+      saved = await file.save(
+        `${layout}:${dimensions}`,
+        [{ id: "root", x: 150, y: -50, z: dimensions === 3 ? 70 : 0 }],
+        saved.revision,
+      );
+  assert.deepEqual(await new MapPositions(library).read(), saved);
   const backups = new Backups(library, settings),
     zip = path.join(directory, "portable.zip");
   await backups.export(createWriteStream(zip));
@@ -250,6 +261,10 @@ test("full backup restores custom positions alongside records and rejects corrup
   const preview = await backups.prepare(createReadStream(zip));
   await backups.restore(preview.id, preview.revision);
   assert.deepEqual(await file.read(), saved);
+  const reset = await file.save("constellations:3", null, saved.revision);
+  assert.equal(reset.views["constellations:3"], undefined);
+  assert.deepEqual(reset.views["terraces:3"], saved.views["terraces:3"]);
+  assert.deepEqual(reset.views["classic:2"], saved.views["classic:2"]);
   await fs.writeFile(
     file.file,
     '{"schema":1,"views":{"classic:2":[{"id":"root","x":"bad"}]}}',
@@ -328,6 +343,13 @@ test("English and Czech map labels never change stored coordinate keys or record
       "map.retrySave",
     ])
       assert.notEqual(translate(code, key), key);
+    for (const layout of MAP_LAYOUTS) {
+      for (const key of [
+        `map.layout.${layout}`,
+        `map.layoutDescription.${layout}`,
+      ])
+        assert.notEqual(translate(code, key), key);
+    }
     assert.equal(
       localizeMessage(
         "Invalid map positions. Restore or repair map-positions.json.",

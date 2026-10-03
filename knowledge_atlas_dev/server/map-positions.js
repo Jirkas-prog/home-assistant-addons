@@ -2,9 +2,12 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { fail } from "../shared/schema.js";
+import { MAP_LAYOUTS } from "../shared/map-layouts.js";
 
 const invalid = "Invalid map positions. Restore or repair map-positions.json.";
-const slotPattern = /^(classic|clusters|nebula|grid):[23]$/;
+const slots = new Set(
+  MAP_LAYOUTS.flatMap((name) => [`${name}:2`, `${name}:3`]),
+);
 const revision = (views) =>
   createHash("sha256").update(JSON.stringify(views)).digest("hex");
 function validatePositions(value) {
@@ -44,7 +47,7 @@ export class MapPositions {
         !raw.views ||
         typeof raw.views !== "object" ||
         Array.isArray(raw.views) ||
-        Object.keys(raw.views).some((key) => !slotPattern.test(key))
+        Object.keys(raw.views).some((key) => !slots.has(key))
       )
         fail(invalid);
       const views = Object.fromEntries(
@@ -65,7 +68,7 @@ export class MapPositions {
     }
   }
   async save(slot, positions, expected) {
-    if (!slotPattern.test(slot)) fail("Unknown map layout.");
+    if (!slots.has(slot)) fail("Unknown map layout.");
     const next = positions === null ? null : validatePositions(positions);
     const current = await this.read();
     // A retry after losing the successful response is safe and idempotent.

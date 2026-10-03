@@ -18,14 +18,16 @@ Only interface labels, date formats and known displayed errors are translated. R
 
 ## Map layouts and filters
 
-Use **Map layout** to switch between four retained experiments in both 2D and 3D:
+Use **Map layout** to switch between six retained experiments in both 2D and 3D:
 
 1. **Original rings** preserves the circular arrangement for comparison.
 2. **Spacious groups** allocates separate regions to nested groups and their descendants.
 3. **Hierarchical nebula** packs child groups around stars throughout a plane or a three-dimensional volume.
 4. **Regular grid** puts records into uniform rows or a volume lattice.
+5. **Constellations** varies the packing direction within each branch and adds bounded offsets inside reserved regions. This makes groups less rigid while retaining compact, non-overlapping subtree regions. Start here when you like Spacious groups but want a more organic arrangement.
+6. **Hierarchy terraces** gives each depth its own level, centering parents above their children. In 3D each branch occupies a separate vertical region. The 2D tree can become wide with many siblings; use the topic filter to inspect a branch.
 
-The original layout remains the initial choice. The selected experiment is remembered in this browser. New layouts reserve space for complete subtrees, including importance-dependent bubble sizes. Three-dimensional projection can still place distant stars behind each other; rotate or approach a group to inspect it. Labels keep a constant screen size, yield to more important/selected labels when space is limited, and reveal finer detail as you zoom. Large ancestors fade when viewed close up. The existing click, double-click document, wheel and touch controls remain available.
+A short description beneath the selector explains the selected experiment. All six modes support the same filters, dragging, saved arrangements and independent reset. The original layout remains the initial choice. The selected experiment is remembered in this browser. New layouts reserve space for complete subtrees, including importance-dependent bubble sizes. Three-dimensional projection can still place distant stars behind each other; rotate or approach a group to inspect it. Labels keep a constant screen size, yield to more important/selected labels when space is limited, and reveal finer detail as you zoom. Large ancestors fade when viewed close up. The existing click, double-click document, wheel and touch controls remain available.
 
 Geometry is computed in a Web Worker and cached in browser IndexedDB for each layout/dimension pair. Only record IDs, hierarchy, types, ratings and coordinates are cached, not notes or attachments. Changed content and filters reuse positions; hierarchy and importance changes recompute them. Cache loss is harmless. Filters and record updates preserve the current camera; switching experiments fits the new layout. **Fit entire map** fits the currently displayed records.
 

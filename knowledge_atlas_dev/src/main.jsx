@@ -1378,6 +1378,7 @@ function App() {
             {view === "map" && (
               <select
                 aria-label={t("map.layout")}
+                aria-describedby="map-layout-description"
                 className="map-layout-select"
                 title={t("map.layoutHelp")}
                 value={mapLayout}
@@ -1419,6 +1420,11 @@ function App() {
               <PanelLeftClose size={18} />
             </button>
           </div>
+          {view === "map" && (
+            <p className="map-layout-description" id="map-layout-description">
+              {t(`map.layoutDescription.${mapLayout}`)}
+            </p>
+          )}
           <div
             className={`filter-bar ${["inventory", "tasks", "tools", "journal", "backups"].includes(view) ? "hidden-filter" : ""}`}
           >
