@@ -334,11 +334,18 @@ export async function createApp({
   });
   app.put("/api/nodes/:id/position", async (req, res) => {
     const snapshot = await mutate(() =>
-      store.move(req.params.id, req.body.position, req.body.revision),
+      store.move(
+        req.params.id,
+        req.body.position,
+        req.body.revision,
+        req.body.positionFixed,
+      ),
     );
     res.json({
       position: snapshot.nodes.find((node) => node.id === req.params.id)
         .position,
+      positionFixed: snapshot.nodes.find((node) => node.id === req.params.id)
+        .positionFixed,
       orderRevision: snapshot.orderRevision,
     });
   });

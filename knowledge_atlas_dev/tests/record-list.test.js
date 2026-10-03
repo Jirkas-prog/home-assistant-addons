@@ -14,6 +14,7 @@ import { createApp } from "../server/index.js";
 import { Backups } from "../server/backups.js";
 import { Settings } from "../server/settings.js";
 import { recordDate, sortRecords } from "../shared/record-list.js";
+import { readOrder, writeOrder } from "../server/record-order.js";
 import { filterNodes } from "../src/atlas-model.js";
 import { setLanguage, localizeMessage, translate } from "../shared/i18n.js";
 
@@ -215,7 +216,7 @@ test("list order and record dates survive a full backup and restore without chan
     record("second", { type: "task", task: { due: "2026-11-01" } }),
   );
   const before = await store.read();
-  const ordered = await store.move("first", 1, before.orderRevision);
+  const ordered = await store.move("first", 1, before.orderRevision, true);
   const archive = path.join(root, "portable.zip");
   await backups.export(createWriteStream(archive));
   await store.save(record("temporary"));
@@ -225,6 +226,7 @@ test("list order and record dates survive a full backup and restore without chan
   assert.deepEqual(ids(after), ids(ordered));
   assert.equal(after.nodes[0].date, "2024-02-29");
   assert.equal(after.orderRevision, ordered.orderRevision);
+  assert.equal(after.nodes[0].positionFixed, true);
   contiguous(after);
 });
 
@@ -247,15 +249,21 @@ test("API ordering is optimistic, keeps node revisions valid and refreshes the i
       },
       body: JSON.stringify(body),
     });
-  const changed = await put({ position: 1, revision: first.orderRevision });
+  const changed = await put({
+    position: 1,
+    positionFixed: true,
+    revision: first.orderRevision,
+  });
   assert.equal(changed.status, 200);
-  assert.equal((await changed.json()).position, 1);
+  assert.equal((await changed.json()).positionFixed, true);
   assert.equal(
     (await put({ position: 2, revision: first.orderRevision })).status,
     409,
   );
   const snapshot = await (await fetch(base + "atlas")).json();
   assert.deepEqual(ids(snapshot), ["one", "two"]);
+  await store.save(record("three"));
+  assert.deepEqual(ids(await store.read()), ["one", "three", "two"]);
   assert.equal(
     snapshot.nodes[0].revision,
     first.nodes.find((node) => node.id === "one").revision,
@@ -266,7 +274,17 @@ test("invalid ordering metadata is reported without replacing the file or hiding
   const { directory, store } = await fixture(t);
   await store.save(record("note"));
   const file = path.join(directory, "list-order.json");
-  for (const raw of ['{"schema":1,"ids":["note","note"]}', "null", "{broken"]) {
+  for (const raw of [
+    '{"schema":1,"ids":["note","note"]}',
+    "null",
+    "{broken",
+    '{"schema":1,"ids":["note"],"fixed":null}',
+    '{"schema":1,"ids":["note"],"fixed":{"missing":1}}',
+    '{"schema":1,"ids":["note"],"fixed":{"note":0}}',
+    '{"schema":1,"ids":["note"],"fixed":{"note":"1"}}',
+    '{"schema":1,"ids":["note"],"fixed":{"note":9007199254740992}}',
+    '{"schema":1,"ids":["note","other"],"fixed":{"note":1,"other":1}}',
+  ]) {
     await fs.writeFile(file, raw);
     const snapshot = await store.read();
     assert.equal(snapshot.nodes.length, 1);
@@ -296,6 +314,8 @@ test("English and Czech list controls translate labels without changing stored r
       "list.position",
       "list.recordDate",
       "list.move",
+      "list.fixed",
+      "list.fixedHelp",
     ])
       assert.notEqual(translate(language, key), key);
     assert.equal(serialize(node), raw);
@@ -333,5 +353,158 @@ test("a failed atomic order replacement leaves the previous sequence and Markdow
     (await fs.readdir(directory)).filter((name) => name.endsWith(".tmp"))
       .length,
     0,
+  );
+});
+
+test("fixed first and fifth positions survive additions, file imports, moves and restart", async (t) => {
+  const { directory, store } = await fixture(t);
+  for (const id of ["a", "b", "c", "d", "e", "f"])
+    await fs.writeFile(path.join(directory, `${id}.md`), serialize(record(id)));
+  let snapshot = await store.read();
+  snapshot = await store.move("a", 1, snapshot.orderRevision, true);
+  snapshot = await store.move("e", 5, snapshot.orderRevision, true);
+  const raw = await fs.readFile(path.join(directory, "e.md"), "utf8");
+  const created = await store.save(record("new"));
+  assert.equal(
+    created.position,
+    2,
+    "new records use the first unreserved position",
+  );
+  snapshot = await store.read();
+  assert.deepEqual(ids(snapshot), ["a", "new", "b", "c", "e", "d", "f"]);
+  contiguous(snapshot);
+  for (const id of ["manual-one", "manual-two"])
+    await fs.writeFile(path.join(directory, `${id}.md`), serialize(record(id)));
+  snapshot = await store.read();
+  assert.equal(snapshot.nodes.find((n) => n.id === "a").position, 1);
+  assert.equal(snapshot.nodes.find((n) => n.id === "e").position, 5);
+  snapshot = await store.move("f", 2, snapshot.orderRevision);
+  assert.equal(snapshot.nodes[1].id, "f");
+  assert.equal(snapshot.nodes[4].id, "e");
+  snapshot = await store.move("e", 7, snapshot.orderRevision);
+  assert.equal(snapshot.nodes[6].id, "e");
+  assert.equal(
+    snapshot.nodes[6].positionFixed,
+    true,
+    "explicit moves retain the lock at its new number",
+  );
+  assert.equal(await fs.readFile(path.join(directory, "e.md"), "utf8"), raw);
+  assert.equal(
+    parseMarkdown(serialize(snapshot.nodes[6])).positionFixed,
+    undefined,
+  );
+  assert.deepEqual(
+    await new Store(directory, { persistentIndex: true }).read(),
+    snapshot,
+  );
+});
+
+test("occupied fixed positions and stale pin writes are rejected; unpinning restores renumbering", async (t) => {
+  const { store } = await fixture(t);
+  for (const id of ["c", "b", "a"]) await store.save(record(id));
+  const before = await store.read();
+  let snapshot = await store.move("a", 1, before.orderRevision, true);
+  await assert.rejects(
+    store.move("b", 2, before.orderRevision, true),
+    (e) => e.status === 409,
+  );
+  for (const locked of [true, false, undefined])
+    await assert.rejects(
+      store.move("b", 1, snapshot.orderRevision, locked),
+      /fixed by another record/,
+    );
+  for (const locked of ["true", 1, null, {}])
+    await assert.rejects(
+      store.move("b", 2, snapshot.orderRevision, locked),
+      /boolean/,
+    );
+  assert.deepEqual(await store.read(), snapshot);
+  snapshot = await store.move("a", 1, snapshot.orderRevision, false);
+  assert.equal(snapshot.nodes[0].positionFixed, false);
+  await store.save(record("new"));
+  assert.deepEqual(ids(await store.read()), ["new", "a", "b", "c"]);
+});
+
+test("archiving or temporarily invalid files cannot renumber fixed records, even beyond the count", async (t) => {
+  const { store, directory } = await fixture(t);
+  for (const id of ["e", "d", "c", "b", "a"]) await store.save(record(id));
+  let snapshot = await store.read();
+  snapshot = await store.move("e", 5, snapshot.orderRevision, true);
+  for (const id of ["a", "b", "c", "d"]) {
+    const n = snapshot.nodes.find((n) => n.id === id);
+    await store.archive(id, n.revision);
+    snapshot = await store.read();
+    assert.equal(snapshot.nodes.find((n) => n.id === "e").position, 5);
+  }
+  const raw = await fs.readFile(path.join(directory, "e.md"), "utf8");
+  await fs.writeFile(
+    path.join(directory, "e.md"),
+    "Temporarily invalid header",
+  );
+  await store.read();
+  assert.deepEqual((await readOrder(directory)).fixed, { e: 5 });
+  await store.save(record("new"));
+  await fs.writeFile(path.join(directory, "e.md"), raw);
+  snapshot = await store.read();
+  assert.deepEqual(
+    snapshot.nodes.map((n) => [n.id, n.position]),
+    [
+      ["new", 1],
+      ["e", 5],
+    ],
+  );
+  assert.equal(snapshot.nodes[1].positionFixed, true);
+  await store.archive("e", snapshot.nodes[1].revision);
+  await store.read();
+  assert.deepEqual(
+    (await readOrder(directory)).fixed,
+    {},
+    "archiving a fixed record releases its reservation",
+  );
+});
+
+test("legacy order files remain unchanged until an edit and every type supports fixed positions", async (t) => {
+  const { store, directory } = await fixture(t);
+  const types = [
+    "category",
+    "project",
+    "knowledge",
+    "skill",
+    "code",
+    "item",
+    "task",
+  ];
+  const sequence = types.map((type) => `record-${type}`);
+  for (const type of types)
+    await fs.writeFile(
+      path.join(directory, `record-${type}.md`),
+      serialize(record(`record-${type}`, { type })),
+    );
+  const file = path.join(directory, "list-order.json"),
+    legacy = JSON.stringify({ schema: 1, ids: sequence });
+  await fs.writeFile(file, legacy);
+  let snapshot = await store.read();
+  assert.deepEqual(ids(snapshot), sequence);
+  assert.equal(await fs.readFile(file, "utf8"), legacy);
+  for (let i = 0; i < sequence.length; i++)
+    snapshot = await store.move(
+      sequence[i],
+      i + 1,
+      snapshot.orderRevision,
+      true,
+    );
+  await store.save(record("new"));
+  snapshot = await store.read();
+  assert.deepEqual(ids(snapshot), [...sequence, "new"]);
+  assert.ok(snapshot.nodes.slice(0, -1).every((n) => n.positionFixed));
+  const fixed = {
+    ...(await readOrder(directory)).fixed,
+    [sequence[0]]: 1000000,
+  };
+  await writeOrder(directory, { ids: ids(snapshot), fixed });
+  assert.equal(
+    (await store.read()).nodes.at(-1).position,
+    1000000,
+    "sparse positions do not allocate empty rows",
   );
 });

@@ -980,7 +980,7 @@
   "list.sort.importance": "Důležitost: od nejvyšší",
   "list.position": "Pořadí v seznamu",
   "list.move": "Přesunout",
-  "list.positionHelp": "Pořadí v celé knihovně ({0} záznamů). Přesunutí posune ostatní záznamy. Filtry tato čísla nemění.",
+  "list.positionHelp": "Pořadí v celé knihovně ({0} záznamů). Přesunutí posune záznamy bez pevného pořadí. Filtry tato čísla zachovávají.",
   "list.date.event": "Datum",
   "list.date.created": "Vytvořeno",
   "list.date.updated": "Upraveno",
@@ -1000,5 +1000,9 @@
   "map.retrySave": "Znovu uložit",
   "map.positionsConflict": "Rozmístění mapy bylo změněno jinde. Pro uložení svého rozmístění zkuste uložení znovu.",
   "map.invalidPositions": "Neplatné rozmístění mapy. Obnovte nebo opravte soubor map-positions.json.",
-  "map.unknownLayout": "Neznámý režim rozmístění mapy."
+  "map.unknownLayout": "Neznámý režim rozmístění mapy.",
+  "list.fixed": "Pevné pořadí",
+  "list.fixedHelp": "Při přidávání a přesouvání záznamů zachovat toto číslo. Ostatní záznamy pevné pozice přeskočí. Odškrtnutím povolíte automatické přečíslování.",
+  "list.positionOccupied": "Toto pořadové číslo má pevně nastavené jiný záznam. Zvolte jiné číslo.",
+  "list.invalidFixed": "Pevné pořadí musí být zapnuté nebo vypnuté."
 }

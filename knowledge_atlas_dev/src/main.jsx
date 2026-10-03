@@ -1787,6 +1787,10 @@ function App() {
                         key={node.id}
                         node={node}
                         count={nodes.length}
+                        limit={nodes.reduce(
+                          (max, n) => Math.max(max, n.position || 0),
+                          nodes.length,
+                        )}
                         revision={orderRevision}
                         onSaved={load}
                       />

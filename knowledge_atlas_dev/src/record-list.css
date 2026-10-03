@@ -20,6 +20,9 @@
   line-height: 1.5;
 }
 .record-position {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   color: var(--accent);
   font-variant-numeric: tabular-nums;
 }
@@ -97,6 +100,16 @@
 }
 .record-order input {
   width: 100px;
+}
+.record-order .record-order-fixed {
+  flex-basis: 100%;
+  flex-direction: row;
+  align-items: center;
+  cursor: pointer;
+}
+.record-order-fixed input {
+  width: auto;
+  accent-color: var(--accent);
 }
 .record-order .field-help,
 .record-order .importance-error {

@@ -980,7 +980,7 @@
   "list.sort.importance": "Importance: highest first",
   "list.position": "List position",
   "list.move": "Move",
-  "list.positionHelp": "Position in the entire library ({0} records). Moving an entry shifts the others. Filters keep these numbers.",
+  "list.positionHelp": "Position in the entire library ({0} records). Moving an entry shifts unpinned records. Filters keep these numbers.",
   "list.date.event": "Date",
   "list.date.created": "Created",
   "list.date.updated": "Updated",
@@ -1000,5 +1000,9 @@
   "map.retrySave": "Retry saving",
   "map.positionsConflict": "Map positions changed elsewhere. Retry to save your arrangement.",
   "map.invalidPositions": "Invalid map positions. Restore or repair map-positions.json.",
-  "map.unknownLayout": "Unknown map layout."
+  "map.unknownLayout": "Unknown map layout.",
+  "list.fixed": "Fixed position",
+  "list.fixedHelp": "Keep this number when records are added or moved. Other records skip fixed positions. Uncheck to allow automatic renumbering.",
+  "list.positionOccupied": "This list position is fixed by another record. Choose a different position.",
+  "list.invalidFixed": "Fixed position must be a boolean."
 }

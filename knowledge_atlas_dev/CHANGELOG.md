@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.17
+
+- Add a Fixed position checkbox for every record type and a lock marker beside its list number.
+- Keep reserved numbers unchanged when records are added, imported, moved or archived; automatically renumber other records around them.
+- Persist fixed positions with the library order, including full backups, and prevent conflicting reservations or stale updates.
+
+
 ## 5.0.1-dev.16
 
 - Wrap complete breadcrumb paths, including long names, without horizontal scrolling or truncation.

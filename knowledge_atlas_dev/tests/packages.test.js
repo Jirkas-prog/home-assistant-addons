@@ -169,7 +169,7 @@ test("a partial package adds nested records and documents while retaining the li
     Buffer.from([0, 255, 10]),
   );
   assert.ok(snapshot.nodes.some((n) => n.body.includes("Package notes")));
-  await f.store.move("physics", 1, snapshot.orderRevision);
+  await f.store.move("physics", 1, snapshot.orderRevision, true);
   const repeated = await f.backups.prepare(createReadStream(zip), {
     purpose: "merge",
   });
@@ -184,6 +184,7 @@ test("a partial package adds nested records and documents while retaining the li
     "list positions are not package content conflicts",
   );
   assert.equal((await f.store.read()).nodes[0].id, "physics");
+  assert.equal((await f.store.read()).nodes[0].positionFixed, true);
   assert.equal((await f.store.read()).nodes.length, 3);
   const full = path.join(f.root, "full.zip"),
     output = createWriteStream(full);

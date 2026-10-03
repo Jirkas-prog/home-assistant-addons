@@ -3,8 +3,15 @@ import path from "node:path";
 import { randomUUID, createHash } from "node:crypto";
 import { fail } from "../shared/schema.js";
 
-export const orderRevision = (ids) =>
-  createHash("sha256").update(JSON.stringify(ids)).digest("hex");
+export const orderRevision = ({ ids, fixed }) =>
+  createHash("sha256")
+    .update(
+      JSON.stringify([
+        ids,
+        Object.entries(fixed).sort(([a], [b]) => a.localeCompare(b, "en")),
+      ]),
+    )
+    .digest("hex");
 export async function readOrder(directory) {
   const file = path.join(directory, "list-order.json");
   try {
@@ -23,21 +30,34 @@ export async function readOrder(directory) {
       new Set(value.ids).size !== value.ids.length
     )
       fail("Invalid list order. Restore or repair list-order.json.");
-    return value.ids;
+    const fixed = value.fixed === undefined ? {} : value.fixed;
+    const ids = new Set(value.ids);
+    if (
+      !fixed ||
+      typeof fixed !== "object" ||
+      Array.isArray(fixed) ||
+      Object.entries(fixed).some(
+        ([id, position]) =>
+          !ids.has(id) || !Number.isSafeInteger(position) || position < 1,
+      ) ||
+      new Set(Object.values(fixed)).size !== Object.keys(fixed).length
+    )
+      fail("Invalid list order. Restore or repair list-order.json.");
+    return { ids: value.ids, fixed };
   } catch (error) {
-    if (error.code === "ENOENT") return [];
+    if (error.code === "ENOENT") return { ids: [], fixed: {} };
     if (error instanceof SyntaxError)
       fail("Invalid list order. Restore or repair list-order.json.");
     throw error;
   }
 }
 
-export async function writeOrder(directory, ids) {
+export async function writeOrder(directory, { ids, fixed }) {
   // Only one atomic file changes when every displayed position is renumbered.
   const file = path.join(directory, "list-order.json");
   const temporary = `${file}.${randomUUID()}.tmp`;
   try {
-    await fs.writeFile(temporary, JSON.stringify({ schema: 1, ids }), {
+    await fs.writeFile(temporary, JSON.stringify({ schema: 1, ids, fixed }), {
       flag: "wx",
       flush: true,
     });
