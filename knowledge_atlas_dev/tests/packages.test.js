@@ -12,6 +12,7 @@ import { BackupTransfers } from "../server/backup-transfers.js";
 import { BackupTransfer } from "../src/backup-transfer.js";
 import { createPackage } from "../scripts/create-package.js";
 import { serialize } from "../server/store.js";
+import { MapPositions } from "../server/map-positions.js";
 import { setLanguage, localizeMessage, translate } from "../shared/i18n.js";
 
 const note = (id, extra = {}) => ({
@@ -113,6 +114,13 @@ async function fixture(t) {
 
 test("a partial package adds nested records and documents while retaining the library, settings and original file bytes", async (t) => {
   const f = await fixture(t);
+  const positions = new MapPositions(f.directory),
+    initial = await positions.read();
+  const arrangement = await positions.save(
+    "nebula:3",
+    [{ id: "existing", x: 800, y: -200, z: 150 }],
+    initial.revision,
+  );
   const beforeSettings = await fs.readFile(f.settings.file),
     beforeRecord = await fs.readFile(path.join(f.directory, "existing.md"));
   const { preview, zip } = await f.prepare();
@@ -126,6 +134,11 @@ test("a partial package adds nested records and documents while retaining the li
   );
   const result = await f.apply(preview, { parent: "existing" });
   assert.equal(result.phase, "complete");
+  assert.deepEqual(
+    await new MapPositions(f.directory).read(),
+    arrangement,
+    "package merge preserves custom geometry",
+  );
   assert.equal(result.added, 2);
   const snapshot = await f.store.read();
   assert.deepEqual(snapshot.errors, []);

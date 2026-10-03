@@ -20,6 +20,7 @@ import { moveStock } from "./inventory.js";
 import { registerTools } from "./tools.js";
 import { photoMetadata } from "./photo-metadata.js";
 import { readAsText, readOffice } from "./document-preview.js";
+import { MapPositions } from "./map-positions.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const compress = promisify(gzip);
 export async function createApp({
@@ -32,6 +33,7 @@ export async function createApp({
   const store = new Store(directory, { persistentIndex: true });
   await store.init();
   const settings = new Settings(directory, ingress);
+  const mapPositions = new MapPositions(directory);
   await settings.init();
   const backups = new Backups(directory, settings);
   const maintenance = new Maintenance(store, settings, backups);
@@ -117,6 +119,7 @@ export async function createApp({
     res.set("X-Content-Type-Options", "nosniff");
     next();
   });
+  app.use("/api/map-positions", express.json({ limit: "16mb" }));
   app.use(
     express.json({
       limit: "2mb",
@@ -191,7 +194,17 @@ export async function createApp({
         revision: digest(await fs.readFile(settings.file)),
       };
     }
-    const etag = `W/"${version}-${snapshot.revision}-${config.revision}"`;
+    let savedMap;
+    try {
+      savedMap = await mapPositions.read();
+    } catch (error) {
+      snapshot.errors.push({
+        file: "map-positions.json",
+        message: error.message,
+      });
+      savedMap = { views: {}, revision: digest(error.message), invalid: true };
+    }
+    const etag = `W/"${version}-${snapshot.revision}-${config.revision}-${savedMap.revision}"`;
     res
       .set("Cache-Control", "private, no-cache")
       .set("ETag", etag)
@@ -219,6 +232,7 @@ export async function createApp({
       const body = JSON.stringify({
         ...snapshot,
         settings: config,
+        mapPositions: savedMap,
         environment: {
           ingress,
           canOpenFolders: allowOpen,
@@ -239,6 +253,20 @@ export async function createApp({
     else res.send(response.body);
   });
   app.get("/api/settings", async (req, res) => res.json(await settings.read()));
+  app.get("/api/map-positions", async (req, res) =>
+    res.set("Cache-Control", "no-store").json(await mapPositions.read()),
+  );
+  app.put("/api/map-positions/:slot", async (req, res) =>
+    res.json(
+      await mutate(() =>
+        mapPositions.save(
+          req.params.slot,
+          req.body.positions,
+          req.body.revision,
+        ),
+      ),
+    ),
+  );
   app.post("/api/settings/language", async (req, res) =>
     res.json(
       await mutate(async () => {

@@ -61,11 +61,19 @@ Every visible map bubble can open its record regardless of the currently selecte
 
 Set **Importance** by clicking one of the five stars at the top of a project or inventory item's details. The change saves immediately and resizes its bubble in both 2D and 3D. Three stars keep the normal size; hierarchy still determines the base size. Use the arrow keys to change the focused rating, or **Home** / **End** for one / five stars. The editor offers the same control. The value is saved in Markdown; manual changes to `importance` are applied by automatic refresh. Older records default to three stars without a migration.
 
-Use the mouse wheel to zoom in either map. Wheel sensitivity is increased by 25%; in 2D, the point under the cursor stays in place. Drag to pan in 2D or rotate in 3D. **Fit entire map** resets the view to the visible records.
+Use the mouse wheel to zoom in either map. Wheel sensitivity is increased by 25%; in 2D, the point under the cursor stays in place. Drag the background to pan in 2D or rotate in 3D. **Fit entire map** fits the camera to visible records without changing their positions.
 
 Drag the left edge of the record details panel to change its width. The preference is saved in this browser for each release channel and survives reloads. Double-click the handle to restore the default width. With the handle focused, use **Left** / **Right** to resize, **Shift** for larger steps, or **Home** / **End** for the minimum / maximum width. The main view keeps usable space; on narrow screens the panel remains below it.
 
 Double-click a bubble in either map to open its record Markdown in a closable window. In the record editor, **Open on bubble double-click** can instead select an attachment. The choice uses the attachment's stable ID, survives renaming and reordering, and is saved with the record. Removing the selected attachment in the editor resets the choice to record Markdown. Closing the viewer with its cross or Escape returns to the same map position, zoom, orientation and panel state. Unsaved text changes still require the existing draft/leave decision.
+
+Breadcrumb paths display every level and wrap long names onto additional lines. Click a level to navigate, or right-click it (keyboard: Shift+F10 or Arrow Down) to choose a neighboring path.
+
+Drag a bubble to move that record and all its descendants together. Drag a smaller branch to move only that subtree; related links do not cause other branches to move. Filters hide records without excluding descendants from the move. In 3D, dragging moves the branch in the plane facing the camera; rotate the background first to move along another spatial direction.
+
+The server saves `map-positions.json` in the library after each completed drag. Every layout has independent 2D and 3D positions. Existing records keep their coordinates across reloads, index rebuilds and incremental imports. Newly added records use their computed offset from the nearest placed parent. This file is included in full backups and restored with the library. Browser geometry caches remain disposable. Large moves may intentionally overlap other branches; the application does not move your saved positions to avoid them.
+
+**Reset view** clears the manual arrangement only for the current layout and dimension, recomputes its rule-based arrangement and fits the camera. Other layouts remain saved. Pending saves are shown on the map. If saving fails, keep the page open and use **Retry saving**; the temporary arrangement remains visible. A concurrent change requires an explicit retry before replacing that arrangement. Closing a page with an unsaved arrangement triggers the browser's leave warning.
 
 ## Files and locations
 

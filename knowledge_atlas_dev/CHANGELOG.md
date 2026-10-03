@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.16
+
+- Wrap complete breadcrumb paths, including long names, without horizontal scrolling or truncation.
+- Drag a map bubble to move its entire descendant branch in 2D or 3D, including descendants hidden by filters.
+- Save manual positions in the library separately for each layout and dimension. Existing coordinates survive reloads, server restarts, index rebuilds, incremental package imports and full backup restoration; new records appear relative to their placed parent.
+- Add Reset view to restore computed positions for the current layout and dimension. Fit entire map continues to change only the camera.
+- Show pending saves and retryable failures, protect concurrent arrangements from silent overwrites, and reject invalid coordinate files without hiding library records.
+
 ## 5.0.1-dev.15
 
 - Prevent card text from overflowing, with wrapped titles, bounded previews and visible metadata.

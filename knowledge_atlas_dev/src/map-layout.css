@@ -62,3 +62,30 @@
   z-index: 2;
   pointer-events: none;
 }
+
+.map-save-status {
+  position: absolute;
+  bottom: 72px;
+  left: 20px;
+  right: 20px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #19232f;
+  color: #e7ebf2;
+  border: 1px solid #75849a;
+  border-radius: 7px;
+  font-size: 13px;
+}
+.map-bottom .secondary-button {
+  font-size: 12px;
+  padding: 7px 10px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.map-bottom {
+  flex-wrap: wrap;
+}

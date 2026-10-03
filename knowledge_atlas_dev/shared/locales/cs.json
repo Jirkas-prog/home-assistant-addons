@@ -991,5 +991,14 @@
   "list.invalidPosition": "Pořadí musí být kladné celé číslo.",
   "list.conflict": "Pořadí seznamu se změnilo. Obnovte jej a zkuste to znovu.",
   "list.invalidOrder": "Neplatné pořadí seznamu. Obnovte nebo opravte soubor list-order.json.",
-  "list.invalidOrderFile": "Soubor pořadí musí být běžný soubor JSON menší než 16 MB."
+  "list.invalidOrderFile": "Soubor pořadí musí být běžný soubor JSON menší než 16 MB.",
+  "map.reset": "Resetovat pohled",
+  "map.resetHint": "Obnovit automatické rozmístění a zobrazit celek pro aktuální režim a rozměr mapy.",
+  "map.dragHelp": "Tažením bubliny přesunete větev · tažením pozadí se pohybujete · kolečkem přibližujete",
+  "map.saving": "Ukládání rozmístění mapy…",
+  "map.saveFailed": "Rozmístění mapy se nepodařilo uložit. Nezavírejte stránku a zkuste to znovu.",
+  "map.retrySave": "Znovu uložit",
+  "map.positionsConflict": "Rozmístění mapy bylo změněno jinde. Pro uložení svého rozmístění zkuste uložení znovu.",
+  "map.invalidPositions": "Neplatné rozmístění mapy. Obnovte nebo opravte soubor map-positions.json.",
+  "map.unknownLayout": "Neznámý režim rozmístění mapy."
 }

@@ -4,10 +4,12 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.15**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.16**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Nested branches, cross-links, searchable records and live statistics.
 - Dated record cards, editable list positions with automatic renumbering, and date/importance sorting.
+- Drag entire branches in 2D/3D, save their positions with the library, and reset each layout independently.
+- Full breadcrumb paths wrap onto multiple lines.
 - Four retained map layouts in 2D and 3D, cached geometry and readable labels with progressive detail.
 - Combined topic, type and multi-value importance filters.
 - Projects, a task board and a timeline with start and due dates.

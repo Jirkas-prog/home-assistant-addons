@@ -52,8 +52,6 @@ export function Breadcrumbs({ items, label, onNavigate, className = "" }) {
   }
 
   useLayoutEffect(() => {
-    if (navigation.current)
-      navigation.current.scrollLeft = navigation.current.scrollWidth;
     setOpen(null);
     setPosition(null);
   }, [pathKey]);

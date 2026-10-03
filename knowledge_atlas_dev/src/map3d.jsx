@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef } from "react";
 import ForceGraph3D from "react-force-graph-3d";
 import * as THREE from "three";
 import SpriteText from "three-spritetext";
-import { pickMapNode3D } from "./map-picking-3d.js";
+import { pickMapNode3D, prioritizeMapLabel } from "./map-picking-3d.js";
 import { labelEligible, declutterLabels } from "./map-labels.js";
 
 export default function Map3D({
@@ -12,6 +12,9 @@ export default function Map3D({
   onSelect,
   relations,
   graphRef,
+  onDrag,
+  onDragEnd,
+  dragDisabled,
 }) {
   const objects = useRef(new Map()),
     hover = useRef(null),
@@ -154,6 +157,7 @@ export default function Map3D({
             label.padding = [4, 2];
             label.material.depthTest = false;
             label.userData.atlasPart = "label";
+            prioritizeMapLabel(label);
             object.label = label;
             object.labelScale = label.scale.clone();
             object.group.add(label);
@@ -208,7 +212,13 @@ export default function Map3D({
       height={size.height}
       backgroundColor="#11151c"
       showNavInfo={false}
-      enableNodeDrag={false}
+      enableNodeDrag={!dragDisabled}
+      onNodeDrag={(node) => {
+        onDrag(node, graph.nodes);
+        for (const n of graph.nodes)
+          objects.current.get(n.id)?.group.position.set(n.x, n.y, n.z);
+      }}
+      onNodeDragEnd={(node) => onDragEnd(node, graph.nodes)}
       cooldownTicks={0}
       nodeLabel={(n) => {
         const el = document.createElement("span");

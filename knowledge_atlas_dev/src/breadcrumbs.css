@@ -1,3 +1,9 @@
+.topbar:has(.path-navigation) {
+  height: auto;
+  min-height: 61px;
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
 .topbar-left {
   flex: 1;
   min-width: 0;
@@ -7,37 +13,38 @@
 }
 .path-navigation {
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  max-width: 100%;
   padding: 5px 2px;
 }
 .path-navigation ol {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 5px;
   list-style: none;
   padding: 0;
   margin: 0;
-  width: max-content;
+  width: auto;
 }
 .path-navigation li,
 .path-level {
   display: flex;
   align-items: center;
   min-width: 0;
+  max-width: 100%;
 }
 .path-navigation li {
   gap: 5px;
 }
 .path-separator {
+  flex-shrink: 0;
   color: #8993a4;
 }
 .path-link {
   color: #b9c4d4;
-  max-width: 180px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
   text-align: left;
   padding: 7px 5px;
   border-radius: 4px;
@@ -54,6 +61,7 @@
   color: #b0ef88;
 }
 .path-menu-trigger {
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   color: #a8b3c4;
@@ -116,12 +124,14 @@
   margin-bottom: 10px;
 }
 .record-path .path-link {
-  max-width: 150px;
   font-size: 12px;
 }
 @media (max-width: 700px) {
-  .path-link {
-    max-width: 135px;
+  .topbar:has(.path-navigation) {
+    flex-wrap: wrap;
+  }
+  .topbar-left:has(.path-navigation) {
+    flex-basis: 100%;
   }
   .path-navigation ol,
   .path-navigation li {

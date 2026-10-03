@@ -991,5 +991,14 @@
   "list.invalidPosition": "List position must be a positive integer.",
   "list.conflict": "The list order has changed. Refresh and try again.",
   "list.invalidOrder": "Invalid list order. Restore or repair list-order.json.",
-  "list.invalidOrderFile": "The list order file must be a regular JSON file under 16 MB."
+  "list.invalidOrderFile": "The list order file must be a regular JSON file under 16 MB.",
+  "map.reset": "Reset view",
+  "map.resetHint": "Restore automatic positions and fit the current layout and dimension.",
+  "map.dragHelp": "Drag a bubble to move its branch · drag background to navigate · scroll to zoom",
+  "map.saving": "Saving map positions…",
+  "map.saveFailed": "Map positions have not been saved. Keep this page open and retry.",
+  "map.retrySave": "Retry saving",
+  "map.positionsConflict": "Map positions changed elsewhere. Retry to save your arrangement.",
+  "map.invalidPositions": "Invalid map positions. Restore or repair map-positions.json.",
+  "map.unknownLayout": "Unknown map layout."
 }

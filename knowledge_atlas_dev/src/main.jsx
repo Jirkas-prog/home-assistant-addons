@@ -19,6 +19,8 @@ import { createRoot } from "react-dom/client";
 import { MarkdownContent as Md } from "./markdown.jsx";
 import { createMapActivation } from "./map-activation.js";
 import { preserveMapCamera } from "./map-camera.js";
+import { createBranchDrag } from "./map-positions.js";
+import { useMapPositions } from "./use-map-positions.js";
 import ForceGraph2D from "react-force-graph-2d";
 import {
   Network,
@@ -211,11 +213,17 @@ function MapView({
   viewerOpen,
   relations,
   graphRef,
+  allNodes,
+  positions,
+  onPositions,
+  dragDisabled,
 }) {
   const callbacks = useRef(),
     fitTimer = useRef(),
     fitted = useRef(false),
     visibleLabels = useRef(new Set());
+  const drag = useRef(null),
+    suppressClick = useRef(0);
   callbacks.current = { onSelect, onOpen, viewerOpen };
   const activation = useMemo(
     () =>
@@ -295,6 +303,24 @@ function MapView({
     el.textContent = n.title;
     return el;
   };
+  const click = (node, event) => {
+    if (performance.now() >= suppressClick.current)
+      activation.click(node, event);
+  };
+  const dragNode = (node, rendered) => {
+    activation.cancel();
+    clearTimeout(fitTimer.current);
+    fitted.current = true;
+    suppressClick.current = performance.now() + 500;
+    if (!drag.current)
+      drag.current = createBranchDrag(allNodes, positions, node.id);
+    return drag.current(node, rendered);
+  };
+  const endDrag = (node, rendered) => {
+    const next = dragNode(node, rendered);
+    drag.current = null;
+    onPositions(next);
+  };
   const select2DAtClick = (event) => {
     const canvas = ref.current?.querySelector("canvas");
     const instance = graphRef.current;
@@ -312,7 +338,7 @@ function MapView({
       hover,
       visibleLabels.current,
     );
-    activation.click(node, event);
+    click(node, event);
   };
   return (
     <div
@@ -345,7 +371,10 @@ function MapView({
               data={data}
               size={size}
               selected={selected}
-              onSelect={(node, event) => activation.click(node, event)}
+              onSelect={click}
+              onDrag={dragNode}
+              onDragEnd={endDrag}
+              dragDisabled={dragDisabled}
               relations={relations}
               graphRef={graphRef}
             />
@@ -360,7 +389,9 @@ function MapView({
           backgroundColor="#11151c00"
           nodeLabel={label}
           cooldownTicks={0}
-          enableNodeDrag={false}
+          enableNodeDrag={!dragDisabled}
+          onNodeDrag={(node) => dragNode(node, data.nodes)}
+          onNodeDragEnd={(node) => endDrag(node, data.nodes)}
           minZoom={0.002}
           maxZoom={20}
           onRenderFramePre={(ctx, scale) => {
@@ -505,6 +536,8 @@ function App() {
   const [nodes, setNodes] = useState([]),
     [errors, setErrors] = useState([]),
     [orderRevision, setOrderRevision] = useState(""),
+    [mapPositions, setMapPositions] = useState({ views: {} }),
+    [mapReset, setMapReset] = useState(0),
     [env, setEnv] = useState({}),
     [loading, setLoading] = useState(true),
     [hasSnapshot, setHasSnapshot] = useState(false),
@@ -575,6 +608,7 @@ function App() {
         setLanguage(r.settings.language);
         setNodes(r.nodes);
         setOrderRevision(r.orderRevision);
+        setMapPositions(r.mapPositions || { views: {} });
         setErrors(r.errors);
         setEnv(r.environment);
         setSettings(r.settings);
@@ -674,9 +708,16 @@ function App() {
   const node = nodes.find((n) => n.id === selected);
   const groups = structure.categories;
   const layoutState = useMapLayout(nodes, mapLayout, mode);
+  const manualMap = useMapPositions(
+    nodes,
+    layoutState.positions,
+    mapPositions,
+    `${mapLayout}:${mode === "3d" ? 3 : 2}`,
+    load,
+  );
   const graph = useMemo(
     () =>
-      mapGraph(nodes, layoutState.positions, {
+      mapGraph(nodes, manualMap.positions, {
         scope,
         query,
         type: filter,
@@ -685,7 +726,7 @@ function App() {
       }),
     [
       nodes,
-      layoutState.positions,
+      manualMap.positions,
       scope,
       query,
       filter,
@@ -1539,7 +1580,11 @@ function App() {
                   )}
                   <MapView
                     data={graph}
-                    key={`${mapLayout}:${mode}`}
+                    key={`${mapLayout}:${mode}:${mapReset}`}
+                    allNodes={nodes}
+                    positions={manualMap.positions}
+                    onPositions={manualMap.save}
+                    dragDisabled={manualMap.disabled || layoutState.building}
                     mode={mode}
                     selected={selected}
                     onSelect={choose}
@@ -1558,7 +1603,24 @@ function App() {
                       <Link2 size={14} />
                       {t("m151")}
                     </label>
-                    <span>{mode === "3d" ? t("m152") : t("m153")}</span>
+                    <span>{t("map.dragHelp")}</span>
+                    <button
+                      className="secondary-button"
+                      disabled={
+                        manualMap.saving ||
+                        mapPositions.invalid ||
+                        !mapPositions.revision ||
+                        layoutState.building
+                      }
+                      title={t("map.resetHint")}
+                      onClick={() => {
+                        manualMap.reset();
+                        setMapReset((n) => n + 1);
+                      }}
+                    >
+                      <RefreshCw size={15} />
+                      {t("map.reset")}
+                    </button>
                     <button
                       className="icon-button fit-button"
                       aria-label={t("m154")}
@@ -1568,6 +1630,22 @@ function App() {
                       <Maximize size={18} />
                     </button>
                   </div>
+                  {(manualMap.saving || manualMap.error) && (
+                    <div
+                      className="map-save-status"
+                      role={manualMap.error ? "alert" : "status"}
+                    >
+                      {manualMap.error || t("map.saving")}
+                      {manualMap.error && (
+                        <button
+                          className="secondary-button"
+                          onClick={manualMap.retry}
+                        >
+                          {t("map.retrySave")}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </>
               ) : (
                 <div className="library">

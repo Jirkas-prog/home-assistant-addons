@@ -9,8 +9,10 @@ import {
   MeshBasicMaterial,
   PerspectiveCamera,
   Vector3,
+  Vector2,
+  Raycaster,
 } from "three";
-import { pickMapNode3D } from "../src/map-picking-3d.js";
+import { pickMapNode3D, prioritizeMapLabel } from "../src/map-picking-3d.js";
 
 const rect = { left: 120, top: 200, width: 800, height: 600 };
 function fixture() {
@@ -35,6 +37,7 @@ function fixture() {
     group.add(sphere);
     const label = new Mesh(new PlaneGeometry(100, 20), new MeshBasicMaterial());
     label.userData.atlasPart = "label";
+    prioritizeMapLabel(label);
     label.position.y = -node.r - 20;
     group.add(label);
     scene.add(group);
@@ -98,5 +101,23 @@ test("3D picking prioritizes a sphere over labels and ignores filtered or hidden
   assert.equal(
     pick({ clientX: rect.left + rect.width + 1, clientY: rect.top }),
     null,
+  );
+});
+
+test("native 3D dragging prioritizes spheres and ignores invisible labels", () => {
+  const { scene, camera, objects } = fixture();
+  const label = objects[1].children[1];
+  label.position.set(180, (100 * 600) / 700, 100);
+  const point = objects[0].position.clone().project(camera);
+  scene.updateMatrixWorld(true);
+  const ray = new Raycaster();
+  ray.setFromCamera(new Vector2(point.x, point.y), camera);
+  const hits = ray.intersectObjects(objects, true);
+  assert.equal(hits[0].object.userData.atlasPart, "bubble");
+  assert.ok(hits.some((hit) => hit.object === label));
+  label.visible = false;
+  assert.equal(
+    ray.intersectObjects(objects, true).some((hit) => hit.object === label),
+    false,
   );
 });

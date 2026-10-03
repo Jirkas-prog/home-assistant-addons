@@ -1,5 +1,18 @@
 import { Raycaster, Vector2, Vector3 } from "three";
 
+export function prioritizeMapLabel(label) {
+  const raycast = label.raycast;
+  label.raycast = function (raycaster, hits) {
+    if (!this.visible) return;
+    const first = hits.length;
+    raycast.call(this, raycaster, hits);
+    // Native drag controls sort ray hits by distance. Labels remain draggable,
+    // but cannot steal a sphere's hit, including when that sphere is farther away.
+    for (let i = first; i < hits.length; i++)
+      hits[i].distance += Number.MAX_SAFE_INTEGER / 2;
+  };
+}
+
 // Resolve the current click, never the renderer's throttled hover result.
 export function pickMapNode3D({
   scene,

@@ -1,4 +1,5 @@
 import fs from "node:fs/promises";
+import { MapPositions } from "./map-positions.js";
 import { createReadStream, createWriteStream } from "node:fs";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
@@ -496,6 +497,7 @@ export class Backups {
         documentRoot: path.join(this.directory, ".restored-documents"),
       });
       const snapshot = await new Store(candidate).read();
+      await new MapPositions(candidate).read();
       if (snapshot.errors.length)
         fail(
           "The backup contains invalid records. Repair them before restoring.",
