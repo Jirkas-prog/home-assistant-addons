@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.19
+
+- Remove the oversized topic legend below the map; use the topic filter and branch tree for navigation.
+- Add persistent Undo and Redo controls with available-step counts, action descriptions and keyboard shortcuts. Retain up to 1,000 saved edits within a bounded compressed journal.
+- Include record changes, importance, task checkpoints, list ordering, fixed positions, map moves/resets, settings, inventory movements, work-tool updates and saved attachment text edits.
+- Preserve native text-editor undo and prevent stale history or external file changes from being silently overwritten. Recover interrupted history writes without copying unrelated attachments.
+
 ## 5.0.1-dev.18
 
 - Add Constellations: compact subtree regions with varied branch directions and extra separation, in 2D and 3D.

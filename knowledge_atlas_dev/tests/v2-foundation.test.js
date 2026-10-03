@@ -335,6 +335,10 @@ test("history writes reject linked ancestors instead of writing outside the libr
     node = await f.store.save(record("note")),
     outside = path.join(f.root, "outside");
   await fs.mkdir(outside);
+  await fs.rename(
+    path.join(f.directory, ".history"),
+    path.join(f.directory, ".saved-history"),
+  );
   await fs.symlink(
     outside,
     path.join(f.directory, ".history"),

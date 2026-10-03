@@ -72,6 +72,7 @@ import { backupTransfer } from "./backup-transfer.js";
 import { UploadRecovery } from "./upload-recovery.jsx";
 import { LanguageSetup } from "./language-setup.jsx";
 import { api, useDialogKeys } from "./client.js";
+import { UndoControls } from "./undo-controls.jsx";
 import {
   useDraft,
   DraftNotice,
@@ -537,6 +538,7 @@ function App() {
     [errors, setErrors] = useState([]),
     [orderRevision, setOrderRevision] = useState(""),
     [mapPositions, setMapPositions] = useState({ views: {} }),
+    [undoState, setUndoState] = useState(null),
     [mapReset, setMapReset] = useState(0),
     [env, setEnv] = useState({}),
     [loading, setLoading] = useState(true),
@@ -609,6 +611,7 @@ function App() {
         setNodes(r.nodes);
         setOrderRevision(r.orderRevision);
         setMapPositions(r.mapPositions || { views: {} });
+        setUndoState(r.undo || null);
         setErrors(r.errors);
         setEnv(r.environment);
         setSettings(r.settings);
@@ -1219,6 +1222,19 @@ function App() {
             />
           </div>
           <div className="topbar-actions">
+            <UndoControls
+              remote={undoState}
+              onChanged={load}
+              disabled={
+                loading ||
+                !!editing ||
+                !!reader ||
+                !!openDocument ||
+                showSettings ||
+                manualMap.saving ||
+                !!manualMap.error
+              }
+            />
             <span className="local-status">
               <FileText size={14} />
               {env.ingress ? t("m397") : t("m118")}
@@ -1991,22 +2007,6 @@ function App() {
               </aside>
             )}
           </ResizableWorkspace>
-          <footer className="map-legend">
-            {structure.mainBranches.map((g) => (
-              <button
-                key={g.id}
-                onClick={() => setScope(scope === g.id ? "" : g.id)}
-              >
-                <span
-                  style={{
-                    background: g.color,
-                  }}
-                />
-                {g.title}
-              </button>
-            ))}
-            <span className="legend-right">{t("m179")}</span>
-          </footer>
         </section>
       </main>
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}

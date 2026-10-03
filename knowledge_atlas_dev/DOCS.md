@@ -77,6 +77,16 @@ The server saves `map-positions.json` in the library after each completed drag. 
 
 **Reset view** clears the manual arrangement only for the current layout and dimension, recomputes its rule-based arrangement and fits the camera. Other layouts remain saved. Pending saves are shown on the map. If saving fails, keep the page open and use **Retry saving**; the temporary arrangement remains visible. A concurrent change requires an explicit retry before replacing that arrangement. Closing a page with an unsaved arrangement triggers the browser's leave warning.
 
+## Undo and redo
+
+The top bar has **Undo** and **Redo** buttons with counts of available steps. Hover over a button to see the next action and record title. The library keeps up to **1,000 steps**, with a **256 MiB compressed history budget**; older steps are removed first when either limit is reached. Counts show the steps actually retained. History is shared by all browsers connected to this library and survives page closure, server restarts and add-on updates.
+
+One saved edit is one step. This covers creating/editing/archiving records, importance stars, task status and checkpoints, checklist runs and reviews, inventory movements, ordering and fixed positions, settings, saved attachment text, and complete map branch drags or layout resets. Only affected text and metadata are captured under `.history/actions`. Moving a branch does not copy photos, PDFs or the entire library. Undoing a record does not delete its uploaded attachment files. Camera movements, filters, navigation and unsaved drafts are not library edits.
+
+Use **Ctrl/Cmd+Z** to undo and **Ctrl/Cmd+Shift+Z** or **Ctrl+Y** to redo. Text fields retain their normal editing shortcuts. Global history controls wait for pending saves and are disabled while an editor or document viewer is open; close it after saving to undo that saved change. A new saved change after Undo discards the previous redo branch. Concurrent or external edits are checked before applying a step; a conflict leaves the affected data intact and displays an explanation. Changes made directly to files are indexed normally but are not recorded as UI undo steps.
+
+Bulk package imports, full restores and library/schema replacement start a new active-history boundary. Use their backup/rollback workflow to reverse those operations. Backups with history enabled include the action journal for recovery, but a restored or copied library starts a new active stack. An interrupted edit without a verified result preserves its before-images for recovery instead of guessing which external changes to overwrite. Undo is an editing aid, not a substitute for full backups.
+
 ## Files and locations
 
 The default document root is `/config/documents`. An attachment with location **Add-on** and path `school/physics.pdf` resolves to `/config/documents/school/physics.pdf`.

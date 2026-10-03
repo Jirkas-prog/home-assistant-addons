@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.15` on 2026-10-02.
+Validated for Knowledge Atlas Dev `5.0.1-dev.19` on 2026-10-03.
 
-- All 156 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 182 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 993 matching translation keys.
+- English/Czech language audits pass with 1038 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -53,3 +53,9 @@ English and Czech browser checks verified the seven-day help text, localized ret
 Automated coverage checks insertion at position one, moves in both directions and to position fifty, contiguous renumbering, stale-order conflicts, invalid inputs, manual Markdown additions and deletions, restart persistence, full backup restoration, failed atomic writes, cached API refresh, date validation, unknown-date placement and importance/date tie breaking. Incremental package reimports ignore derived positions and preserve the destination sequence. Reordering leaves Markdown bytes, content revisions, star ratings and record dates unchanged.
 
 English/Czech browser checks cover sort labels and choices, moves from 1 to 50 and 1 to 3, saved record dates, new-record insertion and matching task/timeline positions. Desktop and 390-pixel card layouts contain long titles, long descriptions and unbroken strings without horizontal page overflow. Sort choice and language survive reloads. Browser console checks report no errors. These checks use only generic fixtures.
+
+## Persistent undo and redo
+
+Ten additional tests exercise 1,000 retained steps, restart persistence, redo branching, ratings, checkpoints, fixed list positions, map layouts, settings, attachment text and archival. Fault injection covers failed history commits, partial multi-file travel, interrupted-edit recovery, stale browser revisions, external edits, changed document targets, unsafe paths and copied-library boundaries. Unrelated binary attachment contents are not read when recording an edit. Existing update, full-backup and incremental-package tests continue to pass.
+
+English/Czech browser checks verify count updates after star changes, Undo/Redo, keyboard shortcuts, reload persistence, map dragging as one step and restoration of coordinates. The map no longer renders the topic legend. A 390-pixel viewport keeps both history controls accessible without horizontal page overflow. Verification uses only generic library fixtures.

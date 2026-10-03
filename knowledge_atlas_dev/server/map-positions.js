@@ -30,6 +30,23 @@ function validatePositions(value) {
     .map(({ id, x, y, z }) => ({ id, x, y, z }))
     .sort((a, b) => a.id.localeCompare(b.id, "en"));
 }
+export function validateMapPositions(raw) {
+  if (
+    raw?.schema !== 1 ||
+    !raw.views ||
+    typeof raw.views !== "object" ||
+    Array.isArray(raw.views) ||
+    Object.keys(raw.views).some((key) => !slots.has(key))
+  )
+    fail(invalid);
+  const views = Object.fromEntries(
+    Object.entries(raw.views)
+      .sort()
+      .map(([key, positions]) => [key, validatePositions(positions)]),
+  );
+  const value = { views, revision: revision(views) };
+  return value;
+}
 export class MapPositions {
   constructor(directory) {
     this.file = path.join(directory, "map-positions.json");
@@ -42,20 +59,7 @@ export class MapPositions {
       const stamp = `${stat.ino}:${stat.size}:${stat.mtimeMs}:${stat.ctimeMs}`;
       if (this.cached?.stamp === stamp) return this.cached.value;
       const raw = JSON.parse(await fs.readFile(this.file, "utf8"));
-      if (
-        raw?.schema !== 1 ||
-        !raw.views ||
-        typeof raw.views !== "object" ||
-        Array.isArray(raw.views) ||
-        Object.keys(raw.views).some((key) => !slots.has(key))
-      )
-        fail(invalid);
-      const views = Object.fromEntries(
-        Object.entries(raw.views)
-          .sort()
-          .map(([key, positions]) => [key, validatePositions(positions)]),
-      );
-      const value = { views, revision: revision(views) };
+      const value = validateMapPositions(raw);
       this.cached = { stamp, value };
       return value;
     } catch (error) {

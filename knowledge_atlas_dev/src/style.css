@@ -919,34 +919,6 @@ button:hover {
   color: #887e80;
   padding: 25px 0 4px;
 }
-.map-legend {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 15px 19px;
-  border-top: 1px solid var(--line);
-  background: #151a22;
-  min-height: 48px;
-}
-.map-legend button {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 0;
-  color: #8e9bae;
-  font-size: 10px;
-}
-.map-legend button > span {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-}
-.legend-right {
-  margin-left: auto;
-  font-size: 10px;
-  color: #68788e;
-}
 .empty {
   height: 100%;
   min-height: 240px;
@@ -1383,9 +1355,6 @@ button:hover {
   .map-bottom > span {
     font-size: 12px;
   }
-  .map-legend button {
-    font-size: 12px;
-  }
   .note-preview {
     max-height: 320px;
   }
@@ -1432,9 +1401,6 @@ button:hover {
     display: none;
   }
   .map-bottom > span {
-    display: none;
-  }
-  .legend-right {
     display: none;
   }
   .local-status {
@@ -1486,9 +1452,6 @@ button:hover {
   }
   .stats {
     gap: 25px;
-  }
-  .map-legend {
-    gap: 13px;
   }
   .topbar {
     height: 66px;
@@ -1609,13 +1572,6 @@ button:hover {
   }
   .note-preview {
     max-height: 250px;
-  }
-  .map-legend {
-    gap: 11px;
-    padding: 13px;
-  }
-  .map-legend button {
-    font-size: 10px;
   }
   .modal-backdrop {
     padding: 10px;

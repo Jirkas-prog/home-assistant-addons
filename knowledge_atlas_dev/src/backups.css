@@ -160,8 +160,7 @@
   z-index: 91;
   box-shadow: 0 8px 24px #0008;
 }
-.backup-workbench > .toolbar,
-.backup-workbench > .map-legend {
+.backup-workbench > .toolbar {
   display: none;
 }
 .package-preview > label {

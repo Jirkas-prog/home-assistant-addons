@@ -39,7 +39,6 @@
 .metadata,
 .status,
 .tags button,
-.map-legend button,
 .detail-section-title,
 .detail-section-title > button,
 .resource small,
@@ -108,11 +107,6 @@
   .workbench {
     margin-bottom: 14px;
   }
-  .map-legend {
-    padding-top: 10px;
-    padding-bottom: 10px;
-    gap: 10px;
-  }
   .stats strong {
     font-size: 22px;
   }
@@ -124,9 +118,6 @@
   }
   .filter-bar button {
     font-size: 13px;
-  }
-  .map-legend button {
-    font-size: 11px;
   }
   .tree-title {
     font-size: 13px;
@@ -145,9 +136,6 @@
     font-size: 14px;
   }
   .filter-bar button {
-    font-size: 12px;
-  }
-  .map-legend button {
     font-size: 12px;
   }
 }

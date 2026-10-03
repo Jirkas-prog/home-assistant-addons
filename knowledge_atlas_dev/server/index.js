@@ -20,7 +20,10 @@ import { moveStock } from "./inventory.js";
 import { registerTools } from "./tools.js";
 import { photoMetadata } from "./photo-metadata.js";
 import { readAsText, readOffice } from "./document-preview.js";
-import { MapPositions } from "./map-positions.js";
+import { MapPositions, validateMapPositions } from "./map-positions.js";
+import { validateOrder } from "./record-order.js";
+import { UndoHistory } from "./undo.js";
+import { validateNode, graphIssues } from "../shared/schema.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const compress = promisify(gzip);
 export async function createApp({
@@ -37,6 +40,132 @@ export async function createApp({
   await settings.init();
   const backups = new Backups(directory, settings);
   const maintenance = new Maintenance(store, settings, backups);
+  const undo = new UndoHistory(directory, {
+    document: (target) =>
+      documentFor({ params: { id: target.id, index: target.resourceId } }),
+    validate: async (changes) => {
+      const snapshot = await new Store(directory).read();
+      let nodes = [...snapshot.nodes],
+        config = await settings.read();
+      for (const change of changes) {
+        const target = change.target;
+        if (
+          target.kind === "metadata" &&
+          target.name === "settings.json" &&
+          change.after === null
+        )
+          fail("The undo history contains invalid settings.", 409);
+        if (target.kind === "record") {
+          nodes = nodes.filter((node) => node.id !== target.id);
+          if (change.after !== null) {
+            const node = validateNode(parseMarkdown(change.after));
+            if (node.id !== target.id)
+              fail("The undo history contains an invalid record.", 409);
+            nodes.push(node);
+          }
+        } else if (target.kind === "metadata" && change.after !== null) {
+          const value = JSON.parse(change.after);
+          if (target.name === "settings.json")
+            config = settings.validate(value);
+          if (target.name === "map-positions.json") validateMapPositions(value);
+          if (target.name === "list-order.json") validateOrder(value);
+        }
+      }
+      const previous = new Set(
+        graphIssues(snapshot.nodes).map((issue) => issue.key),
+      );
+      if (graphIssues(nodes).some((issue) => !previous.has(issue.key)))
+        fail(
+          "This undo step would break record links. Resolve the newer references first.",
+          409,
+        );
+      for (const node of nodes) {
+        for (const resource of node.resources || [])
+          if (
+            !config.locations.some(
+              (location) => location.id === locationId(resource),
+            )
+          )
+            fail(
+              "This undo step would remove a location that is still in use.",
+              409,
+            );
+        for (const placement of node.stock?.placements || [])
+          if (
+            !config.locations.some(
+              (location) =>
+                location.id === placement.locationId &&
+                location.kind === "physical",
+            )
+          )
+            fail(
+              "This undo step would remove a location that is still in use.",
+              409,
+            );
+      }
+    },
+  });
+  // Recovery conflicts block writes through the mutation queue, while the
+  // existing library remains readable and the interface explains the conflict.
+  await undo.recover().catch(() => {});
+  const observe = (object, method, before) => {
+    const original = object[method].bind(object);
+    object[method] = async (...args) => {
+      if (undo.context.getStore()) await before(args);
+      return original(...args);
+    };
+  };
+  observe(store, "save", async (args) => {
+    const [input, existingId] = args;
+    if (!input || typeof input !== "object") return;
+    await store.read();
+    const id = existingId || input.id || randomUUID();
+    if (!/^[a-z0-9][a-z0-9_-]{0,119}$/.test(id)) return;
+    if (!existingId) args[0] = { ...input, id };
+    const label = {
+      kind: existingId ? "record" : "create",
+      title: input.title,
+    };
+    await undo.watch({ kind: "record", id }, label);
+    if (!existingId)
+      await undo.watch({ kind: "metadata", name: "list-order.json" }, label);
+  });
+  observe(store, "archive", async ([id]) => {
+    await store.read();
+    await undo.watch(
+      { kind: "record", id },
+      {
+        kind: "archive",
+        title: store.snapshot?.nodes.find((n) => n.id === id)?.title,
+      },
+    );
+    await undo.watch(
+      { kind: "metadata", name: "list-order.json" },
+      { kind: "archive" },
+    );
+  });
+  observe(store, "move", async ([id]) =>
+    undo.watch(
+      { kind: "metadata", name: "list-order.json" },
+      {
+        kind: "order",
+        title: store.snapshot?.nodes.find((n) => n.id === id)?.title,
+      },
+    ),
+  );
+  observe(settings, "save", async () => {
+    if ((await settings.read()).languageSelectionCompleted !== false)
+      await undo.watch(
+        { kind: "metadata", name: "settings.json" },
+        { kind: "settings" },
+      );
+  });
+  observe(mapPositions, "save", async () =>
+    undo.watch(
+      { kind: "metadata", name: "map-positions.json" },
+      { kind: "map" },
+    ),
+  );
   let packageImports;
   const checkPackageRecovery = () => {
     if (packageImports?.recoveryRequired)
@@ -47,7 +176,7 @@ export async function createApp({
   };
   let queue = Promise.resolve();
   let mutationActive = false;
-  const mutate = (fn) => {
+  const mutate = (fn, { history = true } = {}) => {
     const result = queue.then(async () => {
       checkPackageRecovery();
       mutationActive = true;
@@ -55,7 +184,14 @@ export async function createApp({
       store.stopBackground();
       try {
         await store.reading?.catch(() => {});
-        return await fn();
+        return await (history
+          ? undo.record(async () => {
+              const result = await fn();
+              // Commit automatic order reconciliation as part of the same user step.
+              await store.read();
+              return result;
+            })
+          : fn());
       } finally {
         mutationActive = false;
         if (resumeIndex) store.startBackground();
@@ -142,8 +278,22 @@ export async function createApp({
     }),
   );
   registerTools(app, store, mutate);
-  const transfers = await registerBackupTransfers(app, backups, mutate);
-  packageImports = new PackageImports(backups, mutate, transfers);
+  const transfers = await registerBackupTransfers(app, backups, (fn) =>
+    mutate(fn, { history: false }),
+  );
+  packageImports = new PackageImports(
+    backups,
+    (fn) =>
+      mutate(
+        async () => {
+          const result = await fn();
+          await undo.clear();
+          return result;
+        },
+        { history: false },
+      ),
+    transfers,
+  );
   app.post("/api/packages/:id/import", async (req, res) =>
     res.status(202).json(await packageImports.start(req.params.id, req.body)),
   );
@@ -204,7 +354,13 @@ export async function createApp({
       });
       savedMap = { views: {}, revision: digest(error.message), invalid: true };
     }
-    const etag = `W/"${version}-${snapshot.revision}-${config.revision}-${savedMap.revision}"`;
+    let undoState;
+    try {
+      undoState = await undo.status();
+    } catch (error) {
+      undoState = { undo: 0, redo: 0, error: error.message };
+    }
+    const etag = `W/"${version}-${snapshot.revision}-${config.revision}-${savedMap.revision}-${undoState.revision || "invalid"}"`;
     res
       .set("Cache-Control", "private, no-cache")
       .set("ETag", etag)
@@ -233,6 +389,7 @@ export async function createApp({
         ...snapshot,
         settings: config,
         mapPositions: savedMap,
+        undo: undoState,
         environment: {
           ingress,
           canOpenFolders: allowOpen,
@@ -253,6 +410,23 @@ export async function createApp({
     else res.send(response.body);
   });
   app.get("/api/settings", async (req, res) => res.json(await settings.read()));
+  app.get("/api/undo", async (req, res) =>
+    res.set("Cache-Control", "no-store").json(await undo.status()),
+  );
+  app.post("/api/undo/:direction", async (req, res) => {
+    const state = await mutate(
+      async () => {
+        const result = await undo.travel(
+          req.params.direction,
+          req.body.revision,
+        );
+        await store.read();
+        return result;
+      },
+      { history: false },
+    );
+    res.json(state);
+  });
   app.get("/api/map-positions", async (req, res) =>
     res.set("Cache-Control", "no-store").json(await mapPositions.read()),
   );
@@ -382,8 +556,9 @@ export async function createApp({
         `attachment; filename="knowledge-atlas-backup-${new Date().toISOString().replaceAll(":", "-")}.zip"`,
       )
       .type("application/zip");
-    await mutate(() =>
-      backups.export(res, { history: req.query.history !== "0" }),
+    await mutate(
+      () => backups.export(res, { history: req.query.history !== "0" }),
+      { history: false },
     );
   });
   app.get("/api/backups/summary", async (req, res) =>
@@ -392,15 +567,21 @@ export async function createApp({
   app.post("/api/backups/preview", async (req, res) => {
     if (!req.is("application/zip"))
       fail("Choose a Knowledge Atlas ZIP backup.");
-    res.status(201).json(await mutate(() => backups.prepare(req)));
+    res
+      .status(201)
+      .json(await mutate(() => backups.prepare(req), { history: false }));
   });
   app.post("/api/backups/:id/restore", async (req, res) => {
     res.json(
-      await mutate(() => backups.restore(req.params.id, req.body.revision)),
+      await mutate(() => backups.restore(req.params.id, req.body.revision), {
+        history: false,
+      }),
     );
   });
   app.delete("/api/backups/:id", async (req, res) =>
-    res.json(await mutate(() => backups.discard(req.params.id))),
+    res.json(
+      await mutate(() => backups.discard(req.params.id), { history: false }),
+    ),
   );
   app.get("/api/maintenance", async (req, res) =>
     res.json({ version, ...(await maintenance.diagnostics()) }),
@@ -519,6 +700,15 @@ export async function createApp({
             "The attachment target changed. Reopen it before saving; your draft is preserved.",
             409,
           );
+        await undo.watch(
+          {
+            kind: "document",
+            id: req.params.id,
+            resourceId: resolved.resourceId,
+          },
+          { kind: "document", title: resolved.title },
+          resolved.file,
+        );
         const result = await writeText(
           resolved,
           req.body.body,

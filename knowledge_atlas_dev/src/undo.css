@@ -1,0 +1,57 @@
+.undo-controls {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+  flex-shrink: 0;
+}
+.undo-controls .secondary-button {
+  gap: 6px;
+  padding: 7px 9px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+.undo-count {
+  min-width: 18px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  background: #283329;
+  color: #c5e3ac;
+  font-variant-numeric: tabular-nums;
+}
+.undo-controls button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.undo-error {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 30;
+  width: max-content;
+  max-width: min(420px, 85vw);
+  padding: 12px;
+  border: 1px solid #b47265;
+  border-radius: 7px;
+  background: #352321;
+  color: #ffd3c8;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1100px) {
+  .undo-label {
+    display: none;
+  }
+}
+@media (max-width: 700px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    height: auto;
+    min-height: 61px;
+    padding-block: 10px;
+  }
+  .topbar-actions {
+    flex-wrap: wrap;
+  }
+}
