@@ -275,7 +275,7 @@ export class LocalClient {
       d.status = 'cancelled';
       d.cancelReason = input.reason;
     } else if (input.kind === 'attach') {
-      if (cur.blobs[input.hash]?.mime !== 'application/pdf') throw Error('Vyber PDF.');
+      if (cur.blobs[input.hash]?.mime !== 'application/pdf') throw Error('Select a PDF file.');
       d.archiveVariants ||= [];
       if (d.pdfHash) d.archiveVariants.push({
         hash: d.pdfHash,

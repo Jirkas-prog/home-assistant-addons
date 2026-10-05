@@ -416,7 +416,7 @@ export function values(form = '#recordForm') {
   return Object.fromEntries(new FormData(f));
 }
 export function formDialog(title, html, save) {
-  modal(title, `<form id="recordForm" novalidate>${html}<div class="form-actions sticky-actions">${button('formSave', "Impose", 'primary')}${button('closeModal', "Cancel")}</div></form>`);
+  modal(title, `<form id="recordForm" novalidate>${html}<div class="form-actions sticky-actions">${button('formSave', "Save changes", 'primary')}${button('closeModal', "Cancel")}</div></form>`);
   on('formSave', async () => {
     await save(values());
     modalDirty = false;

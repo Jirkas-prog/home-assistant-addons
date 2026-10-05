@@ -13,7 +13,22 @@ Home Assistant Ingress provides the web interface. Port `8443/tcp` is an optiona
 
 ## Language
 
-English is the default language. Open **Settings and data → Language** to switch the interface to Czech. The preference is stored with the application data and survives add-on restarts, upgrades, and backup restoration. Translation changes labels only; action names, data keys, formulas, and stored records remain unchanged.
+English is the default language. Open **Settings → General → Language** to switch the interface to Czech. The preference is stored with the application data and survives add-on restarts, upgrades, and backup restoration. Translation changes labels only; action names, data keys, formulas, and stored records remain unchanged.
+
+## Navigation
+
+The left sidebar contains six main sections. Subsections appear as horizontal navigation above the page content. On a phone, use the navigation button beside the application logo. Returning to a section keeps its last selected subsection during the session.
+
+| Main section | Contents |
+| --- | --- |
+| Overview | Annual income and payment reports |
+| Documents | Invoices, quotes, review queue, and work logs |
+| Companies | Customer and billing details |
+| Catalog | Activities, prices, and reusable text |
+| Invoice design | Templates, custom fields, automatic texts, and media |
+| Settings | General, appearance, backups and encryption, security, connections, and calculators |
+
+Use **Find a setting** to search settings in the selected language. Results open the relevant section directly. Tab and Enter operate all controls; left/right arrows move between subsection buttons. Business details and invoice defaults have separate editing forms.
 
 ## Main features
 
@@ -41,16 +56,16 @@ The default automatic-backup folder is `/share/fakturocel/backups`. Change it on
 
 Private working-data protection is enabled by default; encryption of backup destinations is optional and defaults to Off. The add-on generates and remembers a data key, so normal startup does not ask for a password. Store the recovery-key PDF separately from backups. The PDF contains the complete secret key and is intentionally readable.
 
-Open **Encryption by location** to enable or disable encryption independently for local `/share` backups, downloaded ZIP/portable backups, and Google Drive files. All three default to **Off** on new installations. Already saved choices remain in place. Disabling an active destination requires confirmation that files there can be read by other users. Templates and direct Excel downloads are always unencrypted, including the complete Excel backup sheet inside combined downloads.
+Open **Settings → Backups and encryption → Backup and export**. The **Backup encryption** card shows three switches to enable or disable encryption independently for local `/share` backups, downloaded ZIP/portable backups, and Google Drive files. All three default to **Off** on new installations. Already saved choices remain in place. Each switch saves immediately and shows the confirmed server state; an unsuccessful change keeps the previous state. Disabling an active destination requires confirmation that files there can be read by other users. Templates and direct Excel downloads are always unencrypted, including the complete Excel backup sheet inside combined downloads.
 
-Turning local backup encryption back on converts existing managed plaintext `.fakturocel` files using the remembered key. Existing downloaded and cloud copies keep their original protection. Invoice PDFs and exported templates remain readable; archived copies follow working-data protection. Working-data encryption is configured under **Data security**. Enable it to create encrypted backups or protect Google credentials.
+Turning local backup encryption back on converts existing managed plaintext `.fakturocel` files using the remembered key. Existing downloaded and cloud copies keep their original protection. Invoice PDFs and exported templates remain readable; archived copies follow working-data protection. Working-data encryption is configured under **Settings → Security and access → Private storage protection**. Enable it to create encrypted backups or protect Google credentials.
 
 Working-data encryption can be disabled after a warning and explicit confirmation. Unencrypted files can be read by other users who can access the same storage. An optional 6–12 digit application PIN is available and is disabled by default.
 
-Complete data deletion requires all of these steps:
+Open **Settings → Backups and encryption → Restore and reset** for local/cloud recovery and data deletion. Complete data deletion requires all of these steps:
 
 1. download the current portable backup;
-2. select the downloaded backup again so its current contents can be verified;
+2. if that backup is encrypted, download the recovery-key PDF;
 3. select the downloaded backup again so the application can verify it;
 4. type `DELETE DATA` and confirm.
 
@@ -72,14 +87,14 @@ The add-on uses one in-memory SQLite database with an encrypted durable snapshot
 
 ### Google Drive automatic backups
 
-Open **Settings and data → Google Drive backups**. The Google connection requires working-data encryption to protect account credentials. Cloud backup files have a separate encryption choice and automatic uploads are off until explicitly enabled. The add-on's scheduler runs independently of the browser; the add-on must be running and have internet access.
+Open **Settings → Backups and encryption → Google Drive**. The Google connection requires working-data encryption to protect account credentials. Cloud backup files have a separate encryption choice and automatic uploads are off until explicitly enabled. The add-on's scheduler runs independently of the browser; the add-on must be running and have internet access.
 
 1. Create or select your own project in Google Cloud and enable the **Google Drive API**.
 2. Configure **Google Auth Platform** branding and audience. If the project is in Testing mode, add your account as a test user.
 3. Create an OAuth client of type **TVs and Limited Input devices** for the headless add-on. Copy the client ID and client secret into Fakturocel.
 4. Select **Connect Google account**, open the returned Google authorization URL in another tab, and enter the displayed code. Keep the Fakturocel window open until connection is confirmed.
 5. Select ZIP, Excel, or both, an interval from 1 to 720 hours, and 2 to 100 backup sets to retain. Enable **Automatic backups** and save. The default interval is 24 hours and the default retention is 10 sets.
-6. Set **Encryption by location → Google Drive backup files** to the desired protection. Encryption defaults to Off; enable it when you want protected cloud files. Use **Back up to Google Drive now** to verify the first backup. Save the recovery-key PDF separately when files are encrypted.
+6. Set **Settings → Backups and encryption → Backup encryption → Google Drive backup files** to the desired protection. Encryption defaults to Off; enable it when you want protected cloud files. Use **Back up to Google Drive now** to verify the first backup. Save the recovery-key PDF separately when files are encrypted.
 
 The `drive.file` scope grants access to files created or selected for this application, rather than all Drive files. Each connection creates a visible Fakturocel folder. Uploads use resumable-upload sessions and verify the returned file size and checksum. Both selected formats must be uploaded and verified before a set is marked complete or old copies are pruned. A failed upload records its error and retries with increasing delays, up to one hour.
 

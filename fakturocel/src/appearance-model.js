@@ -1,21 +1,21 @@
 export const palettes = {
   light: {
-    background: '#f4f6f8',
+    background: '#f3f5f8',
     surface: '#ffffff',
-    text: '#20353b',
-    muted: '#526870',
-    accent: '#117c6d',
-    sidebar: '#102d35',
-    sidebarText: '#d9e9ea'
+    text: '#233047',
+    muted: '#576579',
+    accent: '#156eb7',
+    sidebar: '#22252b',
+    sidebarText: '#e4e9f1'
   },
   dark: {
-    background: '#111b22',
-    surface: '#1c2b34',
-    text: '#edf4f5',
-    muted: '#b4c6ce',
-    accent: '#53d8b7',
-    sidebar: '#0b151b',
-    sidebarText: '#e0edf1'
+    background: '#242629',
+    surface: '#303236',
+    text: '#f0f2f6',
+    muted: '#b8c0ce',
+    accent: '#4ea1ef',
+    sidebar: '#202226',
+    sidebarText: '#edf0f5'
   }
 };
 export const defaultAppearance = () => ({

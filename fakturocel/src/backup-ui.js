@@ -1,11 +1,52 @@
-import { $, button, select, esc, modal, on, values, toast, confirmDialog, requestPassword, closeModal, setDirty } from './ui.js';
+import { $, button, select, esc, modal, on, values, toast, confirmDialog, requestPassword, closeModal, setDirty, job } from './ui.js';
 import { api, downloadBytes, pickFile, session } from './api.js';
 import { generateDownload } from './export-ui.js';
 import { bytesBase64 } from './model.js';
 import { locale, tr } from './i18n.js';
 
 export const formatOptions = [['zip', 'Complete ZIP archive'], ['excel', 'Excel with complete application data'], ['both', 'ZIP and Excel']];
-export const backupEncryptionCard = () => `<section class="card"><div class="section-head"><h2>Encryption by location</h2>${button('backupEncryption', 'Set encryption by location', 'primary')}</div><p>Optionally encrypt local share backups, downloaded ZIP and portable backups, and Google Drive files. New installations default to Off. Templates and direct Excel downloads are always unencrypted.</p></section>`;
+export const backupEncryptionPanel = () => `<section class="card encryption-panel" id="backupEncryptionPanel" tabindex="-1" aria-busy="true"><h3>Backup encryption</h3><p role="status">Loading encryption settings…</p></section>`;
+const destinations = [
+  ['local', 'Local backups in /share', 'Protect copies stored on your shared Home Assistant drive.'],
+  ['download', 'Downloaded ZIP and portable backups', 'Protect ZIP and Fakturocel files downloaded to this device.'],
+  ['cloud', 'Google Drive backup files', 'Protect backups uploaded to your Google account.']
+];
+export async function mountBackupEncryption() {
+  const panel = $('#backupEncryptionPanel');
+  if (!panel) return;
+  let policy;
+  const draw = () => {
+    if (!panel.isConnected) return;
+    panel.setAttribute('aria-busy', 'false');
+    panel.innerHTML = `<h3>Backup encryption</h3><p class="muted">Optional for each destination. Off by default. Changes are saved immediately.</p>${destinations.map(([key, label, hint]) => `<div class="encryption-row"><div><strong id="encryption-label-${key}">${label}</strong><p>${hint}</p></div><button type="button" class="encryption-switch" data-encryption="${key}" role="switch" aria-checked="${policy[key]}" aria-labelledby="encryption-label-${key}" ${!policy.working ? 'disabled' : ''}><span class="switch-track" aria-hidden="true"></span><span>${policy[key] ? 'On' : 'Off'}</span></button></div>`).join('')}
+      <p class="settings-note">Downloaded Excel and exported templates are always unencrypted.</p>${!policy.working ? `<div class="notice"><p>Enable private storage protection to create a remembered key before encrypting backups.</p>${button('securitySettings', 'Set up the encryption key')}</div>` : button('recoveryPdf', 'Download PDF with recovery key', 'text-button')}`;
+    for (const control of panel.querySelectorAll('[data-encryption]')) control.onclick = () => void job(async () => {
+      const key = control.dataset.encryption, input = Object.fromEntries(destinations.map(([id]) => [id, policy[id]]));
+      input[key] = !policy[key];
+      if (!input[key]) {
+        if (!(await confirmDialog('Files in the selected destinations will be unencrypted and can be read by other users with access to that storage. Continue?', { danger: true }))) return;
+        input.confirm = 'ALLOW UNENCRYPTED BACKUPS';
+      }
+      const focused = control.dataset.encryption;
+      panel.querySelectorAll('button').forEach(el => { el.disabled = true; });
+      panel.setAttribute('aria-busy', 'true');
+      try {
+        policy = await api('backup/encryption', input);
+        toast('Encryption settings saved for each backup destination.');
+      } finally {
+        draw();
+        panel.querySelector(`[data-encryption="${focused}"]`)?.focus({ preventScroll: true });
+      }
+    }, 'Saving encryption settings…');
+  };
+  try { policy = await api('backup/encryption'); draw(); }
+  catch (e) {
+    if (!panel.isConnected) return;
+    panel.setAttribute('aria-busy', 'false');
+    panel.innerHTML = `<h3>Backup encryption</h3><p class="field-error" role="alert">${esc(tr(e.message))}</p>${button('retryEncryptionPanel', 'Try again')}`;
+  }
+}
+on('retryEncryptionPanel', mountBackupEncryption);
 let applyRestore;
 export function installBackupUi(apply) { applyRestore = apply; }
 

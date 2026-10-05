@@ -418,7 +418,7 @@ export class Store {
         d.cancelReason = input.reason;
       } else if (input.kind === 'attach') {
         const b = this.blob(input.hash);
-        if (b.mime !== 'application/pdf') throw fail(400, 'Vyber PDF.');
+        if (b.mime !== 'application/pdf') throw fail(400, 'Select a PDF file.');
         d.archiveVariants ||= [];
         if (d.pdfHash) d.archiveVariants.push({
           hash: d.pdfHash,

@@ -67,6 +67,7 @@ export async function exerciseSecurity({
   assert(excel.subarray(0, 2).equals(Buffer.from('PK')));
   await page.reload();
   await click('nav:settings');
+  await click('settingsTab:security');
   await page.getByRole('heading', {
     name: "Data security",
     exact: true

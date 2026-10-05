@@ -26,6 +26,8 @@ The automated suite covers:
 - calculator parsing and formula limits without `eval` or `Function`;
 - synchronization pairing, certificate pinning, conflict comparison, merge rollback, and idempotent retry;
 - English default UI, persistent Czech selection, and unchanged action identifiers after translation;
+- grouped sidebar navigation, contextual tabs, settings search, split supplier/default forms, and mobile menu behavior;
+- direct encryption switches with confirmation, persistence, and unchanged invoice records;
 - custom error dialogs and absence of native `alert`, `confirm`, or `prompt` calls.
 
 The build output is written to `build/fakturocel`. Browser tests use temporary directories and generated sample data. No test fixture contains real customer or supplier information.
@@ -35,7 +37,7 @@ Google Drive tests use a local deterministic fake of the documented Google endpo
 When Docker is available, also run:
 
 ```sh
-docker build --build-arg BUILD_VERSION=3.10.0 --build-arg BUILD_ARCH=amd64 -t fakturocel-test .
+docker build --build-arg BUILD_VERSION=3.11.0 --build-arg BUILD_ARCH=amd64 -t fakturocel-test .
 ```
 
 Automated tests reduce regression risk but do not replace an independent security audit or validation on each supported Home Assistant architecture.

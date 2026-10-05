@@ -1,3 +1,4 @@
+import { navigationClick } from './navigation-helpers.mjs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -140,7 +141,7 @@ await page.addInitScript(() => window.fakturocelClient = {
 });
 const click = async a => {
     await idle();
-    await page.locator('[data-action="' + a + '"]').first().click();
+    await navigationClick(page)(a);
   },
   fill = (n, v) => page.locator('[name="' + n + '"]').fill(String(v)),
   choose = (n, v) => page.locator('[name="' + n + '"]').selectOption(v),

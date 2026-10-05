@@ -1,3 +1,5 @@
+import { exerciseNavigation } from './navigation-browser.mjs';
+import { navigationClick } from './navigation-helpers.mjs';
 import { exerciseCalculatorDraft, exerciseCalculatorSettings } from './calculators-browser.mjs';
 import { exerciseSecurity } from './security-browser.mjs';
 import { exerciseAppearance } from './appearance-browser.mjs';
@@ -86,9 +88,15 @@ page.on('dialog', d => {
 });
 page.setDefaultTimeout(20000);
 const url = `http://fakturocel.test:${proxy.address().port}${prefix}`,
-  click = a => page.locator(`[data-action="${a}"]`).first().click(),
+  click = navigationClick(page),
   fill = (name, v) => page.locator(`[name="${name}"]`).fill(String(v)),
-  choose = (name, v) => page.locator(`[name="${name}"]`).selectOption(v),
+  choose = async (name, v) => {
+    if (name === 'appLanguage' && !(await page.locator('[name="appLanguage"]').isVisible())) {
+      if (!(await page.locator('[data-action="settingsTab:general"]').isVisible())) await click('nav:settings');
+      await click('settingsTab:general');
+    }
+    return page.locator(`[name="${name}"]`).selectOption(v);
+  },
   closed = () => page.waitForFunction(() => !document.querySelector('#modal').innerHTML),
   progress = m => console.log(new Date().toISOString() + ' ' + m);
 const acceptMessage = async () => {
@@ -120,7 +128,7 @@ try {
   const englishActions = await page.locator('[data-action]').evaluateAll(nodes => [...new Set(nodes.map(node => node.dataset.action))].sort());
   await choose('appLanguage', 'cs');
   await page.waitForFunction(() => document.documentElement.lang === 'cs');
-  await page.getByRole('heading', { name: czech['Settings and data'], exact: true }).waitFor();
+  await page.getByRole('heading', { name: czech['Settings'], exact: true }).waitFor();
   assert.equal(app.store.read().state.settings.language, 'cs');
   const czechActions = await page.locator('[data-action]').evaluateAll(nodes => [...new Set(nodes.map(node => node.dataset.action))].sort());
   assert.deepEqual(czechActions, englishActions);
@@ -130,7 +138,7 @@ try {
   await click('nav:settings');
   await choose('appLanguage', 'en');
   await page.waitForFunction(() => document.documentElement.lang === 'en');
-  await page.getByRole('heading', { name: 'Settings and data', exact: true }).waitFor();
+  await page.getByRole('heading', { name: 'Settings', exact: true }).waitFor();
   await page.reload();
   await page.getByRole('heading', { name: 'Overview', exact: true }).waitFor();
   assert.equal(await page.locator('html').getAttribute('lang'), 'en');
@@ -374,6 +382,7 @@ try {
   });
   await exerciseExports({ page, click, choose, closed, acceptMessage, app, root, progress, czech });
   await exerciseGoogleDrive({ page, click, fill, choose, closed, acceptMessage, app, google, root, progress, czech });
+  await exerciseNavigation({ page, click, choose, fill, closed, acceptMessage, app, root, progress, czech });
   assert.deepEqual(errors, []);
   assert.deepEqual(nativeDialogs, []);
   assert.equal(app.store.read().state.settings.appearance.theme, 'custom');

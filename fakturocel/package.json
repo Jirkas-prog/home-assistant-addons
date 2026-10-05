@@ -1,6 +1,6 @@
 {
   "name": "fakturocel-homeassistant",
-  "version": "3.10.0",
+  "version": "3.11.0",
   "private": true,
   "type": "module",
   "description": "Fakturocel for Home Assistant OS",

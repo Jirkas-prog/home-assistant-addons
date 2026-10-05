@@ -175,7 +175,7 @@ export async function clientKeyPdf(context, loadAsset) {
   line(clientRecoveryKey(context), 9);
   y -= 35;
   line("Data recovery", 17, true);
-  para("1. Open Fakturocel on your phone, computer or Home Assistant (version 3.6 or later). In Settings and data, select Restore data from backup.");
+  para("1. Open Fakturocel on your phone, computer or Home Assistant (version 3.6 or later). Open Settings > Backups and encryption > Restore and reset.");
   para("2. Select the .fakturocel file from this device. When prompted for a password, enter the entire key from this PDF including FC3- and hyphens.");
   para("3. Check the overview of recovered data and confirm recovery. The restore replaces the entire database. Also keep a current backup of the target device before it.");
   para("4. The application works without a server. You can optionally connect the Home Assistant in the settings. When transferring data, first check the overview and possible conflicts.");

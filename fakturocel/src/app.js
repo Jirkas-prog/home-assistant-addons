@@ -1,20 +1,21 @@
 import { enhanceLists } from './list-layout.js';
-import { deviceCard } from './device-ui.js';
-import { googleDriveCard } from './google-drive-ui.js';
-import { installBackupUi, openBackupExport, restoreLocalBackup, openCloudRestore, backupEncryptionCard } from './backup-ui.js';
+import { installBackupUi, openBackupExport, restoreLocalBackup, openCloudRestore, mountBackupEncryption } from './backup-ui.js';
+import { sections, sectionFor, routeLabel, sidebarNavigation, navIcon, tabs, settingsTabs, settingDestinations, settingsSearchResults } from './navigation.js';
+import { settingsPage as settingsContent } from './settings-page.js';
 import { nativeClient, client, bridge } from './client-sync.js';
-import { clientCard, clientBanner, installClientActions } from './client-ui.js';
+import { clientBanner, installClientActions } from './client-ui.js';
 import { syncCalculators, showCalculator } from './calculators.js';
 import { openCalculatorSettings } from './calculator-editor.js';
 import './base.css';
 import './app.css';
 import './theme.css';
+import './workspace.css';
 import { clone, uid, now, today, norm, money, total, paid, balance, dateLabel, newDocument, customDefaults, textRules, checksFor, fieldsFor, filename, unpackBackup, bytesBase64, base64Bytes, statusNames, fieldValue } from './model.js';
 import { $, esc, button, field, area, select, table, on, actions, toast, modal, formDialog, values, closeModal, setDirty, picker, job, confirmDialog, showError, validateForm, requestPassword } from './ui.js';
 import { api, assetUrl, loadState, session, loadAsset, downloadBytes, downloadBackup, pickFile, upload, base, loadSecurity, exportExcel, downloadRecovery } from './api.js';
 import { renderDocument } from './renderer.js';
 import { openEditor, exportTemplate } from './editor.js';
-import { showSecurityGate, needsSecurity, installSecurityActions, encryptionNotice, securityCard } from './security-ui.js';
+import { showSecurityGate, needsSecurity, installSecurityActions, encryptionNotice } from './security-ui.js';
 import { hashBytes } from './crypto.js';
 import { yearlyRows, sumLabel, reportPdf, worklogText } from './reports.js';
 import { applyAppearance } from './appearance.js';
@@ -22,12 +23,15 @@ import { openAppearance } from './appearance-editor.js';
 import { statusBadge, statusPanel } from './status.js';
 import { recordChange } from './sync-details.js';
 import JSZip from 'jszip';
-import {setLanguage,storedLanguage,currentLanguage,locale,tr,languages} from './i18n.js';
+import {setLanguage,storedLanguage,currentLanguage,locale,tr} from './i18n.js';
 let state,
   revisions = {},
   configRevision = 0,
   revision = 0,
   route = 'overview',
+  settingsTab = 'general',
+  backupTab = 'local',
+  settingsQuery = '',
   filter = {},
   sort = {
     key: 'date',
@@ -41,7 +45,7 @@ const selectedDocs = {
   invoice: new Set(),
   quote: new Set()
 };
-const navigation = [['overview', "Overview"], ['invoice', "Invoices"], ['quote', "Quotes"], ['checks', 'Review queue'], ['companies', "Companies"], ['activities', "Activities"], ['worklogs', "Work logs"], ['texts', "Saved texts"], ['templates', "Document templates"], ['fields', "Custom fields"], ['rules', 'Texts and rules'], ['media', "Media library"], ['settings', "Settings and data"]];
+const navigation = sections.map(s => [s.routes[0][0], s.label]);
 const owner = () => session.actor?.role === 'owner',
   canEdit = () => session.actor?.role !== 'reader';
 const recRev = (c, id) => revisions[c + ':' + id] || 0;
@@ -122,9 +126,21 @@ function render() {
   if (!state) return;
   syncCalculators(state);
   const appearance = applyAppearance(state.settings.appearance);
-  $('#app').innerHTML = `<aside><a class="brand" href="#" data-action="nav:overview"><img class="brand-logo" src="${esc(logoUrl(appearance))}" alt="Application logo"><span>${esc(appearance.brandName)}${appearance.tagline ? `<small>${esc(appearance.tagline)}</small>` : ''}</span></a><nav aria-label="Main navigation">${navigation.filter(([r]) => owner() || !['fields', 'rules', 'media', 'templates'].includes(r)).map(([r, l]) => button('nav:' + r, l, route === r ? 'active' : '')).join('')}</nav></aside><main><header class="top"><div><p class="eyebrow">MY BUSINESS</p><h1>${navigation.find(([r]) => r === route)?.[1] || "Fakturocel"}</h1></div><div class="top-actions">${button('shortcuts', "Shortcuts")}${button('excel', '↓ Excel')}${canEdit() ? button('newDoc:invoice', "+ New invoice", 'primary') : ''}</div></header><div id="conflict" class="notice" hidden><span>There is newer data on the server.</span> ${button('reload', "Load current data")}</div>${nativeClient ? '<div id="clientStatus">' + clientBanner() + '</div>' + (!client.cache.backupFolderChosen ? "<div class=\"notice\"><strong>Where should automatic backups be stored?</strong><p>They are currently stored in the application's private folder. Choose a folder for your own copies.</p>" + button('backupFolder', "Select backup folder") + button('localDefaultFolder', "Keep private folder") + '</div>' : '') : ''}<div class="backup-strip ${session.lastBackup?.backup === false ? 'pending' : ''}" ${nativeClient ? 'hidden' : ''}><span>${session.lastBackup?.backup ? "Backup saved " + new Date(session.lastBackup.at).toLocaleString() : session.lastBackup?.error ? esc(session.lastBackup.error) : "Data is stored in Home Assistant"}</span>${button('nav:settings', "Backups and settings →", 'text-button')}</div>${encryptionNotice()}<div id="content">${content()}</div><footer>Fakturocel 3 · Appearance, data, and rules are managed directly in the application. ${button('shortcuts', "Keyboard shortcuts", 'text-button')}</footer></main>`;
+  const section = sectionFor(route);
+  const sectionTabs = route === 'settings' ? settingsTabs.filter(([id]) => owner() || !['appearance', 'devices'].includes(id)) : section.routes;
+  const subnav = tabs(sectionTabs, route === 'settings' ? settingsTab : route, route === 'settings' ? 'settingsTab' : 'nav', route === 'settings' ? 'Settings sections' : 'Document and catalog sections');
+  const backupProblem = session.lastBackup?.backup === false;
+  $('#app').innerHTML = `<button class="skip-link" data-action="skipContent">Skip to content</button>
+    <aside class="workspace-sidebar"><div class="brand-row"><a class="brand" href="#" data-action="nav:overview"><img class="brand-logo" src="${esc(logoUrl(appearance))}" alt="Application logo"><span>${esc(appearance.brandName)}${appearance.tagline ? `<small>${esc(appearance.tagline)}</small>` : ''}</span></a><button type="button" id="navigationToggle" data-action="toggleNavigation" aria-label="Toggle navigation" aria-controls="mainNavigation" aria-expanded="false">${navIcon('menu')}</button></div>
+    <nav id="mainNavigation" class="main-navigation" aria-label="Main navigation">${sidebarNavigation(route, owner())}</nav>
+    <div class="sidebar-tools">${canEdit() ? button('newDoc:invoice', '+ New invoice', 'primary sidebar-create') : ''}${button('shortcuts', 'Keyboard shortcuts', 'sidebar-help')}</div></aside>
+    <main class="workspace-main"><header class="top workspace-header"><div><p class="eyebrow">${section.routes.length > 1 ? section.label : 'WORKSPACE'}</p><h1>${routeLabel(route)}</h1><p class="page-description">${section.description}</p></div><div class="top-actions">${button('excel', '↓ Excel')}${route === 'settings' ? `<label class="settings-search">${navIcon('search')}<input id="settingsSearch" type="search" placeholder="Find a setting…" aria-label="Find a setting" autocomplete="off"></label>` : ''}</div></header>
+    <div id="conflict" class="notice" hidden><span>There is newer data on the server.</span> ${button('reload', 'Load current data')}</div>
+    ${nativeClient ? `<div id="clientStatus">${clientBanner()}</div>${!client.cache.backupFolderChosen ? `<div class="notice"><strong>Where should automatic backups be stored?</strong><p>Choose a folder for your own copies.</p>${button('backupFolder', 'Select backup folder')}${button('localDefaultFolder', 'Keep private folder')}</div>` : ''}` : `<div class="workspace-status ${backupProblem ? 'pending' : ''}"><span><i aria-hidden="true"></i>${session.lastBackup?.backup ? 'Backup saved ' + esc(new Date(session.lastBackup.at).toLocaleString(locale())) : session.lastBackup?.error ? esc(session.lastBackup.error) : 'Data is stored in Home Assistant'}</span>${button('settingsTab:backups', 'Backups and encryption →', 'text-button')}</div>`}
+    ${route === 'settings' && settingsTab === 'security' ? encryptionNotice() : ''}${subnav}<div id="content" tabindex="-1">${route === 'settings' ? `<div id="settingsSearchResults" class="settings-search-results" hidden aria-live="polite"></div><div id="settingsPages">${content()}</div>` : content()}</div></main>`;
   bindContent();
   enhanceLists(route);
+  void mountBackupEncryption();
 }
 function customForm(scope, source = {}) {
   return state.fields.filter(f => f.scope === scope && !f.archived).map(f => {
@@ -155,7 +171,7 @@ function content() {
   }[f.scope])}</td><td>${esc(f.type)}</td><td>${f.archived ? "Archived" : f.required ? "Mandatory" : "Optional"}</td><td>${button('editField:' + f.id, 'Edit', 'small')}</td></tr>`))}</section>`;
   if (route === 'templates') return `<section class="card"><div class="section-head"><h2>Templates and their versions</h2><div>${button('importTemplate', "Import template")}${button('templateNew', "+ New template", 'primary')}</div></div><p class="muted">The active template is edited as a new version. Issued PDFs remain unchanged.</p>${table(["Name", 'Version', "State", ''], state.templates.map(t => `<tr><td>${esc(t.name)}${t.id === state.settings.templateId ? "<small>Default for new documents</small>" : ''}</td><td>${t.version}</td><td>${{
     active: "Active",
-    draft: 'Koncept',
+    draft: 'Draft',
     archived: "Archived"
   }[t.status]}</td><td>${button('editTemplate:' + t.id, t.status === 'active' ? 'Edit a new version' : "Open the editor", 'small')}${button('exportTemplate:' + t.id, 'Export', 'small')}${t.status === 'active' && t.id !== state.settings.templateId ? button('archiveTemplate:' + t.id, 'Archive', 'small') : ''}${t.status === 'active' ? button('defaultTemplate:' + t.id, "Set default", 'small') : ''}</td></tr>`))}</section>`;
   if (route === 'rules') return `<section class="card"><div class="section-head"><h2>Automatic texts and checks</h2>${button('editRule:new', "+ New rule", 'primary')}</div><p class="muted">Rules are applied in priority order. Manually edited text is preserved unless you explicitly reapply the rules.</p>${table(["Name", 'Type', 'Priority', "State", ''], state.rules.map(r => `<tr><td>${esc(r.name)}</td><td>${r.kind === 'check' ? "Check" : 'Text'}</td><td>${r.priority || 0}</td><td>${r.enabled ? 'Enabled' : 'Disabled'}</td><td>${button('editRule:' + r.id, 'Edit', 'small')}</td></tr>`))}</section>`;
@@ -284,8 +300,9 @@ function checksPage() {
   }))}</section>`;
 }
 function settingsPage() {
-  return `<section class="card"><div class="section-head"><div><h2>Language</h2><p class="muted">The selected interface language is stored with the application data.</p></div>${select('Interface language','appLanguage',languages,state.settings.language || 'en')}</div></section>${nativeClient ? clientCard() : owner() ? deviceCard() : ''}${!nativeClient && owner() ? backupEncryptionCard() + googleDriveCard() : ''}${securityCard(owner())}<section class="card"><div class="section-head"><h2>Calculator</h2>${owner() ? button('calculatorSettings', "Set calculators", 'primary') : button('calculatorOpen', "Open the calculator")}</div><p>Standard, scientific, 3D-printing, and custom calculations with configurable fields, formulas, results, and list order.</p><p class="muted">Use the icon at the bottom left or Alt+C to open the panel above any screen. Hiding it preserves its memory in this tab.</p></section>${owner() ? `<section class="card"><div class="section-head"><h2>Appearance and readability</h2>${button('appearance', "Set appearance", 'primary')}</div><p>Interface scale, text size, light or dark theme, custom colors, and application logo.</p></section>` : ''}<section class="card"><h2>Backups and recovery</h2><p>A full backup includes documents, templates, images, fonts, checks, and history.</p><div class="folder"><span>${esc(session.backupFolder)}</span>${owner() ? button('backupFolder', "Change folder") : ''}</div><div class="form-actions">${button('backup', nativeClient ? "Backup to folder" : "Backup to server")}${button('downloadBackup', "Download backup to this device", 'primary')}${owner() ? button('restore', "Restore data from backup") + (!nativeClient ? button('restoreCloud', "Restore from Google Drive") : '') : ''}</div></section>${owner() ? `<section class="card"><div class="section-head"><h2>My data and default values</h2>${button('editSettings', 'Edit', 'primary')}</div><p>${esc(state.supplier.name || "No supplier details have been entered yet.")}</p><p class="muted">Number series, payment methods, units, filenames, default text, and custom fields.</p></section>${nativeClient ? '' : `<section class="card"><div class="section-head"><h2>Access via Home Assistant</h2>${button('roles', "Manage access")}</div><p class="muted">Your ID: ${esc(session.actor?.id)}. Authorization is checked by the server.</p></section>`}${nativeClient ? `<section class="card danger-zone"><h2>Clear this device's data</h2><p>A verified backup is mandatory before local data, managed backups, and connections are deleted. Home Assistant data remains available.</p>${button('clientClear', "Prepare backup and deletion", 'danger')}</section>` : `<section class="card danger-zone"><h2>Clear add-on data</h2><p>Deletes the database, attachments, templates, settings, history, and Fakturocel backups in managed folders. You must download the current .fakturocel file and select it again for verification.</p><p class="muted">Home Assistant full backups, Google Drive copies, other manual copies, and downloaded files must be managed separately. Deletion cannot guarantee physical overwriting of disk blocks.</p>${button('wipe', "Prepare backup and deletion", 'danger')}</section>`}` : ''}`;
+  return settingsContent(state, { tab: settingsTab, backupTab, owner: owner(), native: nativeClient });
 }
+
 function updateBulkBar() {
   const bar = $('#bulkBar'),
     count = $('#bulkCount');
@@ -309,7 +326,20 @@ function redrawDocResults() {
   }
 }
 function bindContent() {
-  if ($('[name="appLanguage"]')) $('[name="appLanguage"]').onchange = e => void job(() => save([{collection:'config',rev:configRevision,value:{supplier:state.supplier,settings:{...state.settings,language:e.target.value}}}]));
+  if ($('#settingsSearch')) {
+    const drawSearch = () => {
+      $('#settingsSearchResults').hidden = !settingsQuery;
+      $('#settingsPages').hidden = !!settingsQuery;
+      $('#settingsSearchResults').innerHTML = settingsQuery ? settingsSearchResults(settingsQuery, owner(), nativeClient) : '';
+    };
+    $('#settingsSearch').value = settingsQuery;
+    $('#settingsSearch').oninput = e => { settingsQuery = e.target.value.trim(); drawSearch(); };
+    drawSearch();
+  }
+  if ($('[name="appLanguage"]')) $('[name="appLanguage"]').onchange = e => {
+    const language = e.target.value;
+    if (language !== state.settings.language) void job(() => save([{collection:'config',rev:configRevision,value:{supplier:state.supplier,settings:{...state.settings,language}}}]));
+  };
   for (const key of ['overviewCurrency', 'checkSeverity', 'checkCompany']) if ($('[name="' + key + '"]')) $('[name="' + key + '"]').onchange = e => {
     filter[key] = e.target.value;
     if (key === 'overviewCurrency') delete filter.overviewYear;
@@ -338,11 +368,52 @@ function bindContent() {
   };
   bindDocSelections();
 }
-on('nav', async r => {
+const lastRoutes = {};
+async function navigate(r, tab = 'general', backup = 'local') {
+  const section = sectionFor(r);
+  if (!section.routes.some(([id]) => id === r) || section.owner && !owner()) return;
   if ($('#modal').innerHTML && !(await closeModal())) return;
   route = r;
+  settingsTab = owner() || !['appearance', 'devices'].includes(tab) ? tab : 'general';
+  backupTab = backup;
+  lastRoutes[section.id] = route;
   search = '';
+  settingsQuery = '';
   render();
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  const current = document.querySelector('.section-tabs [aria-current="page"]') || $('#content');
+  current?.focus({ preventScroll: true });
+  return true;
+}
+on('nav', r => navigate(r));
+on('section', id => {
+  const section = sections.find(s => s.id === id);
+  if (section) return navigate(lastRoutes[id] || section.routes[0][0]);
+});
+on('settingsTab', tab => settingsTabs.some(([id]) => id === tab) && navigate('settings', tab));
+on('backupTab', tab => ['local', 'cloud', 'restore'].includes(tab) && navigate('settings', 'backups', tab));
+on('settingJump', async index => {
+  const destination = settingDestinations[Number(index)];
+  if (!destination || destination.owner && !owner() || destination.server && nativeClient) return;
+  if (await navigate('settings', destination.tab, destination.backup || 'local')) {
+    const target = destination.anchor ? document.getElementById(destination.anchor) : $('#content');
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: 'nearest' });
+  }
+});
+on('toggleNavigation', () => {
+  const expanded = $('.workspace-sidebar').classList.toggle('navigation-open');
+  $('#navigationToggle').setAttribute('aria-expanded', String(expanded));
+});
+on('skipContent', () => $('#content')?.focus());
+document.addEventListener('keydown', e => {
+  const row = e.target.closest('[data-section-tabs]');
+  if (!row || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
+  const choices = [...row.querySelectorAll('button')], index = choices.indexOf(e.target);
+  if (index < 0) return;
+  e.preventDefault();
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? choices.length - 1 : (index + (e.key === 'ArrowRight' ? 1 : -1) + choices.length) % choices.length;
+  choices[next].focus();
 });
 on('reload', async () => {
   if ($('#modal').innerHTML && !(await confirmDialog("Load the current data and close the detailed form?"))) return;
@@ -1076,9 +1147,10 @@ on('appearance', () => {
     return media;
   }, logoUrl);
 });
-on('editSettings', () => {
+on('editSettings', section => {
   const current = configRevision;
-  formDialog("My data and settings", `<h3>Supplier</h3><div class="form-grid">${[["Title / name", 'name'], ['Street', 'street'], ["City", 'city'], ["Postal code", 'zip'], ["ID number", 'ico'], ["Tax ID", 'dic'], ["Account", 'account'], ["Bank code", 'bank'], ['IBAN', 'iban'], ['SWIFT', 'swift'], ['Phone', 'phone'], ['E-mail', 'email'], ['Web', 'web']].map(([l, k]) => field(l, 'supplier_' + k, state.supplier[k] || '')).join('')}${customForm('supplier', state.supplier.custom)}</div>${area("Footer", 'supplier_footer', state.supplier.footer)}<h3>Default values</h3><div class="form-grid">${field("Payment term (days)", 'dueDays', state.settings.dueDays, 'number', 'min="1" max="365"')}${field("Currency", 'currency', state.settings.currency)}${field("Default payment", 'payment', state.settings.payment)}${field("Invoice prefix ({YYYY} = year)", 'invoicePrefix', state.settings.invoicePrefix)}${field("Quote prefix", 'quotePrefix', state.settings.quotePrefix)}${field("Number of sequence digits", 'digits', state.settings.digits, 'number', 'min="1" max="12"')}${field("Number of backups kept (0 = all)", 'retention', state.settings.retention, 'number', 'min="0"')}</div>${field("PDF filename: {number} {company} {date} {year} {month} {day}", 'filename', state.settings.filename)}${area("Payment methods — each on a line", 'paymentMethods', state.settings.paymentMethods.join('\n'))}${area("Units — each on a line", 'units', state.settings.units.join('\n'))}${area("Hourly rates — name = amount, each on a line", 'rates', state.settings.rates.map(r => r.name + ' = ' + r.value).join('\n'))}${area("Default introduction", 'intro', state.settings.intro)}${area("Default note", 'notes', state.settings.notes)}`, v => {
+  const defaults = section === 'defaults';
+  formDialog(defaults ? 'Invoice defaults' : 'Business details', defaults ? `<div class="form-grid">${field("Payment term (days)", 'dueDays', state.settings.dueDays, 'number', 'min="1" max="365"')}${field("Currency", 'currency', state.settings.currency)}${field("Default payment", 'payment', state.settings.payment)}${field("Invoice prefix ({YYYY} = year)", 'invoicePrefix', state.settings.invoicePrefix)}${field("Quote prefix", 'quotePrefix', state.settings.quotePrefix)}${field("Number of sequence digits", 'digits', state.settings.digits, 'number', 'min="1" max="12"')}</div>${field("PDF filename: {number} {company} {date} {year} {month} {day}", 'filename', state.settings.filename)}${area("Payment methods — each on a line", 'paymentMethods', state.settings.paymentMethods.join('\n'))}${area("Units — each on a line", 'units', state.settings.units.join('\n'))}${area("Hourly rates — name = amount, each on a line", 'rates', state.settings.rates.map(r => r.name + ' = ' + r.value).join('\n'))}${area("Default introduction", 'intro', state.settings.intro)}${area("Default note", 'notes', state.settings.notes)}` : `<div class="form-grid">${[["Title / name", 'name'], ['Street', 'street'], ["City", 'city'], ["Postal code", 'zip'], ["ID number", 'ico'], ["Tax ID", 'dic'], ["Account", 'account'], ["Bank code", 'bank'], ['IBAN', 'iban'], ['SWIFT', 'swift'], ['Phone', 'phone'], ['E-mail', 'email'], ['Web', 'web']].map(([l, k]) => field(l, 'supplier_' + k, state.supplier[k] || '')).join('')}${customForm('supplier', state.supplier.custom)}</div>${area("Footer", 'supplier_footer', state.supplier.footer)}`, v => {
     const supplier = {
         ...state.supplier
       },
@@ -1088,11 +1160,11 @@ on('editSettings', () => {
     for (const [k, value] of Object.entries(v)) {
       if (k.startsWith('supplier_')) supplier[k.slice(9)] = value;else if (!k.startsWith('custom_')) settings[k] = value;
     }
-    supplier.custom = customValues(v);
-    for (const k of ['dueDays', 'digits', 'retention']) settings[k] = +v[k];
-    settings.paymentMethods = v.paymentMethods.split('\n').filter(Boolean);
-    settings.units = v.units.split('\n').filter(Boolean);
-    settings.rates = v.rates.split('\n').filter(Boolean).map(l => {
+    if (!defaults) supplier.custom = customValues(v);
+    for (const k of ['dueDays', 'digits']) if (k in v) settings[k] = +v[k];
+    if ('paymentMethods' in v) settings.paymentMethods = v.paymentMethods.split('\n').filter(Boolean);
+    if ('units' in v) settings.units = v.units.split('\n').filter(Boolean);
+    if ('rates' in v) settings.rates = v.rates.split('\n').filter(Boolean).map(l => {
       const i = l.lastIndexOf('=');
       const value = Number(l.slice(i + 1).trim().replace(',', '.'));
       if (i < 1 || !Number.isFinite(value) || value < 0) throw Error("Enter the rates in the format Name = amount.");
@@ -1110,6 +1182,10 @@ on('editSettings', () => {
       }
     }]);
   });
+});
+on('retentionSettings', () => {
+  const current = configRevision;
+  formDialog('Local backup retention', field('Number of backups kept (0 = all)', 'retention', state.settings.retention, 'number', 'min="0" step="1" required'), v => save([{ collection: 'config', rev: current, value: { supplier: state.supplier, settings: { ...state.settings, retention: Number(v.retention) } } }]));
 });
 on('backup', async () => {
   const r = await api('backup', {});
@@ -1273,7 +1349,7 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (e.key === '/' && !typing && !$('#modal').innerHTML) {
-    const input = $('#search');
+    const input = $('#settingsSearch') || $('#search');
     if (input) {
       e.preventDefault();
       input.focus();

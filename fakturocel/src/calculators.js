@@ -2,6 +2,7 @@ import { esc, showError, toast } from './ui.js';
 import { calculatorsValue, calculateFields, displayNumber } from './calculators-model.js';
 import { evaluateFormula, formulaHelp, numeric } from './formula.js';
 import './calculators.css';
+import { currentLanguage } from './i18n.js';
 const icon = '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true"><rect x="5" y="2" width="14" height="20" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M8 6h8v3H8zM8 13h2m4 0h2m-8 4h2m4 0h2" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
 let root,
   definitions = [],
@@ -104,7 +105,7 @@ export function syncCalculators(state) {
   }
   root.hidden = false;
   const next = calculatorsValue(state.settings.calculators),
-    sig = JSON.stringify(next);
+    sig = JSON.stringify([next, currentLanguage()]);
   if (sig === signature) return;
   signature = sig;
   definitions = next;

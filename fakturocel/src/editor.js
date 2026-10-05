@@ -197,9 +197,9 @@ export function openEditor(source, s, save) {
   }
   function properties() {
     const n = node();
-    $('#layers').innerHTML = [...t.nodes].reverse().map(n => `<div class="layer-row">${button('edSelect:' + n.id, `${n.locked ? '🔒 ' : ''}${esc(n.name)}${n.group ? ' · skupina' : ''}`, selected === n.id ? 'layer selected' : 'layer')}${button('edLayerLock:' + n.id, n.locked ? 'Odemknout' : 'Zamknout', 'icon')}${button('edLayerUp:' + n.id, '↑', 'icon')}</div>`).join('');
+    $('#layers').innerHTML = [...t.nodes].reverse().map(n => `<div class="layer-row">${button('edSelect:' + n.id, `${n.locked ? '🔒 ' : ''}${esc(n.name)}${n.group ? ' · group' : ''}`, selected === n.id ? 'layer selected' : 'layer')}${button('edLayerLock:' + n.id, n.locked ? 'Unlock' : 'Lock', 'icon')}${button('edLayerUp:' + n.id, '↑', 'icon')}</div>`).join('');
     if (!n) {
-      $('#properties').innerHTML = 'Vyber prvek.';
+      $('#properties').innerHTML = 'Select an element.';
       return;
     }
     const props = `${field("Element name", 'nodeName', n.name)}<div class="form-grid">${field('X (mm)', 'x', n.x, 'number', 'step="0.5"')}${field(n.anchor === 'after' ? 'Gap after block (mm)' : 'Y (mm)', 'y', n.y, 'number', 'step="0.5"')}${field("Width (mm)", 'w', n.w, 'number', 'step="0.5"')}${field("Height (mm)", 'h', n.h, 'number', 'step="0.5"')}</div>${select("Location", 'anchor', [['', "Fixed position"], ['after', "Flow after another block"]], n.anchor || '')}${n.anchor === 'after' ? select('Follows', 'after', t.nodes.filter(x => x.id !== n.id).map(x => [x.id, x.name]), n.after) : ''}${select("Display", 'repeat', [['first', "First-page content"], ['all', "All pages"], ['last', "Last page"], ['continuation', "Continuation pages"]], n.repeat || 'first')}${field('Color', 'color', n.color || '#172f35', 'color')}${select("Intentional overlay of other content", 'allowOverlap', [['false', "Disable overlay"], ['true', "Enable overlay"]], String(!!n.allowOverlap))}${field("Group (same name = joint move)", 'group', n.group || '')}${select("Element lock", 'locked', [['false', "Unlocked"], ['true', "Locked"]], String(!!n.locked))}`;

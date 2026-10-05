@@ -59,6 +59,7 @@ export async function exerciseGoogleDrive({ page, click, fill, choose, closed, a
   assert.equal(google.files[0].appProperties.batch, google.files[1].appProperties.batch);
   await click('closeModal');
   await click('backupEncryption');
+  await page.locator('#backupEncryptionForm').waitFor();
   assert.equal(await page.locator('#modal [name="download"],#modal [name="cloud"]').count(), 2);
   assert.equal(await page.locator('[name="local"]').inputValue(), 'false');
   assert.equal(await page.locator('[name="download"]').inputValue(), 'false');

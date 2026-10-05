@@ -22,7 +22,7 @@ export async function backupFiles(store, format, encrypt = false, { onProgress =
     zip.file('manifest.json', JSON.stringify({ format: 'FakturocelArchive', version: 1, encrypted: encrypt,
       createdAt: new Date().toISOString(), file: 'data.fakturocel', sha256: checksum(text) }, null, 2));
     zip.file('data.fakturocel', text);
-    zip.file('README.txt', 'Fakturocel complete application data backup\n\nRestore this ZIP in Settings and data > Restore data from backup.\nThe data file includes invoices, archived PDFs, templates, attachments, and settings.\nEncrypted data requires the recovery key from your separately stored recovery PDF.\nGoogle credentials, access PINs, and device pairings are intentionally excluded.\n');
+    zip.file('README.txt', 'Fakturocel complete application data backup\n\nRestore this ZIP in Settings > Backups and encryption > Restore and reset.\nThe data file includes invoices, archived PDFs, templates, attachments, and settings.\nEncrypted data requires the recovery key from your separately stored recovery PDF.\nGoogle credentials, access PINs, and device pairings are intentionally excluded.\n');
     files.push({ format: 'zip', extension: 'zip', mime: 'application/zip', bytes: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }, meta => onProgress(meta.percent / count, 'Compressing ZIP archive…')) });
   }
   if (format !== 'zip') {

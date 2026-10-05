@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.11.0
+
+- Replaced the long flat menu with six main sections, contextual horizontal navigation, and a collapsible mobile menu.
+- Split Settings into General, Appearance, Backups and encryption, Security and access, Connections, and Calculator.
+- Added searchable settings in English and Czech, with direct links to the relevant controls.
+- Added immediately saved encryption switches for local share, downloaded ZIP/portable, and Google Drive backups.
+- Separated business details from invoice defaults and moved retention, restoration, and deletion to their backup sections.
+- Updated light and dark workspace styling, keyboard navigation, and responsive layouts while preserving saved appearance choices and data.
+- Added browser coverage for navigation, settings persistence, encryption confirmation, localization, and mobile layout.
+
 ## 3.10.0
 
 - Added percentage progress and real cancellation for ZIP/Excel generation, downloads, and manual Google Drive backups.
