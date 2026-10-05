@@ -7,6 +7,8 @@ const PT = 72 / 25.4,
 export function validateTemplate(t, s) {
   if (!t?.name?.trim() || !Array.isArray(t.nodes) || !t.nodes.length || t.nodes.length > 500) throw Error("A template must have a name and 1 to 500 elements.");
   if (!t.page || !['width', 'height', 'bottom', 'top'].every(k => Number.isFinite(+t.page[k])) || +t.page.top + +t.page.bottom > t.page.height - 20 || t.page.width < 100 || t.page.width > 420 || t.page.height < 100 || t.page.height > 600 || t.page.bottom < 5 || t.page.top < 5) throw Error("Invalid page or margin dimensions.");
+  if (t.locale !== undefined) new Intl.NumberFormat(t.locale);
+  if (t.dateSeparator !== undefined && (typeof t.dateSeparator !== 'string' || t.dateSeparator.length > 3)) throw Error('Invalid date separator.');
   const ids = new Set(t.nodes.map(n => n.id));
   if (ids.size !== t.nodes.length) throw Error("Duplicate template element.");
   for (const n of t.nodes) {
@@ -22,6 +24,13 @@ export function validateTemplate(t, s) {
     }
     for (const r of n.runs || []) if (r.field?.startsWith('custom.') && !s.fields.some(f => f.id === r.field.slice(7))) throw Error(n.name + ": custom field no longer exists.");
     if (n.mediaId && !s.media.some(m => m.id === n.mediaId)) throw Error(n.name + ": media is missing.");
+    if (n.minY !== undefined && (!Number.isFinite(n.minY) || n.minY < 0 || n.minY > t.page.height)) throw Error('Invalid minimum position.');
+    if (n.kind === 'table') {
+      for (const key of ['paddingX', 'paddingY', 'headerHeight', 'rowHeight']) if (n[key] !== undefined && (!Number.isFinite(n[key]) || n[key] < 0 || n[key] > t.page.height - t.page.top - t.page.bottom)) throw Error('Invalid table spacing.');
+      if (n.lineHeight !== undefined && (!Number.isFinite(n.lineHeight) || n.lineHeight < 1 || n.lineHeight > 3)) throw Error('Invalid table line height.');
+      if (n.rowHeights !== undefined && (!Array.isArray(n.rowHeights) || n.rowHeights.length > 5000 || n.rowHeights.some(h => !Number.isFinite(h) || h <= 0 || h > t.page.height - t.page.top - t.page.bottom))) throw Error('Invalid table row heights.');
+      if (n.columns.some(c => n.w * c.width / n.columns.reduce((v, x) => v + +x.width, 0) <= (n.paddingX ?? 2) * 2)) throw Error('Table padding leaves no room for text.');
+    }
   }
   const visited = new Set(),
     pending = new Set();
@@ -61,7 +70,7 @@ export async function renderDocument(d, s, t, load, options = {}) {
       subset: true
     })
   };
-  for (const m of s.media.filter(m => m.mime?.includes('font') && t.nodes.some(n => n.font === m.id || (n.runs || []).some(r => r.font === m.id)))) fonts[m.id] = await pdf.embedFont(await load(m.hash), {
+  for (const m of s.media.filter(m => m.mime?.includes('font') && t.nodes.some(n => n.font === m.id || n.headerFont === m.id || (n.runs || []).some(r => r.font === m.id)))) fonts[m.id] = await pdf.embedFont(await load(m.hash), {
     subset: true
   });
   const pages = [[]],
@@ -84,7 +93,7 @@ export async function renderDocument(d, s, t, load, options = {}) {
   };
   const runsFor = (n, p = 1, count = 1) => (n.runs || []).map(r => ({
     ...r,
-    text: r.field ? fieldValue(r, d, s, p, count) : r.text || ''
+    text: r.field ? fieldValue({ locale: t.locale, dateSeparator: t.dateSeparator, ...r }, d, s, p, count) : r.text || ''
   }));
   function lines(runs, node, width) {
     const out = [[]];
@@ -224,6 +233,7 @@ export async function renderDocument(d, s, t, load, options = {}) {
     const previous = n.anchor === 'after' ? bounds[n.after] : null;
     let p = previous?.page || 0,
       y = previous ? previous.y + previous.h + n.y : n.y;
+    if (p === 0 && n.minY !== undefined) y = Math.max(y, n.minY);
     const startP = p,
       startY = y;
     if (n.kind === 'text') {
@@ -251,17 +261,18 @@ export async function renderDocument(d, s, t, load, options = {}) {
       y += pad;
     } else if (n.kind === 'table') {
       const widths = n.columns.map(c => n.w * +c.width / n.columns.reduce((a, c) => a + +c.width, 0)),
-        pad = 2,
-        lh = mm(n.size || 9) * 1.5;
+        pad = n.paddingX ?? 2,
+        padY = n.paddingY ?? 2,
+        lh = mm(n.size || 9) * (n.lineHeight ?? 1.5);
       const heading = () => {
         const heads = n.columns.map((c, i) => lines([{
           text: c.label,
           bold: true
         }], {
           ...n,
-          font: 'bold'
+          font: n.headerFont || 'bold'
         }, widths[i] - 2 * pad));
-        const h = Math.max(...heads.map(l => l.length)) * lh + 4;
+        const h = Math.max(n.headerHeight || 0, Math.max(...heads.map(l => l.length)) * lh + padY * 2);
         if (y + h > bottom) {
           p = addPage();
           y = top;
@@ -279,16 +290,22 @@ export async function renderDocument(d, s, t, load, options = {}) {
         heads.forEach((ls, i) => {
           ls.forEach((l, j) => drawLineRuns(l, {
             ...n,
-            font: 'bold'
-          }, p, x + pad, y + 2 + j * lh, widths[i] - 2 * pad));
+            font: n.headerFont || 'bold',
+            align: n.columns[i].headerAlign || n.align
+          }, p, x + pad, y + padY + j * lh, widths[i] - 2 * pad));
           x += widths[i];
         });
         y += h;
       };
       heading();
-      for (const item of d.items) {
+      for (const [itemIndex, item] of d.items.entries()) {
         const cells = n.columns.map((c, i) => {
           let v = c.key === 'total' ? money(round(item.qty * item.price), d.currency) : c.key === 'price' ? money(item.price, d.currency) : c.key.startsWith('custom.') ? item.custom?.[c.key.slice(7)] : item[c.key];
+          if (n.currencyDisplay === 'code' && ['price', 'total'].includes(c.key)) {
+            const amount = c.key === 'total' ? round(item.qty * item.price) : +item.price;
+            v = new Intl.NumberFormat(t.locale || 'cs-CZ', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 }).format(amount) + ' ' + d.currency;
+          }
+          if (c.key === 'qty' && t.locale) v = new Intl.NumberFormat(t.locale, { maximumFractionDigits: 8 }).format(+item.qty);
           return lines([{
             text: String(v ?? '')
           }], n, widths[i] - pad * 2);
@@ -296,24 +313,26 @@ export async function renderDocument(d, s, t, load, options = {}) {
         const count = Math.max(...cells.map(l => l.length));
         let row = 0;
         while (row < count) {
-          if (y + lh + 4 > bottom) {
+          const rowHeight = Math.max(n.rowHeights?.[itemIndex] ?? n.rowHeight ?? 0, lh + padY * 2);
+          if (y + rowHeight > bottom) {
             p = addPage();
             y = top;
             heading();
           }
-          let capacity = Math.floor((bottom - y - 4) / lh);
+          if (y + rowHeight > bottom) throw Error('The table header leaves no room for the row.');
+          let capacity = Math.floor((bottom - y - padY * 2) / lh);
           if (capacity < 1) throw Error("The table header leaves no room for rows.");
           const take = Math.min(capacity, count - row);
           let x = n.x;
           cells.forEach((ls, i) => {
             for (let j = 0; j < take; j++) if (ls[row + j]) drawLineRuns(ls[row + j], {
               ...n,
-              align: ['qty', 'price', 'total'].includes(n.columns[i].key) ? 'right' : 'left'
-            }, p, x + pad, y + 2 + j * lh, widths[i] - 2 * pad);
+              align: n.columns[i].align || (['qty', 'price', 'total'].includes(n.columns[i].key) ? 'right' : 'left')
+            }, p, x + pad, y + padY + j * lh, widths[i] - 2 * pad);
             x += widths[i];
           });
-          y += take * lh + 4;
-          pages[p].push({
+          y += Math.max(rowHeight, take * lh + padY * 2);
+          if (n.rowLines !== false) pages[p].push({
             kind: 'line',
             x: n.x,
             y,

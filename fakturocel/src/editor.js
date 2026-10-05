@@ -648,7 +648,7 @@ export function openEditor(source, s, save) {
   setDirty(true);
 }
 export async function exportTemplate(t, s) {
-  const mediaIds = new Set(t.nodes.flatMap(n => [n.mediaId, n.font, ...(n.runs || []).map(r => r.font)]).filter(Boolean)),
+  const mediaIds = new Set(t.nodes.flatMap(n => [n.mediaId, n.font, n.headerFont, ...(n.runs || []).map(r => r.font)]).filter(Boolean)),
     media = s.media.filter(m => mediaIds.has(m.id)),
     fields = s.fields.filter(f => JSON.stringify(t).includes('custom.' + f.id)),
     blobs = {};

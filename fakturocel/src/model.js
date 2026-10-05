@@ -481,9 +481,9 @@ export function fieldValue(run, d, s, page = 1, count = 1) {
   let v = rawField(run.field, d, s, page, count);
   if (v === null || v === undefined || v === '') return run.fallback || '';
   const format = run.format || (/^totals\./.test(run.field) ? 'money' : ['doc.date', 'doc.due'].includes(run.field) ? 'date' : 'text');
-  if (format === 'date') return dateLabel(String(v));
+  if (format === 'date') return run.dateSeparator === undefined ? dateLabel(String(v)) : String(v).split('-').reverse().join(run.dateSeparator);
   if (format === 'money') return money(v, d.currency);
-  if (format === 'number') return new Intl.NumberFormat(displayLocale(), {
+  if (format === 'number') return new Intl.NumberFormat(run.locale || displayLocale(), {
     minimumFractionDigits: run.decimals ?? 0,
     maximumFractionDigits: run.decimals ?? 2
   }).format(+v);
