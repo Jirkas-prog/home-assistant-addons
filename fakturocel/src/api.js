@@ -21,7 +21,7 @@ export async function api(route, data) {
         "X-Fakturocel-Token": session.csrf || ''
       } : {},
       body: data ? JSON.stringify(data) : undefined,
-      signal: AbortSignal.timeout(180000)
+      signal: AbortSignal.timeout(route.startsWith('google-drive/') || route.startsWith('restore/') ? 360000 : 180000)
     });
   } catch {
     throw Error("The server is not available. The edits are not yet confirmed as saved.");
@@ -33,7 +33,7 @@ export async function api(route, data) {
     throw Error("The server did not return the data. Verify login to Home Assistant.");
   }
   if (res.status === 423) window.dispatchEvent(new Event("Fakturocel-locked"));
-  if (!res.ok) throw Object.assign(Error(result.error || 'Operace selhala.'), {
+  if (!res.ok) throw Object.assign(Error(result.error || 'The operation failed.'), {
     status: res.status
   });
   return result;

@@ -31,15 +31,15 @@ const label = {
   companies: "Companies",
   activities: "Activities",
   documents: "Documents",
-  texts: 'Texty',
+  texts: 'Texts',
   worklogs: "Statements",
   templates: "Templates",
   fields: "Custom field",
   media: "Media",
-  rules: 'Pravidla',
+  rules: 'Rules',
   payments: "Payments",
-  checks: 'Kontroly',
-  views: 'Pohledy'
+  checks: 'Checks',
+  views: 'Views'
 };
 function counts(s) {
   return Object.entries(label).map(([k, l]) => `<tr><td>${l}</td><td>${s[k].length}</td></tr>`).join('');

@@ -297,7 +297,7 @@ export class SecureStore extends Store {
   async migrationPlan() {
     const all = await this.wipeFiles();
     return {
-      backups: all.filter(p => p.startsWith(this.shareRoot + path.sep)),
+      backups: this.meta('backupEncryption', {}).local === false ? [] : all.filter(p => p.startsWith(this.shareRoot + path.sep)),
       remove: all.filter(p => path.dirname(p) === this.root && (legacyName.test(path.basename(p)) || temporaryVaultName.test(path.basename(p))))
     };
   }
@@ -449,9 +449,32 @@ export class SecureStore extends Store {
       return this.status();
     });
   }
-  async backupText() {
+  backupEncryption() {
+    const c = this.meta('backupEncryption', {}), working = !!this.context;
+    return { working, local: working && c.local !== false, download: working && c.download !== false, cloud: working && c.cloud !== false };
+  }
+  async changeBackupEncryption(input, actor) {
+    return this.serial(async () => {
+      this.role(actor, 'owner');
+      if (['local', 'download', 'cloud'].some(k => typeof input[k] !== 'boolean')) throw fail(400, 'Choose encryption for each backup destination.');
+      if (!this.context && (input.local || input.download || input.cloud)) throw fail(400, 'Enable working-data encryption before enabling encrypted backups.');
+      const before = this.backupEncryption();
+      if (['local', 'download', 'cloud'].some(k => before[k] && !input[k]) && input.confirm !== 'ALLOW UNENCRYPTED BACKUPS')
+        throw fail(400, 'Confirm that unencrypted backup files can be read by other users.');
+      this.setMeta('backupEncryption', { local: input.local, download: input.download, cloud: input.cloud });
+      if (input.local && !before.local) {
+        this.setMeta('encryptionMigration', await this.migrationPlan());
+        await this.finishMigration();
+      }
+      this.tickets.clear();
+      return this.backupEncryption();
+    });
+  }
+  async backupText({ destination = 'download', encrypt } = {}) {
     const text = await super.backupText();
-    return this.context ? encryptText(text, this.context, 'backup') : text;
+    const enabled = encrypt ?? this.backupEncryption()[destination];
+    if (enabled && !this.context) throw fail(400, 'The encryption key is missing for this backup destination.');
+    return enabled ? encryptText(text, this.context, 'backup') : text;
   }
   async decryptExport(text, password, purpose = 'backup') {
     if (!isEncrypted(text)) return text;

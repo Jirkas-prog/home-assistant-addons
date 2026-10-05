@@ -8,7 +8,7 @@ import { build as viteBuild } from 'vite';
 import { build as bundle } from 'esbuild';
 import JSZip from 'jszip';
 const root = fileURLToPath(new URL('./', import.meta.url));
-export async function buildAddon(target = path.join(root, 'build', 'fakturocel'), output = path.join(root, 'build', 'Fakturocel-HomeAssistant-3.8.0.zip')) {
+export async function buildAddon(target = path.join(root, 'build', 'fakturocel'), output = path.join(root, 'build', 'Fakturocel-HomeAssistant-3.9.0.zip')) {
   await fs.mkdir(target, {
     recursive: true
   });

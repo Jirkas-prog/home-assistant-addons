@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.9.0
+
+- Added optional scheduled Google Drive backups with renewable account access, configurable interval, format, and retention.
+- Added complete ZIP archives, Excel backups, and combined ZIP+Excel downloads built from one validated application snapshot.
+- Added local and Google Drive restoration with a verified preview, revision checks, and a mandatory backup of current data.
+- Added recovery from earlier Fakturocel Drive folders after reinstalling, without changing the destination for new backups.
+- Added independently configurable encryption for local share backups, downloaded backups/Excel/templates, and Google Drive, with explicit plaintext warnings and conversion of managed local files when re-enabled.
+- Protected credentials inside encrypted server storage and excluded them from portable backups.
+- Verified uploads before pruning complete backup sets; interrupted pairs never displace a complete backup.
+- Added English and Czech backup interfaces and tests for both languages.
+- Corrected the default backup-folder fallback and remaining English export labels.
+
 ## 3.8.0
 
 - Published Fakturocel as a standalone add-on in a Home Assistant add-on repository.

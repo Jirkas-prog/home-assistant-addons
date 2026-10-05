@@ -9,10 +9,11 @@ import { fail, finishPendingWipe } from './store.mjs';
 import { SecureStore } from './secure-store.mjs';
 import { encryptText } from './encryption.mjs';
 import { unpackBackup } from '../src/model.js';
-import { exportWorkbook } from '../src/excel.js';
-import officeCrypto from 'officecrypto-tool';
 import { Access } from './access.mjs';
 import { recoveryPdf } from './recovery-pdf.mjs';
+import { GoogleDrive } from './google-drive.mjs';
+import { backupDownload, backupFiles, backupFormats } from './backup-formats.mjs';
+import { BackupRestore } from './backup-restore.mjs';
 const MAX = 320 * 1024 * 1024;
 async function body(req, limit = MAX) {
   if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw fail(415, "JSON is required.");
@@ -52,6 +53,8 @@ export async function createApp(options) {
   }
   const access = new Access(store),
     devices = new Devices(store);
+  const googleDrive = new GoogleDrive(store, options);
+  const backupRestore = new BackupRestore(store);
   let csrf = randomBytes(32).toString('hex');
   const allowed = options.allowRequest || (req => ['172.30.32.2', '::ffff:172.30.32.2'].includes(req.socket.remoteAddress));
   const server = http.createServer(async (req, res) => {
@@ -87,7 +90,12 @@ export async function createApp(options) {
         if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
         if (p === '/api/security/setup') await store.setup(input, id, name);else if (p === '/api/security/unlock') await store.unlock(input.password, id, name);else if (p === '/api/security/pin-login') await access.login(input, req, res, id, name);else if (p === '/api/security/pin-recover') await access.recover(input, req, res, id, name);else {
           access.require(req, id);
-          if (p === '/api/security/retry') await store.retryMigration(id, name);else if (p === '/api/security/change') await store.changeSecurity(input, accessActor());else if (p === '/api/security/pin') await access.change(input, accessActor(), req, res);else if (p === '/api/security/lock') access.lock(req, res);else throw fail(404, "Unknown operation.");
+          if (p === '/api/security/retry') await store.retryMigration(id, name);else if (p === '/api/security/change') {
+            if (input.enabled === false && googleDrive.config().refreshToken) throw fail(400, 'Disconnect Google Drive before disabling data encryption.');
+            googleDrive.cancel();
+            googleDrive.pending = null;
+            await store.changeSecurity(input, accessActor());
+          } else if (p === '/api/security/pin') await access.change(input, accessActor(), req, res);else if (p === '/api/security/lock') access.lock(req, res);else throw fail(404, "Unknown operation.");
         }
         if (!p.endsWith('/pin-login') && !p.endsWith('/lock')) csrf = randomBytes(32).toString('hex');
         return json(200, {
@@ -128,6 +136,21 @@ export async function createApp(options) {
         return res.end(Buffer.from(bytes));
       }
       if (req.method === 'GET' && p === '/api/devices') return json(200, devices.list(actor));
+      if (req.method === 'GET' && p === '/api/google-drive') return json(200, googleDrive.status(actor));
+      if (req.method === 'GET' && p === '/api/google-drive/files') return json(200, await googleDrive.list(actor, url.searchParams.get('folder')));
+      if (req.method === 'GET' && p === '/api/google-drive/folders') return json(200, await googleDrive.folders(actor));
+      if (req.method === 'GET' && p === '/api/backup/preferences') return json(200, { format: store.meta('backupExportFormat', 'zip'), encrypted: store.backupEncryption().download });
+      if (req.method === 'GET' && p === '/api/backup/encryption') { store.role(actor, 'owner'); return json(200, store.backupEncryption()); }
+      if (req.method === 'GET' && p === '/api/backup/export') {
+        const result = await store.serial(async () => {
+          store.role(actor, 'read');
+          const file = await backupDownload(store, url.searchParams.get('format') || store.meta('backupExportFormat', 'zip'));
+          store.role(actor, 'read');
+          return file;
+        });
+        res.writeHead(200, { 'Content-Type': result.mime, 'Content-Disposition': 'attachment; filename="Fakturocel-' + new Date().toISOString().slice(0,10) + '.' + result.extension + '"' });
+        return res.end(result.bytes);
+      }
       if (req.method === 'GET' && p === '/api/meta') return json(200, {
         revision: store.revision
       });
@@ -164,9 +187,37 @@ export async function createApp(options) {
       }
       if (req.method === 'POST' && p.startsWith('/api/')) {
         if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
-        const input = await body(req);
+        const input = await body(req, p === '/api/restore/file/preview' ? 410 * 1024 * 1024 : MAX);
         if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
         access.require(req, id);
+        if (p === '/api/google-drive/configure') return json(200, await googleDrive.configure(input, actor));
+        if (p === '/api/google-drive/connect') return json(200, await googleDrive.begin(input, actor));
+        if (p === '/api/google-drive/poll') return json(200, await googleDrive.poll(actor));
+        if (p === '/api/google-drive/backup') return json(200, await googleDrive.run(actor));
+        if (p === '/api/google-drive/disconnect') return json(200, await googleDrive.disconnect(actor));
+        if (p === '/api/backup/preferences') return json(200, await store.serial(() => {
+          store.role(actor, 'owner');
+          if (!backupFormats.has(input.format) && input.format !== 'fakturocel') throw fail(400, 'Choose ZIP, Excel, or both backup formats.');
+          store.setMeta('backupExportFormat', input.format);
+          return { format: input.format };
+        }));
+        if (p === '/api/backup/encryption') {
+          store.role(actor, 'owner');
+          googleDrive.cancel();
+          const policy = await store.changeBackupEncryption(input, actor);
+          backupRestore.clear();
+          return json(200, policy);
+        }
+        if (p === '/api/restore/file/preview') {
+          store.role(actor, 'owner');
+          if (typeof input.base64 !== 'string' || input.base64.length > 400 * 1024 * 1024 || !/^[A-Za-z0-9+/]*={0,2}$/.test(input.base64)) throw fail(400, 'Select a valid backup file.');
+          return json(200, await backupRestore.preview(Buffer.from(input.base64, 'base64'), String(input.name || '').slice(0, 200), input.password, actor));
+        }
+        if (p === '/api/restore/cloud/preview') {
+          const file = await googleDrive.download(input.id, actor, input.folderId);
+          return json(200, await backupRestore.preview(file.bytes, file.name, input.password, actor));
+        }
+        if (p === '/api/restore/file/finish') return json(200, await backupRestore.restore(input, actor));
         if (p === '/api/devices/pair') return json(200, await devices.pair(input, actor));
         if (p === '/api/devices/revoke') return json(200, await devices.revoke(input.id, actor));
         if (p === '/api/commit') return json(200, await store.commit(input, actor));
@@ -185,11 +236,7 @@ export async function createApp(options) {
         if (p === '/api/export/excel') {
           return await store.serial(async () => {
             store.role(actor);
-            const backup = await store.backupText(),
-              bytes = Buffer.from(await exportWorkbook(store.read().state, backup)),
-              output = store.context ? officeCrypto.encrypt(bytes, {
-                password: store.recoveryKey()
-              }) : bytes;
+            const [file] = await backupFiles(store, 'excel'), output = file.bytes;
             store.role(actor);
             res.writeHead(200, {
               'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -203,7 +250,7 @@ export async function createApp(options) {
           if (input.bundle?.format !== 'FakturocelTemplate') throw fail(400, "Invalid template.");
           const text = JSON.stringify(input.bundle);
           return json(200, {
-            text: store.context ? encryptText(text, store.context, 'template') : text
+            text: store.backupEncryption().download ? encryptText(text, store.context, 'template') : text
           });
         }
         if (p === '/api/import/template') {
@@ -235,7 +282,16 @@ export async function createApp(options) {
         }));
         if (p === '/api/wipe/prepare') return json(200, await store.wipePrepare(input.revision, actor));
         if (p === '/api/wipe/finish') {
-          const result = await store.wipeFinish(input, actor);
+          store.role(actor, 'owner');
+          googleDrive.wiping = true;
+          googleDrive.cancel();
+          googleDrive.pending = null;
+          let result;
+          try {
+            await googleDrive.queue;
+            result = await store.wipeFinish(input, actor);
+            backupRestore.clear();
+          } finally { googleDrive.wiping = false; }
           await devices.close();
           access.clear();
           access.cookie(req, res, null);
@@ -284,7 +340,11 @@ export async function createApp(options) {
     store,
     access,
     devices,
+    googleDrive,
+    backupRestore,
     close: async () => {
+      backupRestore.clear();
+      await googleDrive.close();
       await devices.close();
       server.closeAllConnections();
       await new Promise(r => server.close(r));
@@ -303,7 +363,7 @@ export async function start() {
   }
   const app = await createApp({
     root,
-    backupFolder: config.backup_folder || "/share/invoice/advances",
+    backupFolder: config.backup_folder || "/share/fakturocel/backups",
     shareRoot: '/share',
     webRoot: '/app/web'
   });

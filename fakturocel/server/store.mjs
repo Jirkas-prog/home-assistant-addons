@@ -231,7 +231,7 @@ export class Store {
   async backup(prefix = "Fakturocel") {
     try {
       const folder = await this.safeFolder(this.meta('backupFolder', this.initialFolder)),
-        text = await this.backupText(),
+        text = await this.backupText({ destination: 'local' }),
         name = `${prefix}-${now().replace(/[:.]/g, '-')}-${randomBytes(3).toString('hex')}.fakturocel`,
         file = path.join(folder, name);
       await atomic(file, text);

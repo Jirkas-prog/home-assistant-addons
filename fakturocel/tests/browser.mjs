@@ -15,16 +15,22 @@ const {
   createApp
 } = await import((await import('node:url')).pathToFileURL(path.join(addon, 'server.mjs')).href);
 import { unpackBackup } from '../src/model.js';
+import { readBackupFile } from '../server/backup-formats.mjs';
+import { FakeGoogle } from './google-drive-fixture.mjs';
+import { exerciseGoogleDrive } from './google-drive-browser.mjs';
 const require = createRequire(import.meta.url),
   {
     chromium
   } = require(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const root = await fs.mkdtemp(path.join(os.tmpdir(), "fakturocel-v3-browser-")),
+  google = new FakeGoogle(),
   app = await createApp({
     root: path.join(root, 'data'),
     shareRoot: path.join(root, 'share'),
     backupFolder: path.join(root, 'share', 'backups'),
     webRoot: path.join(addon, 'web'),
+    googleFetch: google.fetch,
+    googleTimer: false,
     allowRequest: r => r.socket.remoteAddress === '127.0.0.1'
   });
 await new Promise(r => app.server.listen(0, '127.0.0.1', r));
@@ -279,10 +285,12 @@ try {
   await click('nav:settings');
   const download = page.waitForEvent('download');
   await click('downloadBackup');
+  await choose('format', 'zip');
+  await click('backupExportSave');
   const backup = await download,
-    backupFile = path.join(root, "backup.fakturocel");
+    backupFile = path.join(root, "backup.zip");
   await backup.saveAs(backupFile);
-  const packed = await unpackBackup(await fs.readFile(backupFile, 'utf8'));
+  const packed = await unpackBackup(await readBackupFile(app.store, await fs.readFile(backupFile), 'backup.zip'));
   assert.equal(packed.data.documents.length, 1);
   assert.equal(packed.data.templates.length, 3);
   const excelDownload = page.waitForEvent('download');
@@ -363,6 +371,7 @@ try {
     invoice,
     progress
   });
+  await exerciseGoogleDrive({ page, click, fill, choose, closed, acceptMessage, app, google, root, progress, czech });
   assert.deepEqual(errors, []);
   assert.deepEqual(nativeDialogs, []);
   assert.equal(app.store.read().state.settings.appearance.theme, 'custom');

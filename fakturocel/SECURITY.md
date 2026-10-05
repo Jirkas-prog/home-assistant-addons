@@ -22,6 +22,18 @@ The optional 6–12 digit PIN is disabled by default and supplements Home Assist
 
 Ingress sessions use random tokens in HttpOnly, SameSite=Strict cookies, expire after 12 hours, and are invalidated by restart, PIN change, access changes, or data deletion. Failed PIN attempts receive increasing delays. The PIN and session token are never stored in `localStorage`.
 
+## Google Drive and backup containers
+
+Google OAuth client credentials and refresh tokens are stored only in encrypted vault metadata. Portable backups contain application records and assets, not Google credentials, access PINs, or device pairings. Cloud configuration and restoration require an authenticated owner and POST operations require the Ingress CSRF token. Google credentials require working-data encryption; cloud files can independently be encrypted or plaintext after an explicit acknowledgment. Disconnect the account before disabling working-data encryption.
+
+The add-on requests `drive.file` access, uses fixed Google API origins, rejects HTTP redirects, and checks resumable-upload destinations before sending a bearer token. Upload and download size and MD5 checksums verify transport completeness; the application snapshot also has a SHA-256 checksum, while encrypted data has an AES-GCM authentication tag. Retention is restricted to tagged backup sets in the active folder and only runs after a new complete set has been verified. Interrupted pairs cannot replace a complete set.
+
+Destination policies choose encryption independently for local share backups, downloaded exports, and Google Drive files. They default to encryption when working-data protection is enabled. Turning off a destination requires an explicit warning acknowledgment. The working vault and Google credentials retain their own protection. Re-enabling local protection converts existing managed plaintext backups.
+
+Encrypted ZIP is a container for AES-GCM-encrypted application data, with a readable generic manifest. Encrypted Excel protects both the workbook and its embedded complete snapshot. Plaintext destinations intentionally contain readable business data and remain readable to anyone with access to the files. Recovery PDFs and keys are never uploaded. XML import rejects document types and external entities, bounds expansion and part counts, checks encryption parameters, and requires complete backup data. Restoration uses owner-bound previews with expiration, generation and revision checks, and a mandatory backup before replacing data.
+
+Disconnection cancels active network work and deletes local credentials. Add-on data deletion also clears restoration previews and connection metadata, while Google Drive copies and the Google account's authorization remain under user control.
+
 ## Deletion
 
 Complete deletion requires an owner, a current portable-backup download, recovery-PDF download when encryption is enabled, reselection and verification of the same backup, an unchanged data revision, and the confirmation text `DELETE DATA`.

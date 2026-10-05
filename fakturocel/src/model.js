@@ -661,7 +661,7 @@ export async function migrateV2(p) {
   for (const [h, a] of Object.entries(old.attachments || {})) blobs[h] = {
     base64: a.base64,
     mime: 'application/pdf',
-    name: a.name || 'Archiv.pdf'
+    name: a.name || 'Archive.pdf'
   };
   if (p.templateBase64) {
     const hash = await hashBytes(base64Bytes(p.templateBase64));

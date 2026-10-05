@@ -1,5 +1,7 @@
 import { enhanceLists } from './list-layout.js';
 import { deviceCard } from './device-ui.js';
+import { googleDriveCard } from './google-drive-ui.js';
+import { installBackupUi, openBackupExport, restoreLocalBackup, openCloudRestore, backupEncryptionCard } from './backup-ui.js';
 import { nativeClient, client, bridge } from './client-sync.js';
 import { clientCard, clientBanner, installClientActions } from './client-ui.js';
 import { syncCalculators, showCalculator } from './calculators.js';
@@ -282,7 +284,7 @@ function checksPage() {
   }))}</section>`;
 }
 function settingsPage() {
-  return `<section class="card"><div class="section-head"><div><h2>Language</h2><p class="muted">The selected interface language is stored with the application data.</p></div>${select('Interface language','appLanguage',languages,state.settings.language || 'en')}</div></section>${nativeClient ? clientCard() : owner() ? deviceCard() : ''}${securityCard(owner())}<section class="card"><div class="section-head"><h2>Calculator</h2>${owner() ? button('calculatorSettings', "Set calculators", 'primary') : button('calculatorOpen', "Open the calculator")}</div><p>Standard, scientific, 3D-printing, and custom calculations with configurable fields, formulas, results, and list order.</p><p class="muted">Use the icon at the bottom left or Alt+C to open the panel above any screen. Hiding it preserves its memory in this tab.</p></section>${owner() ? `<section class="card"><div class="section-head"><h2>Appearance and readability</h2>${button('appearance', "Set appearance", 'primary')}</div><p>Interface scale, text size, light or dark theme, custom colors, and application logo.</p></section>` : ''}<section class="card"><h2>Backups and recovery</h2><p>A full backup includes documents, templates, images, fonts, checks, and history.</p><div class="folder"><span>${esc(session.backupFolder)}</span>${owner() ? button('backupFolder', "Change folder") : ''}</div><div class="form-actions">${button('backup', nativeClient ? "Backup to folder" : "Backup to server")}${button('downloadBackup', "Download backup to this device", 'primary')}${owner() ? button('restore', "Restore data from backup") : ''}</div></section>${owner() ? `<section class="card"><div class="section-head"><h2>My data and default values</h2>${button('editSettings', 'Edit', 'primary')}</div><p>${esc(state.supplier.name || "No supplier details have been entered yet.")}</p><p class="muted">Number series, payment methods, units, filenames, default text, and custom fields.</p></section>${nativeClient ? '' : `<section class="card"><div class="section-head"><h2>Access via Home Assistant</h2>${button('roles', "Manage access")}</div><p class="muted">Your ID: ${esc(session.actor?.id)}. Authorization is checked by the server.</p></section>`}${nativeClient ? `<section class="card danger-zone"><h2>Clear this device's data</h2><p>A verified backup is mandatory before local data, managed backups, and connections are deleted. Home Assistant data remains available.</p>${button('clientClear', "Prepare backup and deletion", 'danger')}</section>` : `<section class="card danger-zone"><h2>Clear add-on data</h2><p>Deletes the database, attachments, templates, settings, history, and Fakturocel backups in managed folders. You must download the current .fakturocel file and select it again for verification.</p><p class="muted">Home Assistant full backups, other manual copies, and downloaded files must be managed separately. Deletion cannot guarantee physical overwriting of disk blocks.</p>${button('wipe', "Prepare backup and deletion", 'danger')}</section>`}` : ''}`;
+  return `<section class="card"><div class="section-head"><div><h2>Language</h2><p class="muted">The selected interface language is stored with the application data.</p></div>${select('Interface language','appLanguage',languages,state.settings.language || 'en')}</div></section>${nativeClient ? clientCard() : owner() ? deviceCard() : ''}${!nativeClient && owner() ? backupEncryptionCard() + googleDriveCard() : ''}${securityCard(owner())}<section class="card"><div class="section-head"><h2>Calculator</h2>${owner() ? button('calculatorSettings', "Set calculators", 'primary') : button('calculatorOpen', "Open the calculator")}</div><p>Standard, scientific, 3D-printing, and custom calculations with configurable fields, formulas, results, and list order.</p><p class="muted">Use the icon at the bottom left or Alt+C to open the panel above any screen. Hiding it preserves its memory in this tab.</p></section>${owner() ? `<section class="card"><div class="section-head"><h2>Appearance and readability</h2>${button('appearance', "Set appearance", 'primary')}</div><p>Interface scale, text size, light or dark theme, custom colors, and application logo.</p></section>` : ''}<section class="card"><h2>Backups and recovery</h2><p>A full backup includes documents, templates, images, fonts, checks, and history.</p><div class="folder"><span>${esc(session.backupFolder)}</span>${owner() ? button('backupFolder', "Change folder") : ''}</div><div class="form-actions">${button('backup', nativeClient ? "Backup to folder" : "Backup to server")}${button('downloadBackup', "Download backup to this device", 'primary')}${owner() ? button('restore', "Restore data from backup") + (!nativeClient ? button('restoreCloud', "Restore from Google Drive") : '') : ''}</div></section>${owner() ? `<section class="card"><div class="section-head"><h2>My data and default values</h2>${button('editSettings', 'Edit', 'primary')}</div><p>${esc(state.supplier.name || "No supplier details have been entered yet.")}</p><p class="muted">Number series, payment methods, units, filenames, default text, and custom fields.</p></section>${nativeClient ? '' : `<section class="card"><div class="section-head"><h2>Access via Home Assistant</h2>${button('roles', "Manage access")}</div><p class="muted">Your ID: ${esc(session.actor?.id)}. Authorization is checked by the server.</p></section>`}${nativeClient ? `<section class="card danger-zone"><h2>Clear this device's data</h2><p>A verified backup is mandatory before local data, managed backups, and connections are deleted. Home Assistant data remains available.</p>${button('clientClear', "Prepare backup and deletion", 'danger')}</section>` : `<section class="card danger-zone"><h2>Clear add-on data</h2><p>Deletes the database, attachments, templates, settings, history, and Fakturocel backups in managed folders. You must download the current .fakturocel file and select it again for verification.</p><p class="muted">Home Assistant full backups, Google Drive copies, other manual copies, and downloaded files must be managed separately. Deletion cannot guarantee physical overwriting of disk blocks.</p>${button('wipe', "Prepare backup and deletion", 'danger')}</section>`}` : ''}`;
 }
 function updateBulkBar() {
   const bar = $('#bulkBar'),
@@ -736,7 +738,7 @@ on('pdfWorklogs', async () => {
 on('pdfTexts', async () => {
   const ids = [...document.querySelectorAll('#content tr[data-record-id]:not([hidden])')].map(r => r.dataset.recordId),
     rows = ids.map(id => state.texts.find(t => t.id === id)).filter(t => t && !t.archived);
-  await downloadBytes(await reportPdf("Saved texts", rows.map(t => t.name).join('\n\n'), state, loadAsset), 'Texty-' + today() + '.pdf', 'application/pdf');
+  await downloadBytes(await reportPdf("Saved texts", rows.map(t => t.name).join('\n\n'), state, loadAsset), 'Texts-' + today() + '.pdf', 'application/pdf');
 });
 on('addPayment', id => {
   const d = state.documents.find(d => d.id === id);
@@ -1116,7 +1118,8 @@ on('backup', async () => {
   if (!r.backup) throw Error(r.error);
   toast("Backup created.");
 });
-on('downloadBackup', () => downloadBackup('backup', "Fakturocel-" + today() + ".fakturocel"));
+on('downloadBackup', () => nativeClient ? downloadBackup('backup', "Fakturocel-" + today() + ".fakturocel") : openBackupExport());
+on('restoreCloud', openCloudRestore);
 on('backupFolder', () => nativeClient ? api('folder', {}).then(reload) : formDialog("Automatic backups folder", field("A subfolder in /share", 'folder', session.backupFolder), async v => {
   const r = await api('folder', {
     folder: v.folder
@@ -1127,6 +1130,7 @@ on('backupFolder', () => nativeClient ? api('folder', {}).then(reload) : formDia
   if (!r.backup) throw Error(r.error);
 }));
 on('restore', async () => {
+  if (!nativeClient) return restoreLocalBackup();
   const f = await pickFile(".fakturocel");
   if (!f) return;
   const text = await f.text();
@@ -1144,7 +1148,7 @@ on('restore', async () => {
       password
     });
   }
-  if (!(await confirmDialog(`Restore ${p.documents} documents, ${p.companies} companies a ${p.templates} templates? Current data is first backed up and then replaced.`))) return;
+  if (!(await confirmDialog(`Restore ${p.documents} documents, ${p.companies} companies and ${p.templates} templates? Current data is first backed up and then replaced.`))) return;
   adopt(await api('restore', {
     text,
     password,
@@ -1304,4 +1308,5 @@ async function showStartupProblem(e) {
   $('#app').innerHTML = `<main class="recovery"><h1>The application failed to load</h1><p>${esc(e.message)}</p>${button('reload', 'Try again')}</main>`;
   if (e.status !== 428) await showError(e, "The application failed to load");
 }
+installBackupUi(adopt);
 init();

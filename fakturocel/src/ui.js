@@ -327,7 +327,7 @@ export function validateForm(form) {
     const label = el.closest('label'),
       name = label ? [...label.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join('').trim() : el.name;
     const v = el.validity;
-    let text = v.valueMissing ? "Fill in this field." : v.badInput ? "Please enter a valid number." : v.typeMismatch ? "Enter the value in the correct format." : v.rangeUnderflow ? `The smallest allowed value is ${el.min}.` : v.rangeOverflow ? `The largest allowed value is ${el.max}.` : v.stepMismatch ? `Use the value in steps ${el.step || 1}.` : v.tooLong ? "Shorten the text." : 'Oprav hodnotu v tomto poli.';
+    let text = v.valueMissing ? "Fill in this field." : v.badInput ? "Please enter a valid number." : v.typeMismatch ? "Enter the value in the correct format." : v.rangeUnderflow ? `The smallest allowed value is ${el.min}.` : v.rangeOverflow ? `The largest allowed value is ${el.max}.` : v.stepMismatch ? `Use the value in steps ${el.step || 1}.` : v.tooLong ? "Shorten the text." : 'Correct the value in this field.';
     el.setAttribute('aria-invalid', 'true');
     const hint = document.createElement('span');
     hint.className = 'field-error';

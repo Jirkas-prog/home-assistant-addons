@@ -1,6 +1,6 @@
 # Fakturocel
 
-Fakturocel is a self-hosted invoicing add-on for Home Assistant OS. It provides invoices and quotes, PDF and encrypted Excel export, archived-document reprinting, reports, review tasks, calculators, encrypted backups, and a visual invoice-template editor.
+Fakturocel is a self-hosted invoicing add-on for Home Assistant OS. It provides invoices and quotes, PDF and encrypted Excel export, archived-document reprinting, reports, review tasks, calculators, complete ZIP/Excel backups, optional automatic Google Drive backups, local and cloud restoration, and a visual invoice-template editor.
 
 The add-on starts empty and contains no personal business data. English is the default interface language; Czech can be selected and is stored under **Settings and data → Language**.
 

@@ -53,6 +53,8 @@ export async function exerciseSecurity({
   assert(text.includes(app.store.keyId()));
   const backupDownload = page.waitForEvent('download');
   await click('downloadBackup');
+  await choose('format', 'fakturocel');
+  await click('backupExportSave');
   const backupFile = path.join(root, "encrypted.fakturocel");
   await (await backupDownload).saveAs(backupFile);
   assert(isEncrypted(await fs.readFile(backupFile, 'utf8')));

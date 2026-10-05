@@ -29,7 +29,7 @@ export async function exportWorkbook(s, backupText) {
   }, JSON.stringify(i.custom || {})]))]);
   // Formula references depend on the final row in this worksheet.
   sheets[1].rows.slice(1).forEach((row, i) => row[5].formula = `ROUND(C${i + 2}*E${i + 2},2)`);
-  for (const [key, name] of [['texts', 'Texty'], ['companies', "Companies"], ['activities', "Activities"], ['payments', "Payments"], ['worklogs', "Statements"], ['fields', "Custom field"], ['rules', 'Pravidla'], ['templates', "Templates"], ['media', "Media"], ['checks', 'Kontroly'], ['audit', 'Historie']]) {
+  for (const [key, name] of [['texts', 'Texts'], ['companies', "Companies"], ['activities', "Activities"], ['payments', "Payments"], ['worklogs', "Statements"], ['fields', "Custom field"], ['rules', 'Rules'], ['templates', "Templates"], ['media', "Media"], ['checks', 'Checks'], ['audit', 'History']]) {
     const columns = [...new Set((s[key] || []).flatMap(x => Object.keys(x)))];
     add(name, [columns, ...(s[key] || []).map(x => columns.map(k => typeof x[k] === 'object' ? JSON.stringify(x[k]) : x[k]))]);
   }

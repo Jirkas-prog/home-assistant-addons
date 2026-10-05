@@ -22,6 +22,7 @@ English is the default language. Open **Settings and data → Language** to swit
 - annual invoiced and received-payment reports separated by currency;
 - archived invoice PDFs that can be downloaded or printed again;
 - PDF and encrypted Excel export;
+- optional scheduled Google Drive backups, complete ZIP/Excel backup formats, and local or cloud restoration;
 - a visual invoice-template editor with variables, images, rulers, guides, snapping, layers, locks, and undo history;
 - application themes, text scaling, custom colors, branding, and contrast checks;
 - standard, scientific, 3D-printing, and user-defined formula calculators;
@@ -38,9 +39,13 @@ Create a portable backup before upgrading. Keep the `fakturocel` slug and update
 
 The default automatic-backup folder is `/share/fakturocel/backups`. Change it on the add-on **Configuration** tab or in the application. Settings also provide actions to create a server backup, download a portable `.fakturocel` backup, restore data, and download a recovery-key PDF.
 
-Encryption is enabled by default. The add-on generates and remembers a data key, so normal startup does not ask for a password. Store the recovery-key PDF separately from backups. The PDF contains the complete secret key and is intentionally readable.
+Working-data encryption and encryption for every backup destination are enabled by default. The add-on generates and remembers a data key, so normal startup does not ask for a password. Store the recovery-key PDF separately from backups. The PDF contains the complete secret key and is intentionally readable.
 
-Encryption can be disabled after a warning and explicit confirmation. Unencrypted files can be read by other users who can access the same storage. An optional 6–12 digit application PIN is available and is disabled by default.
+Open **Encryption by location** to choose protection separately for local `/share` backups, downloaded backups/Excel/templates, and Google Drive files. For example, keep local and downloaded files encrypted while uploading unencrypted ZIP and Excel backups to Google Drive. Turning off a destination requires confirmation that other users with access to that storage can read the files. These destination choices are specific to the installation and are not transferred in portable backups.
+
+Turning local backup encryption back on converts existing managed plaintext `.fakturocel` files using the remembered key. Existing downloaded and cloud copies keep their original protection. Invoice PDFs sent to customers remain readable; archived copies follow working-data protection. Working-data encryption is configured under **Data security**. Enable it to create encrypted backups or protect Google credentials.
+
+Working-data encryption can be disabled after a warning and explicit confirmation. Unencrypted files can be read by other users who can access the same storage. An optional 6–12 digit application PIN is available and is disabled by default.
 
 Complete data deletion requires all of these steps:
 
@@ -50,6 +55,39 @@ Complete data deletion requires all of these steps:
 4. type `DELETE DATA` and confirm.
 
 The procedure removes Fakturocel's managed data, keys, PIN, pairings, and managed automatic backups. It does not delete Home Assistant full backups or files copied elsewhere.
+
+### Complete backup formats
+
+**Download backup to this device** offers **Complete ZIP archive**, **Excel with complete application data**, or **ZIP and Excel**. The selection is remembered. A combined download is one ZIP containing both files. Scheduled Google Drive backups use the same choices and upload the two files separately when both formats are selected.
+
+All formats derive from one validated database snapshot. They include business settings, records, templates, images, fonts, archived invoice PDFs, attachments, and history. Excel restores from its **Application backup** worksheet, including its binary attachments; ordinary summary worksheets are readable views, not an alternative source of truth. Editing a summary worksheet does not change the restored snapshot. Files without the complete backup worksheet are rejected rather than silently losing documents or attachments.
+
+When encryption is enabled for the selected destination, ZIP contains AES-GCM-encrypted `data.fakturocel`; its generic manifest and recovery instructions remain readable. Encrypted Excel workbooks use Office encryption and contain the same encrypted snapshot. Use the separately stored recovery-key PDF to open encrypted Excel or restore on another installation. Older backups require the key that was active when they were created; keep the earlier recovery PDFs after rotating keys.
+
+The add-on uses one in-memory SQLite database with an encrypted durable snapshot. File-format selection does not create parallel databases. Automatic local recovery files still use the `.fakturocel` format after each confirmed change. They remain available when Google Drive is unavailable.
+
+**Restore data from backup** accepts `.zip`, `.xlsx`, and existing `.fakturocel` files. It validates checksums, records, and attachments, shows the number of documents, companies, templates, and attachments, and requires confirmation before replacement. A mandatory local backup of the current state is made first. A change to current records after the preview prevents restoration until a new preview is generated.
+
+### Google Drive automatic backups
+
+Open **Settings and data → Google Drive backups**. The Google connection requires working-data encryption to protect account credentials. Cloud backup files have a separate encryption choice and automatic uploads are off until explicitly enabled. The add-on's scheduler runs independently of the browser; the add-on must be running and have internet access.
+
+1. Create or select your own project in Google Cloud and enable the **Google Drive API**.
+2. Configure **Google Auth Platform** branding and audience. If the project is in Testing mode, add your account as a test user.
+3. Create an OAuth client of type **TVs and Limited Input devices** for the headless add-on. Copy the client ID and client secret into Fakturocel.
+4. Select **Connect Google account**, open the returned Google authorization URL in another tab, and enter the displayed code. Keep the Fakturocel window open until connection is confirmed.
+5. Select ZIP, Excel, or both, an interval from 1 to 720 hours, and 2 to 100 backup sets to retain. Enable **Automatic backups** and save. The default interval is 24 hours and the default retention is 10 sets.
+6. Set **Encryption by location → Google Drive backup files** to the desired protection. Encryption is the default; unencrypted files require explicit acknowledgment. Use **Back up to Google Drive now** to verify the first backup. Save the recovery-key PDF separately when files are encrypted.
+
+The `drive.file` scope grants access to files created or selected for this application, rather than all Drive files. Each connection creates a visible Fakturocel folder. Uploads use resumable-upload sessions and verify the returned file size and checksum. Both selected formats must be uploaded and verified before a set is marked complete or old copies are pruned. A failed upload records its error and retries with increasing delays, up to one hour.
+
+Google may expire refresh tokens after seven days for projects with an external audience and Testing publishing status. Set an appropriate production publishing status for unattended backups. See Google's [device authorization guide](https://developers.google.com/identity/protocols/oauth2/limited-input-device), [refresh-token expiration rules](https://developers.google.com/identity/protocols/oauth2#expiration), and [Drive permission documentation](https://developers.google.com/workspace/drive/api/guides/api-specific-auth).
+
+**Restore from Google Drive** lists files in the selected Fakturocel folder, downloads and verifies the chosen file, and uses the same preview and restoration checks as local files. After reinstalling, connect using the same Google Cloud project and account, select the older Fakturocel folder, and supply its recovery key. Selecting an older folder for restoration does not change the destination or retention rules for new backups.
+
+Client credentials and refresh tokens are encrypted in the add-on vault. They are not returned to the browser after setup and are excluded from portable backups, alongside access PINs and device pairings. Reconnect Google after restoring to a fresh installation. Disconnect Google Drive before disabling encryption.
+
+Disconnecting or clearing add-on data stops uploads and removes the locally stored connection. It keeps existing Google Drive copies. Remove cloud copies directly in Google Drive when required, and manage the application's granted access in your Google account separately. Retention deletes only tagged backups in the active installation's folder.
 
 ## Invoice templates and calculators
 
