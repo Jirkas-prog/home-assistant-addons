@@ -17,6 +17,10 @@ test('compact invoice layout preserves variable values, row spacing and last-pag
   assert(text.includes('14.09.2026'));assert(text.includes('1\u00a0500 CZK'));assert(text.includes('12,34 CZK'));assert(text.includes('2,5'));assert(text.includes('1\u00a0530,85 CZK'));
   const first=r.pages[0].find(o=>o.text==='First'),second=r.pages[0].find(o=>o.text==='Second');
   assert(Math.abs(second.y-first.y-6)<.001);assert.equal(r.bounds.items.y,50);assert(!r.pages[0].some(o=>o.kind==='line'));
+  t.nodes[1].currencyDecimals=0;
+  const whole=await renderDocument(d,s,t,load),wholeText=whole.pages[0].filter(o=>o.kind==='text').map(o=>o.text).join('');
+  assert(wholeText.includes('12 CZK'));assert(!wholeText.includes('12,34 CZK'));assert(wholeText.includes('1\u00a0530,85 CZK'));
+  t.nodes[1].currencyDecimals=-1;assert.throws(()=>validateTemplate(t,s),/decimal/);delete t.nodes[1].currencyDecimals;
   d.items=Array.from({length:95},(_,i)=>({name:'Row '+i+' '+'long description '.repeat(i===4?80:1),qty:1,unit:'pcs',price:10}));
   const long=await renderDocument(d,s,t,load);
   assert(long.pages.length>1);assert.deepEqual(long.errors,[]);

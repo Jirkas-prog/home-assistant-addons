@@ -26,6 +26,7 @@ export function validateTemplate(t, s) {
     if (n.mediaId && !s.media.some(m => m.id === n.mediaId)) throw Error(n.name + ": media is missing.");
     if (n.minY !== undefined && (!Number.isFinite(n.minY) || n.minY < 0 || n.minY > t.page.height)) throw Error('Invalid minimum position.');
     if (n.kind === 'table') {
+      if (n.currencyDecimals !== undefined && (!Number.isInteger(n.currencyDecimals) || n.currencyDecimals < 0 || n.currencyDecimals > 6)) throw Error('Invalid currency decimal count.');
       for (const key of ['paddingX', 'paddingY', 'headerHeight', 'rowHeight']) if (n[key] !== undefined && (!Number.isFinite(n[key]) || n[key] < 0 || n[key] > t.page.height - t.page.top - t.page.bottom)) throw Error('Invalid table spacing.');
       if (n.lineHeight !== undefined && (!Number.isFinite(n.lineHeight) || n.lineHeight < 1 || n.lineHeight > 3)) throw Error('Invalid table line height.');
       if (n.rowHeights !== undefined && (!Array.isArray(n.rowHeights) || n.rowHeights.length > 5000 || n.rowHeights.some(h => !Number.isFinite(h) || h <= 0 || h > t.page.height - t.page.top - t.page.bottom))) throw Error('Invalid table row heights.');
@@ -303,7 +304,7 @@ export async function renderDocument(d, s, t, load, options = {}) {
           let v = c.key === 'total' ? money(round(item.qty * item.price), d.currency) : c.key === 'price' ? money(item.price, d.currency) : c.key.startsWith('custom.') ? item.custom?.[c.key.slice(7)] : item[c.key];
           if (n.currencyDisplay === 'code' && ['price', 'total'].includes(c.key)) {
             const amount = c.key === 'total' ? round(item.qty * item.price) : +item.price;
-            v = new Intl.NumberFormat(t.locale || 'cs-CZ', { minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 }).format(amount) + ' ' + d.currency;
+            v = new Intl.NumberFormat(t.locale || 'cs-CZ', { minimumFractionDigits: n.currencyDecimals ?? (Number.isInteger(amount) ? 0 : 2), maximumFractionDigits: n.currencyDecimals ?? 2 }).format(amount) + ' ' + d.currency;
           }
           if (c.key === 'qty' && t.locale) v = new Intl.NumberFormat(t.locale, { maximumFractionDigits: 8 }).format(+item.qty);
           return lines([{
