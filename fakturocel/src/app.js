@@ -1159,7 +1159,9 @@ on('restore', async () => {
 });
 on('excel', async () => {
   const bytes = await exportExcel();
+  if (!bytes) return;
   await downloadBytes(bytes, "Fakturocel-" + today() + '.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  toast('Unencrypted Excel sent for download. It includes complete application data for restoration.');
 });
 on('roles', () => {
   const roles = clone(session.roles);
@@ -1182,9 +1184,9 @@ on('wipe', async () => {
     revision
   });
   let downloaded = false,
-    recoveryDownloaded = !session.security?.encrypted,
+    recoveryDownloaded = !prepared.requiresRecovery,
     verifiedText = '';
-  modal("Backup and complete data wipe", `<div class="notice">When finished, the application will be empty. Other open devices will not be able to return the old data by normal saving.</div><ol><li>Download the current backup to your device.</li><li>Select the file you just downloaded. The application will verify that it contains current data.</li><li>Type <strong>DELETE DATA</strong> and confirm deletion.</li></ol><p>Backup size: ${(prepared.bytes / 1024 / 1024).toFixed(2)} MB</p>${button('wipeDownload', "1. Compulsory download backup", 'primary')}${session.security?.encrypted ? "<p>Before deleting it is mandatory to download PDF with key as well. Without it, the backup cannot be restored.</p>" + button('wipeRecovery', "Must download PDF with key") : ''}<label>2. Select the downloaded file .fakturocel<input type="file" id="wipeFile" accept=".fakturocel" disabled></label><p id="wipeVerified" role="status"></p>${field("3. Confirmation text", 'wipeConfirm', '', 'text', 'autocomplete="off"')}<details><summary>Files on the server to delete (${prepared.files.length})</summary><ul>${prepared.files.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details><p class="muted">This step does not delete backups of the entire Home Assistant and other copies outside of the specified storage. Another device's browser may have old content open until the page is refreshed.</p><button type="button" data-action="wipeFinish" id="wipeFinish" class="danger" disabled>Clear add-on data</button>`);
+  modal("Backup and complete data wipe", `<div class="notice">When finished, the application will be empty. Other open devices will not be able to return the old data by normal saving.</div><ol><li>Download the current backup to your device.</li><li>Select the file you just downloaded. The application will verify that it contains current data.</li><li>Type <strong>DELETE DATA</strong> and confirm deletion.</li></ol><p>Backup size: ${(prepared.bytes / 1024 / 1024).toFixed(2)} MB</p>${button('wipeDownload', "1. Compulsory download backup", 'primary')}${prepared.requiresRecovery ? "<p>Before deleting it is mandatory to download PDF with key as well. Without it, the backup cannot be restored.</p>" + button('wipeRecovery', "Must download PDF with key") : ''}<label>2. Select the downloaded file .fakturocel<input type="file" id="wipeFile" accept=".fakturocel" disabled></label><p id="wipeVerified" role="status"></p>${field("3. Confirmation text", 'wipeConfirm', '', 'text', 'autocomplete="off"')}<details><summary>Files on the server to delete (${prepared.files.length})</summary><ul>${prepared.files.map(p => `<li>${esc(p)}</li>`).join('')}</ul></details><p class="muted">This step does not delete backups of the entire Home Assistant and other copies outside of the specified storage. Another device's browser may have old content open until the page is refreshed.</p><button type="button" data-action="wipeFinish" id="wipeFinish" class="danger" disabled>Clear add-on data</button>`);
   const update = () => {
     $('#wipeFinish').disabled = !verifiedText || $('[name="wipeConfirm"]').value !== "DELETE DATA";
   };
@@ -1237,7 +1239,7 @@ on('wipe', async () => {
 });
 on('shortcuts', () => modal("Keyboard shortcuts", `<p>All forms can be accessed with the Tab key and the buttons can be confirmed with Enter or the spacebar.</p>${table(['Shortcut', 'Action'], [['Ctrl + N', "New invoice"], ['Ctrl + S', "Save the currently open form or draft"], ['Ctrl + Z / Ctrl + Y', "Back / again in the template editor"], ['Alt + C', "Open or hide the calculator"], ['Alt + ←', "Back or close the window"], ['/', "Go to search"], ["Alt + 1 to 9", "Go to the main parts of the application"], ['? or F1', "This help"]].map(([key, value]) => `<tr><td><kbd>${esc(key)}</kbd></td><td>${esc(value)}</td></tr>`))}${button('closeModal', "Back", 'primary')}`));
 document.addEventListener('keydown', e => {
-  if (e.defaultPrevented || $('#messageOverlay') || e.target.closest('#calculator-root')) return;
+  if (e.defaultPrevented || $('#messageOverlay') || $('#operationOverlay') || e.target.closest('#calculator-root')) return;
   const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName) || e.target.isContentEditable;
   if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     const target = $('[data-action="docSave"], [data-action="formSave"], [data-action="edSave"], [data-action="appearanceSave"]');

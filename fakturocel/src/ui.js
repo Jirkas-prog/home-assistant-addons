@@ -1,4 +1,5 @@
 import { esc } from './escape.js';
+import { tr } from './i18n.js';
 export { esc };
 export const $ = s => document.querySelector(s);
 export const button = (action, label, cls = 'secondary') => `<button type="button" data-action="${esc(action)}" class="${cls}">${label}</button>`;
@@ -17,7 +18,10 @@ let busy = false,
   closeHook = null,
   modalOpener = null,
   messageTail = Promise.resolve(),
-  toastTimer;
+  toastTimer,
+  toastVersion = 0,
+  activityText = '',
+  activityResult = '';
 export let modalDirty = false;
 export const setDirty = v => {
   modalDirty = v;
@@ -148,19 +152,83 @@ export function toast(text, error = false) {
     return;
   }
   clearTimeout(toastTimer);
+  toastVersion++;
   $('#toast').textContent = text;
   $('#toast').className = 'show';
   toastTimer = setTimeout(() => $('#toast').className = '', 9000);
 }
-export function job(fn) {
+export function activity(text, result = '') {
+  activityText = text;
+  if (result) activityResult = result;
+  const status = $('#activityStatus span');
+  if (status) status.textContent = tr(text);
+}
+export async function withProgress(title, work, { cancelMessage = 'Export cancelled. No file was downloaded; application data is unchanged.' } = {}) {
+  const controller = new AbortController(), previous = document.activeElement;
+  const overlay = document.createElement('div');
+  overlay.id = 'operationOverlay';
+  overlay.className = 'message-veil';
+  overlay.innerHTML = `<section class="message-dialog" role="dialog" aria-modal="true" aria-labelledby="operationTitle"><h2 id="operationTitle">${esc(title)}</h2><p id="operationStage" role="status" aria-live="polite">Preparing complete application snapshot…</p><div class="operation-progress"><progress max="100" value="0" aria-label="File generation progress"></progress><strong data-no-translate>0%</strong></div><p>Keep this window open until the file is sent for download. Cancelling stops generation without changing application data.</p><div class="form-actions"><button type="button" id="operationCancel">Cancel</button></div></section>`;
+  const covered = [...document.body.children].filter(el => el.tagName !== 'SCRIPT').map(el => ({ el, inert: el.inert }));
+  covered.forEach(({ el }) => el.inert = true);
+  document.body.append(overlay);
+  const cancel = overlay.querySelector('button');
+  let percent = 0;
+  const update = (value, stage) => {
+    percent = Math.max(percent, Math.min(100, Math.floor(value)));
+    overlay.querySelector('progress').value = percent;
+    overlay.querySelector('strong').textContent = percent + '%';
+    overlay.querySelector('progress').setAttribute('aria-valuetext', percent + '%');
+    overlay.querySelector('#operationStage').textContent = tr(controller.signal.aborted ? 'Cancelling the export…' : stage);
+  };
+  const abort = () => {
+    if (cancel.disabled) return;
+    controller.abort();
+    cancel.disabled = true;
+    update(percent, 'Cancelling the export…');
+  };
+  cancel.onclick = abort;
+  overlay.onkeydown = e => {
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); abort(); }
+    else trapFocus(e, overlay);
+  };
+  cancel.focus({ preventScroll: true });
+  try { return await work({ signal: controller.signal, update }); }
+  catch (error) {
+    if (!controller.signal.aborted || error.cancellationUnconfirmed) throw error;
+    toast(cancelMessage);
+    return null;
+  } finally {
+    overlay.remove();
+    covered.forEach(({ el, inert }) => el.inert = inert);
+    previous?.isConnected && previous.focus({ preventScroll: true });
+  }
+}
+export function job(fn, label = 'Working…') {
   const task = activeJob.then(async () => {
     busy = true;
+    activityText = label;
+    activityResult = '';
+    const version = toastVersion;
+    const indicator = document.createElement('div');
+    indicator.id = 'activityStatus';
+    indicator.setAttribute('role', 'status');
+    indicator.setAttribute('aria-live', 'polite');
+    indicator.innerHTML = '<progress aria-label="Operation in progress"></progress><span></span>';
+    const timer = setTimeout(() => { document.body.append(indicator); activity(activityText); }, 400);
     document.body.classList.add('busy');
     try {
-      return await fn();
+      const result = await fn();
+      if (indicator.isConnected && activityResult && toastVersion === version) toast(activityResult);
+      return result;
     } catch (e) {
+      clearTimeout(timer);
+      indicator.remove();
       await showError(e);
     } finally {
+      clearTimeout(timer);
+      indicator.remove();
       busy = false;
       document.body.classList.remove('busy');
     }
@@ -287,7 +355,7 @@ document.addEventListener('click', e => {
   e.preventDefault();
   const a = b.dataset.action,
     fn = actions.get(a) || actions.get(a.split(':')[0]);
-  if (fn) void job(() => fn(a.slice(a.indexOf(':') + 1), b, e));
+  if (fn) void job(() => fn(a.slice(a.indexOf(':') + 1), b, e), b.textContent.trim());
 });
 document.addEventListener('input', e => {
   if (e.target.closest('#modal form')) modalDirty = true;
@@ -297,7 +365,7 @@ document.addEventListener('input', e => {
 document.addEventListener('invalid', e => e.preventDefault(), true);
 document.addEventListener('submit', e => e.preventDefault());
 document.addEventListener('keydown', e => {
-  if ($('#messageOverlay') || e.target.closest('#calculator-root')) return;
+  if ($('#messageOverlay') || $('#operationOverlay') || e.target.closest('#calculator-root')) return;
   const root = $('#modal .dialog');
   if (!root) return;
   if (e.key === 'Escape') {

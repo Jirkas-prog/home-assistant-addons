@@ -297,7 +297,7 @@ export class SecureStore extends Store {
   async migrationPlan() {
     const all = await this.wipeFiles();
     return {
-      backups: this.meta('backupEncryption', {}).local === false ? [] : all.filter(p => p.startsWith(this.shareRoot + path.sep)),
+      backups: this.meta('backupEncryption', {}).local === true ? all.filter(p => p.startsWith(this.shareRoot + path.sep)) : [],
       remove: all.filter(p => path.dirname(p) === this.root && (legacyName.test(path.basename(p)) || temporaryVaultName.test(path.basename(p))))
     };
   }
@@ -451,7 +451,7 @@ export class SecureStore extends Store {
   }
   backupEncryption() {
     const c = this.meta('backupEncryption', {}), working = !!this.context;
-    return { working, local: working && c.local !== false, download: working && c.download !== false, cloud: working && c.cloud !== false };
+    return { working, local: working && c.local === true, download: working && c.download === true, cloud: working && c.cloud === true };
   }
   async changeBackupEncryption(input, actor) {
     return this.serial(async () => {
@@ -470,9 +470,9 @@ export class SecureStore extends Store {
       return this.backupEncryption();
     });
   }
-  async backupText({ destination = 'download', encrypt } = {}) {
+  async backupText({ destination = 'internal', encrypt } = {}) {
     const text = await super.backupText();
-    const enabled = encrypt ?? this.backupEncryption()[destination];
+    const enabled = encrypt ?? (destination === 'internal' ? !!this.context : this.backupEncryption()[destination]);
     if (enabled && !this.context) throw fail(400, 'The encryption key is missing for this backup destination.');
     return enabled ? encryptText(text, this.context, 'backup') : text;
   }
@@ -526,7 +526,7 @@ export class SecureStore extends Store {
     this.role(actor, 'owner');
     const t = this.ticket(input.ticket, actor);
     if (!t.downloaded || input.text !== t.text) throw fail(400, "Select the backup you just downloaded.");
-    if (this.context && !t.recoveryDownloaded) throw fail(400, "Also download PDF with recovery key before deleting.");
+    if (isEncrypted(t.text) && !t.recoveryDownloaded) throw fail(400, "Also download PDF with recovery key before deleting.");
     await this.decodeBackup(input.text);
     t.verified = true;
     return {
@@ -544,7 +544,7 @@ export class SecureStore extends Store {
       if (this.revision !== t.revision) throw fail(409, "The data has changed since the backup was downloaded. Download a new backup.");
       const files = await this.wipeFiles();
       if (JSON.stringify(files.sort()) !== JSON.stringify([...t.files].sort())) throw fail(409, "The list of data to delete has changed. Start again.");
-      if (this.context && !t.verified) throw fail(400, "Before deleting, download the recovery key and verify the downloaded backup.");
+      if (!t.verified) throw fail(400, 'Before deleting, verify the downloaded backup.');
       const marker = path.join(this.root, 'wipe-pending.json');
       await atomic(marker, JSON.stringify({
         files

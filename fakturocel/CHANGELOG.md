@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.10.0
+
+- Added percentage progress and real cancellation for ZIP/Excel generation, downloads, and manual Google Drive backups.
+- Moved manual export generation into cancellable workers so normal data operations remain responsive.
+- Added visible activity stages and completion messages for saving, restoring, security changes, and attachments.
+- Kept independent optional encryption for share, ZIP/portable downloads, and Google Drive with Off defaults. Templates and direct Excel downloads are always unencrypted.
+- Preserved restoration of older encrypted files, private credential protection, and mandatory downloaded-backup verification before deletion.
+- Clarified optional encryption settings and added English/Czech progress, cancellation, and restoration tests.
+
 ## 3.9.0
 
 - Added optional scheduled Google Drive backups with renewable account access, configurable interval, format, and retention.

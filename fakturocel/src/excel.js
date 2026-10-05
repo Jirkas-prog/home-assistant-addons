@@ -12,7 +12,8 @@ const col = i => {
   for (i++; i; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s;
   return s;
 };
-export async function exportWorkbook(s, backupText) {
+export async function exportWorkbook(s, backupText, onProgress = () => {}) {
+  onProgress(0, 'Preparing Excel worksheets…');
   const zip = new JSZip(),
     sheets = [];
   function add(name, rows) {
@@ -40,10 +41,13 @@ export async function exportWorkbook(s, backupText) {
   }).map(([k, v]) => [k, JSON.stringify(v)])]);
   add("Application backup", [["Part", "Complete backup including attachments and templates"], ...(backupText.match(/[\s\S]{1,30000}/gu) || []).map((x, i) => [i + 1, x])]);
   const NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-  sheets.forEach((s, i) => zip.file(`xl/worksheets/sheet${i + 1}.xml`, `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="${NS}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="50" width="24" customWidth="1"/></cols><sheetData>${s.rows.map((r, j) => `<row r="${j + 1}">${r.map((v, k) => {
+  sheets.forEach((s, i) => {
+    onProgress(5 + 30 * i / sheets.length, 'Writing Excel worksheets…');
+    zip.file(`xl/worksheets/sheet${i + 1}.xml`, `<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="${NS}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" state="frozen"/></sheetView></sheetViews><cols><col min="1" max="50" width="24" customWidth="1"/></cols><sheetData>${s.rows.map((r, j) => `<row r="${j + 1}">${r.map((v, k) => {
     const ref = col(k) + (j + 1);
     return typeof v === 'number' ? `<c r="${ref}"><v>${v}</v></c>` : v?.formula ? `<c r="${ref}"><f>${escape(v.formula)}</f><v>${v.value}</v></c>` : `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${escape(v)}</t></is></c>`;
-  }).join('')}</row>`).join('')}</sheetData></worksheet>`));
+  }).join('')}</row>`).join('')}</sheetData></worksheet>`);
+  });
   zip.file('xl/workbook.xml', `<?xml version="1.0"?><workbook xmlns="${NS}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((s, i) => `<sheet name="${escape(s.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets><calcPr fullCalcOnLoad="1"/></workbook>`);
   const REL = 'http://schemas.openxmlformats.org/package/2006/relationships';
   zip.file('xl/_rels/workbook.xml.rels', `<Relationships xmlns="${REL}">${sheets.map((s, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}</Relationships>`);
@@ -52,5 +56,5 @@ export async function exportWorkbook(s, backupText) {
   return zip.generateAsync({
     type: 'uint8array',
     compression: 'DEFLATE'
-  });
+  }, meta => onProgress(35 + meta.percent * .65, 'Compressing Excel file…'));
 }

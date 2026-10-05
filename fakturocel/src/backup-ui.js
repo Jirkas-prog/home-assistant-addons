@@ -1,23 +1,25 @@
 import { $, button, select, esc, modal, on, values, toast, confirmDialog, requestPassword, closeModal, setDirty } from './ui.js';
-import { api, base, downloadBytes, pickFile, session } from './api.js';
+import { api, downloadBytes, pickFile, session } from './api.js';
+import { generateDownload } from './export-ui.js';
 import { bytesBase64 } from './model.js';
 import { locale, tr } from './i18n.js';
 
 export const formatOptions = [['zip', 'Complete ZIP archive'], ['excel', 'Excel with complete application data'], ['both', 'ZIP and Excel']];
-export const backupEncryptionCard = () => `<section class="card"><div class="section-head"><h2>Encryption by location</h2>${button('backupEncryption', 'Set encryption by location', 'primary')}</div><p>Choose encryption separately for local share backups, downloaded files, and Google Drive. Working-data security is managed under Data security.</p></section>`;
+export const backupEncryptionCard = () => `<section class="card"><div class="section-head"><h2>Encryption by location</h2>${button('backupEncryption', 'Set encryption by location', 'primary')}</div><p>Optionally encrypt local share backups, downloaded ZIP and portable backups, and Google Drive files. New installations default to Off. Templates and direct Excel downloads are always unencrypted.</p></section>`;
 let applyRestore;
 export function installBackupUi(apply) { applyRestore = apply; }
 
 export async function openBackupExport() {
   const prefs = await api('backup/preferences');
-  modal('Download application backup', `<p>All formats contain a complete, verified application snapshot including archived PDFs, templates, and attachments. Excel summary tables are for review; restoration uses the complete Application backup sheet.</p><p class="${prefs.encrypted ? 'muted' : 'notice'}">${prefs.encrypted ? 'This download will be encrypted.' : 'This download will be unencrypted. Anyone with access to the file can read its data.'}</p><form id="backupExportForm">${select('Backup format', 'format', [...formatOptions, ['fakturocel', 'Portable Fakturocel file']], prefs.format)}<div class="form-actions">${button('backupExportSave', 'Download selected backup', 'primary')}</div></form><p>ZIP and Excel downloads are packaged together in one ZIP file. Keep your recovery-key PDF separately.</p>`);
+  modal('Download application backup', `<p>All formats contain a complete, verified application snapshot including archived PDFs, templates, and attachments. Excel summary tables are for review; restoration uses the complete Application backup sheet.</p><p>${prefs.encrypted ? 'ZIP and portable downloads are encrypted using your saved setting. Keep the recovery-key PDF separately.' : 'ZIP and portable downloads are unencrypted. Encryption is optional in Settings.'}</p><p>Downloaded Excel is always unencrypted, including its complete backup sheet. Templates are also unencrypted.</p><form id="backupExportForm">${select('Backup format', 'format', [...formatOptions, ['fakturocel', 'Portable Fakturocel file']], prefs.format)}<div class="form-actions">${button('backupExportSave', 'Download selected backup', 'primary')}</div></form><p>ZIP and Excel downloads are packaged together in one ZIP file.</p>`);
 }
 on('backupExportSave', async () => {
   const { format } = values('#backupExportForm');
   if (session.actor?.role === 'owner') await api('backup/preferences', { format });
-  const res = await fetch(new URL('api/backup/export?format=' + encodeURIComponent(format), base), { cache: 'no-store', signal: AbortSignal.timeout(360000) });
-  if (!res.ok) { const error = await res.json(); throw Error(error.error || 'The backup could not be exported.'); }
-  await downloadBytes(new Uint8Array(await res.arrayBuffer()), 'Fakturocel-' + new Date().toISOString().slice(0,10) + (format === 'excel' ? '.xlsx' : format === 'fakturocel' ? '.fakturocel' : '.zip'), res.headers.get('Content-Type'));
+  setDirty(false);
+  const file = await generateDownload(format);
+  if (!file) return;
+  await downloadBytes(file.bytes, 'Fakturocel-' + new Date().toISOString().slice(0,10) + (format === 'excel' ? '.xlsx' : format === 'fakturocel' ? '.fakturocel' : '.zip'), file.mime);
   setDirty(false);
   await closeModal();
   toast('Backup sent for download.');
@@ -63,7 +65,7 @@ on('cloudRestore', id => restorePreview('restore/cloud/preview', { id, folderId:
 on('backupEncryption', async () => {
   const policy = await api('backup/encryption');
   const options = [['true', 'On'], ['false', 'Off']];
-  modal('Encryption by location', `<p>${policy.working ? 'Working data and Google credentials remain encrypted in the private add-on vault.' : 'Working-data encryption is off. Enable it under Data security before enabling encrypted backups or connecting Google.'}</p><form id="backupEncryptionForm">${select('Local backups in /share', 'local', options, String(policy.local))}${select('Downloaded backups, Excel, and templates', 'download', options, String(policy.download))}${select('Google Drive backup files', 'cloud', options, String(policy.cloud))}<div class="form-actions">${button('backupEncryptionSave', 'Save encryption locations', 'primary')}</div></form><p>Unencrypted files can be read by anyone who can access that storage. Turning encryption on for local backups also converts existing managed plaintext backups. Existing downloaded and Google Drive files keep their original protection.</p><p>Customer invoice PDFs remain readable so recipients can open them. Their archived copies follow working-data encryption.</p>`);
+  modal('Encryption by location', `<p>Each destination can use encryption independently. All three default to Off on new installations. Saved choices are preserved.</p><form id="backupEncryptionForm">${select('Local backups in /share', 'local', options, String(policy.local))}${select('Downloaded ZIP and portable backups', 'download', options, String(policy.download))}${select('Google Drive backup files', 'cloud', options, String(policy.cloud))}<div class="form-actions">${button('backupEncryptionSave', 'Save encryption locations', 'primary')}</div></form><p>Downloaded Excel is always unencrypted, including its complete backup sheet. Templates are also unencrypted.</p><p>Turning encryption on also protects existing managed backups in the local share folder. Older encrypted exports can still be restored with their original key.</p>`);
   on('backupEncryptionSave', async () => {
     const form = values('#backupEncryptionForm');
     const data = Object.fromEntries(['local', 'download', 'cloud'].map(k => [k, form[k] === 'true']));

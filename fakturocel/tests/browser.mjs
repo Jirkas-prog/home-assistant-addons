@@ -18,6 +18,7 @@ import { unpackBackup } from '../src/model.js';
 import { readBackupFile } from '../server/backup-formats.mjs';
 import { FakeGoogle } from './google-drive-fixture.mjs';
 import { exerciseGoogleDrive } from './google-drive-browser.mjs';
+import { exerciseExports } from './export-browser.mjs';
 const require = createRequire(import.meta.url),
   {
     chromium
@@ -371,6 +372,7 @@ try {
     invoice,
     progress
   });
+  await exerciseExports({ page, click, choose, closed, acceptMessage, app, root, progress, czech });
   await exerciseGoogleDrive({ page, click, fill, choose, closed, acceptMessage, app, google, root, progress, czech });
   assert.deepEqual(errors, []);
   assert.deepEqual(nativeDialogs, []);

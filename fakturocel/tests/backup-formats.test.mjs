@@ -24,7 +24,7 @@ async function fixture(t, encrypted = true) {
 test('ZIP, Excel, and combined downloads reproduce one complete snapshot and preserve binary attachments', async t => {
   const store = await fixture(t);
   store.putBlob(Buffer.from('SYNTHETIC_ATTACHMENT_BYTES'), 'application/pdf', 'synthetic.pdf');
-  const files = await backupFiles(store, 'both');
+  const files = await backupFiles(store, 'both', true);
   assert.deepEqual(files.map(f => f.extension), ['zip', 'xlsx']);
   const recovered = [];
   for (const f of files) {
@@ -69,8 +69,8 @@ test('Excel saved with shared strings remains restorable; missing, duplicated, a
 test('foreign encrypted Excel requires the recovery key and hostile archive or XML content fails before data replacement', async t => {
   const store = await fixture(t);
   const key = store.recoveryKey();
-  const [excel] = await backupFiles(store, 'excel');
-  const [archive] = await backupFiles(store, 'zip');
+  const [excel] = await backupFiles(store, 'excel', true);
+  const [archive] = await backupFiles(store, 'zip', true);
   await store.changeSecurity({ enabled: true, rotate: true }, actor);
   await assert.rejects(readBackupFile(store, excel.bytes, 'foreign.xlsx'), e => e.status === 422);
   const restored = await unpackBackup(await readBackupFile(store, excel.bytes, 'foreign.xlsx', key));
@@ -101,7 +101,7 @@ test('restore previews require the same owner and revision, create a prior backu
   await assert.rejects(restore.restore({ ticket: current.ticket, revision: current.revision }, actor), /preview expired/);
 });
 
-test('local and download encryption are independent; enabling local protection converts existing managed files', async t => {
+test('share encryption protects local files while exports stay readable; enabling protection converts existing managed files', async t => {
   const store = await fixture(t);
   await store.changeBackupEncryption({ local: false, download: true, cloud: true, confirm: 'ALLOW UNENCRYPTED BACKUPS' }, actor);
   const local = await store.backup();

@@ -273,12 +273,10 @@ try {
   await click('excel');
   await idle();
   const excel = await fs.readFile(exports.findLast(f => f.endsWith('.xlsx')));
-  assert(officeCrypto.isEncrypted(excel));
-  const zip = await JSZip.loadAsync(await officeCrypto.decrypt(excel, {
-    password: key
-  }));
+  assert(!officeCrypto.isEncrypted(excel));
+  const zip = await JSZip.loadAsync(excel);
   assert((await zip.file('xl/workbook.xml').async('string')).includes("Application backup"));
-  progress('Offline issuance, PDF, payment, templates, logo, encrypted backup/key PDF and encrypted Excel pass');
+  progress('Offline issuance, PDF, payment, templates, logo, encrypted local backup/key PDF and readable Excel pass');
   await click('nav:templates');
   await click('exportTemplate:' + template.id);
   await click('confirmTemplateExport');

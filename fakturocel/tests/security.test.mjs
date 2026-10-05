@@ -40,6 +40,7 @@ async function enable(store) {
     enabled: true,
     password
   }, actor.id, actor.name);
+  await store.changeBackupEncryption({ local: true, download: false, cloud: false }, actor);
 }
 async function seed(store) {
   await store.commit({
@@ -223,7 +224,7 @@ test('encrypted wipe still requires exact downloaded backup and returns to empty
     const prepared = await store.wipePrepare(store.revision, actor),
       ticket = store.ticket(prepared.ticket, actor),
       text = ticket.text;
-    assert(isEncrypted(text));
+    assert(!isEncrypted(text));
     await assert.rejects(store.wipeFinish({
       ticket: prepared.ticket,
       backupText: text,
@@ -240,11 +241,6 @@ test('encrypted wipe still requires exact downloaded backup and returns to empty
       backupText: text,
       confirm: "DELETE DATA"
     }, actor), /verify/);
-    await assert.rejects(store.verifyWipeBackup({
-      ticket: prepared.ticket,
-      text
-    }, actor), /PDF/);
-    ticket.recoveryDownloaded = true;
     await store.verifyWipeBackup({
       ticket: prepared.ticket,
       text
@@ -257,9 +253,7 @@ test('encrypted wipe still requires exact downloaded backup and returns to empty
     assert(!store.status().configured);
     const remainingFiles = await files(options.root);
     assert.equal(remainingFiles.length, 0, remainingFiles.join(', '));
-    const r = await unlockEnvelope(text, password, 'backup');
-    assert.equal((await unpackBackup(r.content)).data.companies.length, 1);
-    r.context.key.fill(0);
+    assert.equal((await unpackBackup(text)).data.companies.length, 1);
   } finally {
     store.close();
   }
@@ -333,7 +327,7 @@ test('corrupt storage never silently starts with an empty replacement', async ()
     next.close();
   }
 });
-test('HTTP gate, encrypted Excel and template export, restore password and lock keep data protected', async () => {
+test('HTTP gate, readable manual Excel and template export, restore password and lock keep data protected', async () => {
   const f = await fixture();
   f.store.close();
   const app = await createApp({
@@ -367,15 +361,12 @@ test('HTTP gate, encrypted Excel and template export, restore password and lock 
     })).status, 200);
     csrf = (await (await get('security')).json()).csrf;
     await seed(app.store);
+    await app.store.changeBackupEncryption({ local: false, download: true, cloud: false }, actor);
     const excel = await post('export/excel', {});
     assert.equal(excel.status, 200);
     const bytes = Buffer.from(await excel.arrayBuffer());
-    assert(officeCrypto.isEncrypted(bytes));
-    assert(!bytes.includes(Buffer.from('PRIVATE_SECURITY_MARKER')));
-    const plain = await officeCrypto.decrypt(bytes, {
-        password: app.store.recoveryKey()
-      }),
-      zip = await JSZip.loadAsync(plain);
+    assert(!officeCrypto.isEncrypted(bytes));
+    const zip = await JSZip.loadAsync(bytes);
     assert(await zip.file('xl/workbook.xml').async('string'));
     const template = {
       format: 'FakturocelTemplate',
@@ -387,16 +378,18 @@ test('HTTP gate, encrypted Excel and template export, restore password and lock 
     const sealed = await (await post('export/template', {
       bundle: template
     })).json();
-    assert(isEncrypted(sealed.text));
-    assert(!sealed.text.includes('PRIVATE_SECURITY_MARKER'));
+    assert(!isEncrypted(sealed.text));
+    assert.equal(sealed.text, JSON.stringify(template));
     const imported = await (await post('import/template', {
       text: sealed.text,
       password
     })).json();
     assert.deepEqual(imported.bundle, template);
+    await app.store.changeBackupEncryption({ local: false, download: false, cloud: false, confirm: 'ALLOW UNENCRYPTED BACKUPS' }, actor);
     const backup = await (await get('backup')).text();
+    assert(!isEncrypted(backup));
     assert.equal((await post('restore/preview', {
-      text: backup,
+      text: await app.store.backupText(),
       password: 'wrong'
     })).status, 400);
     const preview = await (await post('restore/preview', {

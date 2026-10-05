@@ -8,7 +8,7 @@ import { build as viteBuild } from 'vite';
 import { build as bundle } from 'esbuild';
 import JSZip from 'jszip';
 const root = fileURLToPath(new URL('./', import.meta.url));
-export async function buildAddon(target = path.join(root, 'build', 'fakturocel'), output = path.join(root, 'build', 'Fakturocel-HomeAssistant-3.9.0.zip')) {
+export async function buildAddon(target = path.join(root, 'build', 'fakturocel'), output = path.join(root, 'build', 'Fakturocel-HomeAssistant-3.10.0.zip')) {
   await fs.mkdir(target, {
     recursive: true
   });
@@ -38,7 +38,7 @@ export async function buildAddon(target = path.join(root, 'build', 'fakturocel')
     }
   });
   await bundle({
-    entryPoints: [path.join(root, 'server', 'server.mjs')],
+    entryPoints: [path.join(root, 'server', 'server.mjs'), path.join(root, 'server', 'export-worker.mjs')],
     bundle: true,
     platform: 'node',
     target: 'node24',
@@ -46,7 +46,8 @@ export async function buildAddon(target = path.join(root, 'build', 'fakturocel')
     banner: {
       js: "import {createRequire as createNodeRequire} from 'node:module'; const require=createNodeRequire(import.meta.url);"
     },
-    outfile: path.join(target, 'server.mjs')
+    outdir: target,
+    outExtension: { '.js': '.mjs' }
   });
   for (const name of ['config.yaml', 'DOCS.md', 'CHANGELOG.md', 'TESTING.md', 'SECURITY.md', 'icon.png', 'logo.png']) await fs.copyFile(path.join(root, name), path.join(target, name));
   await fs.copyFile(path.join(root, 'Dockerfile.release'), path.join(target, 'Dockerfile'));

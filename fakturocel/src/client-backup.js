@@ -181,6 +181,6 @@ export async function clientKeyPdf(context, loadAsset) {
   para("4. The application works without a server. You can optionally connect the Home Assistant in the settings. When transferring data, first check the overview and possible conflicts.");
   line("What the backup contains", 17, true);
   para("Documents, drafts, companies, templates, media and other work data including locally saved edits. Issued invoices include archived PDF and can be reprinted at any time.");
-  para("The device pairing key and login are not transferred in this backup. With this key, you can also open Excel created by this application. Each device and HA add-on uses its own key.");
+  para("The device pairing key and login are not transferred in this backup. Use this key for older encrypted Excel files. New Excel and template exports are unencrypted. Each device and HA add-on uses its own key.");
   return pdf.save();
 }

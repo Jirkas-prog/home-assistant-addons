@@ -102,7 +102,7 @@ export async function recoveryPdf({
     color: green,
     gap: 50
   });
-  paragraph("Copy the entire line including FC3- and dashes. To open Excel, keep capital letters as well. This key applies to files created under the specified ID.", {
+  paragraph("Copy the entire line including FC3- and dashes. Keep capital letters when restoring older encrypted files. This key applies to files created under the specified ID.", {
     size: 10
   });
   y -= 13;
@@ -121,7 +121,7 @@ export async function recoveryPdf({
     font: bold,
     gap: 26
   });
-  paragraph("Encrypted Excel exported by version 3.3+ can be opened by entering the entire key as a password. You can restore templates by importing templates with the same key.", {
+  paragraph("Older encrypted Excel and templates can be opened with their original key. Templates and direct Excel downloads are unencrypted. This key restores share, ZIP, portable, and cloud backups where encryption was enabled.", {
     size: 10,
     gap: 15
   });

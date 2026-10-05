@@ -493,7 +493,7 @@ export class LocalClient {
         if (input.bundle?.format !== 'FakturocelTemplate') throw Error("Invalid template.");
         const text = JSON.stringify(input.bundle);
         return {
-          text: this.cache.encrypted === false ? text : await encryptClientBackup(text, this.cache.exportContext, 'template')
+          text
         };
       }
       if (route === 'import/template') return {

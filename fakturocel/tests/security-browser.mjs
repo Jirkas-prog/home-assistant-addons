@@ -57,16 +57,14 @@ export async function exerciseSecurity({
   await click('backupExportSave');
   const backupFile = path.join(root, "encrypted.fakturocel");
   await (await backupDownload).saveAs(backupFile);
-  assert(isEncrypted(await fs.readFile(backupFile, 'utf8')));
+  assert(!isEncrypted(await fs.readFile(backupFile, 'utf8')));
   const excelDownload = page.waitForEvent('download');
   await click('excel');
-  const excelFile = path.join(root, 'encrypted.xlsx');
+  const excelFile = path.join(root, 'readable.xlsx');
   await (await excelDownload).saveAs(excelFile);
   const excel = await fs.readFile(excelFile);
-  assert(officeCrypto.isEncrypted(excel));
-  assert((await officeCrypto.decrypt(excel, {
-    password: key
-  })).length > 0);
+  assert(!officeCrypto.isEncrypted(excel));
+  assert(excel.subarray(0, 2).equals(Buffer.from('PK')));
   await page.reload();
   await click('nav:settings');
   await page.getByRole('heading', {
@@ -164,10 +162,9 @@ export async function exerciseSecurity({
   await click('wipeDownload');
   const wipeFile = path.join(root, "encrypted-wipe.fakturocel");
   await (await wipeDownload).saveAs(wipeFile);
-  assert(await page.locator('#wipeFile').isDisabled());
-  const wipeRecovery = page.waitForEvent('download');
-  await click('wipeRecovery');
-  await (await wipeRecovery).saveAs(path.join(root, 'key-before-wipe.pdf'));
+  assert(!(await page.locator('#wipeFile').isDisabled()));
+  assert.equal(await page.locator('[data-action=wipeRecovery]').count(), 0);
+  assert(!isEncrypted(await fs.readFile(wipeFile, 'utf8')));
   await page.locator('#wipeFile').setInputFiles(wipeFile);
   await page.getByText("Backup verified. Contains current data.").waitFor();
   await fill('wipeConfirm', "DELETE DATA");
@@ -184,12 +181,11 @@ export async function exerciseSecurity({
   const chooser = page.waitForEvent('filechooser');
   await click('restore');
   await (await chooser).setFiles(wipeFile);
-  await enterPassword(nextKey);
   await acceptMessage();
   await page.waitForFunction(() => document.querySelector('#toast')?.textContent === "Backup has been restored.");
   assert.equal(app.store.read().state.documents[0].pdfHash, invoice.pdfHash);
   const final = await unlockEnvelope(await app.store.backupText(), app.store.recoveryKey(), 'backup');
   assert.equal((await unpackBackup(final.content)).data.documents.length, 1);
   final.context.key.fill(0);
-  progress('PASS automatic key, recovery PDF with full key, independent PIN, encrypted Excel, restore, warning and mandatory PDF+backup before wipe');
+  progress('PASS automatic key, recovery PDF with full key, independent PIN, readable Excel, restore, warning and mandatory readable verified backup before wipe');
 }

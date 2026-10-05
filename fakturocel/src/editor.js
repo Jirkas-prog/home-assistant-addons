@@ -668,5 +668,5 @@ export async function exportTemplate(t, s) {
   const sealed = await api('export/template', {
     bundle: result
   });
-  await downloadBytes(new TextEncoder().encode(sealed.text), 'Sablona-' + t.name.replace(/[^\w-]/g, '_') + ".fakturocel-template");
+  await downloadBytes(new TextEncoder().encode(sealed.text), 'Template-' + t.name.replace(/[^\w-]/g, '_') + ".fakturocel-template");
 }

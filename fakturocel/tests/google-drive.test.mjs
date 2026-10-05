@@ -18,6 +18,7 @@ async function fixture(t, encrypted = true) {
   let store = new SecureStore(options);
   await store.init();
   await store.setup({ enabled: encrypted, confirm: 'DISABLE ENCRYPTION' }, actor.id, actor.name);
+  if (encrypted) await store.changeBackupEncryption({ local: true, download: false, cloud: false }, actor);
   const google = new FakeGoogle();
   let time = Date.now();
   let drive = new GoogleDrive(store, { googleFetch: google.fetch, googleNow: () => time, googleTimer: false });
@@ -59,7 +60,7 @@ test('Google authorization respects polling, slow-down, expiration, and encrypti
   assert.equal(plain.google.calls.length, 0);
 });
 
-test('encrypted scheduled backups survive restart, restore all data, omit credentials, and retain only owned copies', async t => {
+test('readable scheduled backups survive restart, restore all data, omit credentials, and retain only owned copies', async t => {
   const f = await fixture(t);
   await f.store.commit({ ops: [{ collection: 'companies', id: 'sample', rev: 0, value: { id: 'sample', name: 'PRIVATE_CLOUD_TEST_MARKER' } }] }, actor);
   await connect(f);
@@ -160,7 +161,6 @@ test('cloud backups can be plaintext while share backups and Google credentials 
   const f = await fixture(t);
   await f.store.commit({ ops: [{ collection: 'companies', id: 'plain-cloud', rev: 0, value: { id: 'plain-cloud', name: 'PER_DESTINATION_TEST_MARKER' } }] }, actor);
   await connect(f);
-  await assert.rejects(f.store.changeBackupEncryption({ local: true, download: true, cloud: false }, actor), /Confirm/);
   await f.store.changeBackupEncryption({ local: true, download: true, cloud: false, confirm: 'ALLOW UNENCRYPTED BACKUPS' }, actor);
   await f.drive.configure({ enabled: true, intervalHours: 24, keepCount: 2, format: 'both' }, actor);
   await f.drive.run(actor);

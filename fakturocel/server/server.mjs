@@ -14,6 +14,7 @@ import { recoveryPdf } from './recovery-pdf.mjs';
 import { GoogleDrive } from './google-drive.mjs';
 import { backupDownload, backupFiles, backupFormats } from './backup-formats.mjs';
 import { BackupRestore } from './backup-restore.mjs';
+import { ExportJobs } from './export-jobs.mjs';
 const MAX = 320 * 1024 * 1024;
 async function body(req, limit = MAX) {
   if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || '')) throw fail(415, "JSON is required.");
@@ -55,6 +56,7 @@ export async function createApp(options) {
     devices = new Devices(store);
   const googleDrive = new GoogleDrive(store, options);
   const backupRestore = new BackupRestore(store);
+  const exports = new ExportJobs(store);
   let csrf = randomBytes(32).toString('hex');
   const allowed = options.allowRequest || (req => ['172.30.32.2', '::ffff:172.30.32.2'].includes(req.socket.remoteAddress));
   const server = http.createServer(async (req, res) => {
@@ -94,6 +96,7 @@ export async function createApp(options) {
             if (input.enabled === false && googleDrive.config().refreshToken) throw fail(400, 'Disconnect Google Drive before disabling data encryption.');
             googleDrive.cancel();
             googleDrive.pending = null;
+            await exports.clear();
             await store.changeSecurity(input, accessActor());
           } else if (p === '/api/security/pin') await access.change(input, accessActor(), req, res);else if (p === '/api/security/lock') access.lock(req, res);else throw fail(404, "Unknown operation.");
         }
@@ -141,6 +144,13 @@ export async function createApp(options) {
       if (req.method === 'GET' && p === '/api/google-drive/folders') return json(200, await googleDrive.folders(actor));
       if (req.method === 'GET' && p === '/api/backup/preferences') return json(200, { format: store.meta('backupExportFormat', 'zip'), encrypted: store.backupEncryption().download });
       if (req.method === 'GET' && p === '/api/backup/encryption') { store.role(actor, 'owner'); return json(200, store.backupEncryption()); }
+      if (req.method === 'GET' && p === '/api/export/status') return json(200, exports.status(url.searchParams.get('id'), actor));
+      if (req.method === 'GET' && p === '/api/export/result') {
+        const file = exports.take(url.searchParams.get('id'), actor);
+        res.writeHead(200, { 'Content-Type': file.mime, 'Content-Length': file.bytes.length,
+          'Content-Disposition': 'attachment; filename="Fakturocel-' + new Date().toISOString().slice(0,10) + '.' + file.extension + '"' });
+        return res.end(file.bytes);
+      }
       if (req.method === 'GET' && p === '/api/backup/export') {
         const result = await store.serial(async () => {
           store.role(actor, 'read');
@@ -157,7 +167,7 @@ export async function createApp(options) {
       if (req.method === 'GET' && p === '/api/backup') {
         const text = await store.serial(() => {
           access.require(req, id);
-          return store.backupText();
+          return store.backupText({ destination: 'download' });
         });
         access.require(req, id);
         res.writeHead(200, {
@@ -190,10 +200,23 @@ export async function createApp(options) {
         const input = await body(req, p === '/api/restore/file/preview' ? 410 * 1024 * 1024 : MAX);
         if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
         access.require(req, id);
+        if (p === '/api/export/start') {
+          const job = await exports.start(input.format, actor);
+          if (res.destroyed) { await exports.cancel(job.id, actor); return; }
+          res.once('close', () => { if (!res.writableFinished) void exports.remove(job.id); });
+          return json(200, job);
+        }
+        if (p === '/api/export/cancel') { await exports.cancel(input.id, actor); return json(200, { cancelled: true }); }
         if (p === '/api/google-drive/configure') return json(200, await googleDrive.configure(input, actor));
         if (p === '/api/google-drive/connect') return json(200, await googleDrive.begin(input, actor));
         if (p === '/api/google-drive/poll') return json(200, await googleDrive.poll(actor));
         if (p === '/api/google-drive/backup') return json(200, await googleDrive.run(actor));
+        if (p === '/api/google-drive/cancel') {
+          store.role(actor, 'owner');
+          googleDrive.cancel();
+          await googleDrive.queue;
+          return json(200, { cancelled: true });
+        }
         if (p === '/api/google-drive/disconnect') return json(200, await googleDrive.disconnect(actor));
         if (p === '/api/backup/preferences') return json(200, await store.serial(() => {
           store.role(actor, 'owner');
@@ -205,6 +228,7 @@ export async function createApp(options) {
           store.role(actor, 'owner');
           googleDrive.cancel();
           const policy = await store.changeBackupEncryption(input, actor);
+          await exports.clear();
           backupRestore.clear();
           return json(200, policy);
         }
@@ -236,7 +260,7 @@ export async function createApp(options) {
         if (p === '/api/export/excel') {
           return await store.serial(async () => {
             store.role(actor);
-            const [file] = await backupFiles(store, 'excel'), output = file.bytes;
+            const [file] = await backupFiles(store, 'excel', false), output = file.bytes;
             store.role(actor);
             res.writeHead(200, {
               'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -250,7 +274,7 @@ export async function createApp(options) {
           if (input.bundle?.format !== 'FakturocelTemplate') throw fail(400, "Invalid template.");
           const text = JSON.stringify(input.bundle);
           return json(200, {
-            text: store.backupEncryption().download ? encryptText(text, store.context, 'template') : text
+            text
           });
         }
         if (p === '/api/import/template') {
@@ -284,6 +308,7 @@ export async function createApp(options) {
         if (p === '/api/wipe/finish') {
           store.role(actor, 'owner');
           googleDrive.wiping = true;
+          await exports.clear();
           googleDrive.cancel();
           googleDrive.pending = null;
           let result;
@@ -342,8 +367,10 @@ export async function createApp(options) {
     devices,
     googleDrive,
     backupRestore,
+    exports,
     close: async () => {
       backupRestore.clear();
+      await exports.close();
       await googleDrive.close();
       await devices.close();
       server.closeAllConnections();

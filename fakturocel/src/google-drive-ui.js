@@ -1,9 +1,9 @@
-import { $, button, field, select, esc, modal, on, values, validateForm, confirmDialog, toast, setDirty, showError } from './ui.js';
+import { $, button, field, select, esc, modal, on, values, validateForm, confirmDialog, toast, setDirty, showError, withProgress } from './ui.js';
 import { api } from './api.js';
 import { locale, tr } from './i18n.js';
 import { formatOptions, openCloudRestore } from './backup-ui.js';
 
-export const googleDriveCard = () => `<section class="card"><div class="section-head"><h2>Google Drive backups</h2>${button('googleDrive', 'Set up Google Drive', 'primary')}</div><p>Automatically upload full backups, even when the browser is closed. Choose the interval, format, retention, and encryption by location.</p></section>`;
+export const googleDriveCard = () => `<section class="card"><div class="section-head"><h2>Google Drive backups</h2>${button('googleDrive', 'Set up Google Drive', 'primary')}</div><p>Automatically upload full backups, even when the browser is closed. Choose the interval, format, and retention.</p></section>`;
 let timer, polling = false, version = 0;
 const stopPolling = () => { clearTimeout(timer); timer = null; };
 const date = value => value ? esc(new Date(value).toLocaleString(locale())) : esc(tr('Never'));
@@ -12,7 +12,7 @@ function draw(info) {
   stopPolling();
   version++;
   const auth = info.authorization;
-  modal('Google Drive backups', `<p class="${info.encryptBackups ? 'muted' : 'notice'}">${info.encryptBackups ? 'Cloud backups use the encrypted .fakturocel format. Keep your recovery-key PDF separately.' : 'New Google Drive backups are unencrypted. Anyone with access to those files can read them.'}</p><div class="form-actions">${button('backupEncryption', 'Set encryption by location')}</div>
+  modal('Google Drive backups', `<p>${info.encryptBackups ? 'Cloud backup encryption is On. Keep the recovery-key PDF separately.' : 'Cloud backup encryption is Off. Enable it in Encryption by location if needed.'}</p><div class="form-actions">${button('backupEncryption', 'Set encryption by location')}</div>
     <p><strong>${info.connected ? 'Google account connected.' : 'No Google account connected.'}</strong></p>
     ${info.folderId ? `<p><a href="https://drive.google.com/drive/folders/${esc(info.folderId)}" target="_blank" rel="noopener noreferrer">Open backup folder in Google Drive</a></p>` : ''}
     <dl><dt>Last successful backup</dt><dd>${date(info.lastSuccess)}</dd><dt>Last attempt</dt><dd>${date(info.lastAttempt)}</dd>${info.nextAttempt ? `<dt>Next retry</dt><dd>${date(info.nextAttempt)}</dd>` : ''}</dl>
@@ -55,7 +55,35 @@ on('googleDriveConnect', async () => {
   draw(await api('google-drive/connect', values('#googleDriveConnect')));
 });
 on('googleDriveBackup', async () => {
-  draw(await api('google-drive/backup', {}));
+  const info = await withProgress('Backing up to Google Drive', async ({ signal, update }) => {
+    let finished = false, cancellation;
+    const cancel = () => {
+      cancellation = api('google-drive/cancel', {}, { signal: AbortSignal.timeout(15000) });
+      void cancellation.catch(() => {});
+    };
+    signal.addEventListener('abort', cancel, { once: true });
+    const upload = api('google-drive/backup', {}).finally(() => { finished = true; });
+    // Attach a handler immediately while the progress loop is polling.
+    void upload.catch(() => {});
+    try {
+      while (!finished && !signal.aborted) {
+        const status = await api('google-drive');
+        if (status.busy && status.progress) update(status.progress.percent, status.progress.stage);
+        await new Promise(resolve => setTimeout(resolve, 200));
+      }
+      const result = await upload;
+      signal.throwIfAborted();
+      update(100, 'Cloud backup uploaded and verified.');
+      return result;
+    } finally {
+      signal.removeEventListener('abort', cancel);
+      if (cancellation) try { await cancellation; } catch {
+        throw Object.assign(Error('Cancellation could not be confirmed by the server. Check the cloud backup status.'), { cancellationUnconfirmed: true });
+      }
+    }
+  }, { cancelMessage: 'Cloud backup cancelled. Application data is unchanged. Incomplete cloud copies are cleaned up after the next successful backup.' });
+  if (!info) return;
+  draw(info);
   toast('The backup was uploaded and verified in Google Drive.');
 });
 on('googleDriveRestore', openCloudRestore);

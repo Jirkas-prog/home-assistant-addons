@@ -462,7 +462,7 @@ export class Store {
     return this.serial(async () => {
       this.role(actor, 'owner');
       if (rev !== this.revision) throw fail(409, "Dates have changed.");
-      const text = await this.backupText(),
+      const text = await this.backupText({ destination: 'download' }),
         ticket = randomBytes(32).toString('hex');
       const files = await this.wipeFiles();
       for (const [key, value] of this.tickets) if (value.expires < Date.now() || value.actor === actor.id) this.tickets.delete(key);
@@ -479,7 +479,8 @@ export class Store {
         ticket,
         sha256: hash(text),
         files: files.map(x => x),
-        bytes: Buffer.byteLength(text)
+        bytes: Buffer.byteLength(text),
+        requiresRecovery: Boolean(this.backupEncryption?.().download)
       };
     });
   }

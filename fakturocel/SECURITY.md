@@ -14,7 +14,7 @@ The `FakturocelEncrypted` version 1 envelope uses AES-256-GCM with a random 96-b
 
 The recovery string begins with `FC3-` and contains the complete data key. The recovery PDF is generated in memory only when the owner requests it, uses `Cache-Control: no-store`, and is intentionally readable. Store it separately from encrypted backups.
 
-Encrypted Excel export uses Office Agile encryption with AES-256, SHA-512, 100,000 iterations, and integrity verification. Customer invoice PDFs remain readable; their archived bytes are protected inside application storage.
+Templates and direct Excel downloads are always unencrypted. Their complete snapshot can be restored without a key. ZIP/portable downloads and Google Drive backups follow their optional encryption policies, which default to Off. Older encrypted Excel remains supported for restoration. Customer invoice PDFs remain readable; their archived bytes follow application storage protection.
 
 ## Optional PIN and sessions
 
@@ -24,19 +24,19 @@ Ingress sessions use random tokens in HttpOnly, SameSite=Strict cookies, expire 
 
 ## Google Drive and backup containers
 
-Google OAuth client credentials and refresh tokens are stored only in encrypted vault metadata. Portable backups contain application records and assets, not Google credentials, access PINs, or device pairings. Cloud configuration and restoration require an authenticated owner and POST operations require the Ingress CSRF token. Google credentials require working-data encryption; cloud files can independently be encrypted or plaintext after an explicit acknowledgment. Disconnect the account before disabling working-data encryption.
+Google OAuth client credentials and refresh tokens are stored only in encrypted vault metadata. Portable backups contain application records and assets, not Google credentials, access PINs, or device pairings. Cloud configuration and restoration require an authenticated owner and POST operations require the Ingress CSRF token. Google credentials require working-data encryption; cloud files default to plaintext and can independently be encrypted. Disconnect the account before disabling working-data encryption.
 
 The add-on requests `drive.file` access, uses fixed Google API origins, rejects HTTP redirects, and checks resumable-upload destinations before sending a bearer token. Upload and download size and MD5 checksums verify transport completeness; the application snapshot also has a SHA-256 checksum, while encrypted data has an AES-GCM authentication tag. Retention is restricted to tagged backup sets in the active folder and only runs after a new complete set has been verified. Interrupted pairs cannot replace a complete set.
 
-Destination policies choose encryption independently for local share backups, downloaded exports, and Google Drive files. They default to encryption when working-data protection is enabled. Turning off a destination requires an explicit warning acknowledgment. The working vault and Google credentials retain their own protection. Re-enabling local protection converts existing managed plaintext backups.
+Encryption settings apply independently to share backups, ZIP/portable downloads, and Google Drive backups. All three default to Off; existing saved preferences are preserved. Disabling an active destination requires acknowledgment that files there become readable to other users. The private working vault and Google credentials retain their existing protection. Re-enabling local protection converts managed plaintext backups. Templates and direct Excel downloads remain unencrypted regardless of the download setting.
 
-Encrypted ZIP is a container for AES-GCM-encrypted application data, with a readable generic manifest. Encrypted Excel protects both the workbook and its embedded complete snapshot. Plaintext destinations intentionally contain readable business data and remain readable to anyone with access to the files. Recovery PDFs and keys are never uploaded. XML import rejects document types and external entities, bounds expansion and part counts, checks encryption parameters, and requires complete backup data. Restoration uses owner-bound previews with expiration, generation and revision checks, and a mandatory backup before replacing data.
+Encrypted ZIP contains AES-GCM-encrypted application data and a readable generic manifest. Encrypted cloud Excel protects both the workbook and its embedded complete snapshot; direct Excel downloads remain plaintext. Plaintext destinations intentionally contain readable business data and remain readable to anyone with access to the files. Recovery PDFs and keys are never uploaded. XML import rejects document types and external entities, bounds expansion and part counts, checks encryption parameters, and requires complete backup data. Restoration uses owner-bound previews with expiration, generation and revision checks, and a mandatory backup before replacing data.
 
 Disconnection cancels active network work and deletes local credentials. Add-on data deletion also clears restoration previews and connection metadata, while Google Drive copies and the Google account's authorization remain under user control.
 
 ## Deletion
 
-Complete deletion requires an owner, a current portable-backup download, recovery-PDF download when encryption is enabled, reselection and verification of the same backup, an unchanged data revision, and the confirmation text `DELETE DATA`.
+Complete deletion requires an owner, a current portable-backup download, recovery-PDF download if that backup is encrypted, reselection and verification of the same backup, an unchanged data revision, and the confirmation text `DELETE DATA`.
 
 Deletion removes only registered Fakturocel data, keys, PIN data, pairing data, temporary files, and managed automatic backups. It does not remove Home Assistant full backups or copies outside managed paths.
 

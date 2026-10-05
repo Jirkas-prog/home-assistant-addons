@@ -1,8 +1,25 @@
 import { nativeClient, client, bridge } from './client-sync.js';
 import { bytesBase64, base64Bytes } from './model.js';
+import { activity } from './ui.js';
 export const base = new URL('./', location.href);
 export let session = {};
-export async function api(route, data) {
+const stages = {
+  commit: ['Saving changes and creating a local backup…', 'Changes saved.'],
+  issue: ['Generating and archiving the invoice PDF…', 'Invoice PDF generated and archived.'],
+  upload: ['Uploading the attachment…', 'Attachment uploaded.'],
+  'restore/file/preview': ['Validating the backup and checking its contents…'],
+  'restore/cloud/preview': ['Downloading and validating the Google Drive backup…'],
+  'restore/file/finish': ['Backing up current data and restoring the selected snapshot…', 'Backup has been restored.'],
+  'google-drive/backup': ['Creating, uploading, and verifying the Google Drive backup…', 'The backup was uploaded and verified in Google Drive.'],
+  'google-drive/files': ['Loading Google Drive backups…'],
+  'google-drive/folders': ['Loading Google Drive backup folders…'],
+  'backup/encryption': ['Applying encryption settings to backup destinations…', 'Encryption settings saved for each backup destination.'],
+  'security/change': ['Applying data security and converting stored files…', 'Security settings saved.'],
+  'wipe/finish': ['Removing verified application data…', 'Application data has been deleted.']
+};
+export async function api(route, data, options = {}) {
+  const stage = stages[route.split('?')[0]];
+  if (stage && (data || route.startsWith('google-drive/'))) activity(stage[0]);
   if (nativeClient) {
     try {
       return await client.route(route, data);
@@ -21,9 +38,10 @@ export async function api(route, data) {
         "X-Fakturocel-Token": session.csrf || ''
       } : {},
       body: data ? JSON.stringify(data) : undefined,
-      signal: AbortSignal.timeout(route.startsWith('google-drive/') || route.startsWith('restore/') ? 360000 : 180000)
+      signal: options.signal || AbortSignal.timeout(route.startsWith('google-drive/') || route.startsWith('restore/') ? 360000 : 180000)
     });
-  } catch {
+  } catch (error) {
+    if (options.signal?.aborted) throw error;
     throw Error("The server is not available. The edits are not yet confirmed as saved.");
   }
   let result;
@@ -36,6 +54,7 @@ export async function api(route, data) {
   if (!res.ok) throw Object.assign(Error(result.error || 'The operation failed.'), {
     status: res.status
   });
+  if (stage && data && stage[1]) activity(stage[1], stage[1]);
   return result;
 }
 export async function loadState() {
@@ -145,25 +164,10 @@ export async function downloadRecovery(ticket) {
   const name = /Fakturocel-recovery-key-[A-F0-9]{16}\.pdf/.exec(r.headers.get('content-disposition') || '')?.[0] || "Fakturocel-recovery-key.pdf";
   await downloadBytes(new Uint8Array(await r.arrayBuffer()), name, 'application/pdf');
 }
-export async function exportExcel(password) {
+export async function exportExcel() {
   if (nativeClient) return (await import('./local-excel.js')).localExcel(client);
-  const r = await fetch(new URL('api/export/excel', base), {
-    method: 'POST',
-    cache: 'no-store',
-    headers: {
-      'Content-Type': 'application/json',
-      "X-Fakturocel-Token": session.csrf || ''
-    },
-    body: JSON.stringify({
-      password
-    })
-  });
-  if (!r.ok) {
-    const e = await r.json();
-    if (r.status === 423) window.dispatchEvent(new Event("Fakturocel-locked"));
-    throw Error(e.error || "Export failed.");
-  }
-  return new Uint8Array(await r.arrayBuffer());
+  const file = await (await import('./export-ui.js')).generateDownload('excel');
+  return file?.bytes;
 }
 const blobUrls = new Map();
 export function assetUrl(hash) {

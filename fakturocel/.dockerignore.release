@@ -1,5 +1,6 @@
 *
 !Dockerfile
 !server.mjs
+!export-worker.mjs
 !web/
 !web/**

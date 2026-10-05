@@ -11,36 +11,40 @@ const MAX = 300 * 1024 * 1024;
 const checksum = bytes => createHash('sha256').update(bytes).digest('hex');
 export const backupFormats = new Set(['zip', 'excel', 'both']);
 
-export async function backupFiles(store, format, encrypt = store.backupEncryption().download) {
+export async function backupFiles(store, format, encrypt = false, { onProgress = () => {}, plainExcel = false } = {}) {
   if (!backupFormats.has(format)) throw fail(400, 'Choose ZIP, Excel, or both backup formats.');
+  onProgress(0, 'Preparing complete application snapshot…');
   const text = await store.backupText({ encrypt }), state = store.read().state;
   const files = [];
+  const count = format === 'both' ? 2 : 1;
   if (format !== 'excel') {
     const zip = new JSZip();
     zip.file('manifest.json', JSON.stringify({ format: 'FakturocelArchive', version: 1, encrypted: encrypt,
       createdAt: new Date().toISOString(), file: 'data.fakturocel', sha256: checksum(text) }, null, 2));
     zip.file('data.fakturocel', text);
     zip.file('README.txt', 'Fakturocel complete application data backup\n\nRestore this ZIP in Settings and data > Restore data from backup.\nThe data file includes invoices, archived PDFs, templates, attachments, and settings.\nEncrypted data requires the recovery key from your separately stored recovery PDF.\nGoogle credentials, access PINs, and device pairings are intentionally excluded.\n');
-    files.push({ format: 'zip', extension: 'zip', mime: 'application/zip', bytes: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }) });
+    files.push({ format: 'zip', extension: 'zip', mime: 'application/zip', bytes: await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }, meta => onProgress(meta.percent / count, 'Compressing ZIP archive…')) });
   }
   if (format !== 'zip') {
-    const workbook = Buffer.from(await exportWorkbook(state, text));
+    const workbook = Buffer.from(await exportWorkbook(state, plainExcel ? await store.backupText({ encrypt: false }) : text,
+      (percent, stage) => onProgress((files.length * 100 + percent) / count, stage)));
     files.push({ format: 'excel', extension: 'xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      bytes: encrypt ? officeCrypto.encrypt(workbook, { password: store.recoveryKey() }) : workbook });
+      bytes: encrypt && !plainExcel ? officeCrypto.encrypt(workbook, { password: store.recoveryKey() }) : workbook });
   }
   if (files.some(f => f.bytes.length > MAX)) throw fail(413, 'The backup file exceeds the supported size of 300 MB.');
   return files;
 }
 
-export async function backupDownload(store, format) {
-  if (format === 'fakturocel') return { bytes: Buffer.from(await store.backupText()), extension: 'fakturocel', mime: 'application/octet-stream' };
-  const files = await backupFiles(store, format);
+export async function backupDownload(store, format, onProgress = () => {}) {
+  if (format === 'fakturocel') return { bytes: Buffer.from(await store.backupText({ destination: 'download' })), extension: 'fakturocel', mime: 'application/octet-stream' };
+  const files = await backupFiles(store, format, format === 'excel' ? false : store.backupEncryption().download,
+    { plainExcel: true, onProgress: (percent, stage) => onProgress(percent * (format === 'both' ? .8 : 1), stage) });
   if (files.length === 1) return files[0];
   const zip = new JSZip();
   const entries = files.map(f => ({ name: 'application.' + f.extension, sha256: checksum(f.bytes) }));
   zip.file('manifest.json', JSON.stringify({ format: 'FakturocelBackupSet', version: 1, files: entries }));
   files.forEach((f, i) => zip.file(entries[i].name, f.bytes));
-  const bytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' });
+  const bytes = await zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE' }, meta => onProgress(80 + meta.percent * .2, 'Packaging ZIP and Excel…'));
   if (bytes.length > MAX) throw fail(413, 'The backup file exceeds the supported size of 300 MB.');
   return { bytes, extension: 'zip', mime: 'application/zip' };
 }

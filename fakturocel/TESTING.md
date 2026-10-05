@@ -17,9 +17,10 @@ The automated suite covers:
 - sorting, filtering, saved views, custom columns, and bulk actions;
 - encrypted storage, portable backups, restoration, key rotation, recovery PDF, PIN, and verified deletion;
 - complete ZIP/Excel snapshots, combined downloads, shared-string Excel restoration, corruption checks, preview revisions, and mandatory prior backups;
-- independent local, download, and cloud encryption policies, plaintext warnings, local conversion, and credential protection;
-- Google OAuth polling and expiration, restart persistence, encrypted upload and download, complete-set retention, interrupted transfers, retry scheduling, and recovery from older folders;
-- Excel export and embedded complete backup;
+- Off defaults, persistent per-location encryption choices, plaintext Excel/templates regardless of those choices, local conversion, and private credential protection;
+- Google OAuth polling and expiration, restart persistence, verified upload and download, complete-set retention, interrupted transfers, retry scheduling, and recovery from older folders;
+- real worker cancellation, monotonic export progress, download interruption, per-user export access, and encrypted-backup compatibility;
+- Excel export and embedded complete readable backup;
 - migration from compatible older formats without changing archived PDFs;
 - template rendering, page overflow, overlap checks, custom fonts, and media;
 - calculator parsing and formula limits without `eval` or `Function`;
@@ -34,7 +35,7 @@ Google Drive tests use a local deterministic fake of the documented Google endpo
 When Docker is available, also run:
 
 ```sh
-docker build --build-arg BUILD_VERSION=3.9.0 --build-arg BUILD_ARCH=amd64 -t fakturocel-test .
+docker build --build-arg BUILD_VERSION=3.10.0 --build-arg BUILD_ARCH=amd64 -t fakturocel-test .
 ```
 
 Automated tests reduce regression risk but do not replace an independent security audit or validation on each supported Home Assistant architecture.

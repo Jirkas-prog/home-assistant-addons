@@ -1,26 +1,26 @@
-import { exportWorkbook } from './excel.js';
-import { clientRecoveryKey } from './client-backup.js';
+import { withProgress } from './ui.js';
 export async function localExcel(client) {
   return client.run(async () => {
     client.require();
-    const bytes = await exportWorkbook(client.cache.snapshot.state, await client.backupText());
-    if (client.cache.encrypted === false) return bytes;
-    return new Promise((resolve, reject) => {
+    return withProgress('Generating unencrypted Excel', ({ signal, update }) => new Promise((resolve, reject) => {
       const worker = new Worker(new URL('./excel-worker.js', import.meta.url), {
           type: 'module'
         }),
         finish = (error, data) => {
           clearTimeout(timer);
+          signal.removeEventListener('abort', abort);
           worker.terminate();
-          error ? reject(Error(error)) : resolve(data);
+          error ? reject(error instanceof Error ? error : Error(error)) : resolve(data);
         },
-        timer = setTimeout(() => finish("Encryption took too long. Try exporting again."), 180000);
-      worker.onmessage = e => finish(e.data.error, e.data.bytes);
-      worker.onerror = () => finish("Excel encryption failed. No unencrypted file saved.");
+        abort = () => finish(new DOMException('Export cancelled.', 'AbortError')),
+        timer = setTimeout(() => finish('File generation took too long. Please try exporting again.'), 180000);
+      signal.addEventListener('abort', abort, { once: true });
+      worker.onmessage = e => e.data.percent === undefined ? finish(e.data.error, e.data.bytes) : update(e.data.percent, e.data.stage);
+      worker.onerror = () => finish('File generation failed. Please try exporting again.');
       worker.postMessage({
-        bytes,
-        password: clientRecoveryKey(client.cache.exportContext)
-      }, [bytes.buffer]);
-    });
+        state: client.cache.snapshot.state,
+        blobs: client.cache.snapshot.blobs
+      });
+    }));
   });
 }

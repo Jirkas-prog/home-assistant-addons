@@ -39,6 +39,7 @@ export class GoogleDrive {
       keepCount: c.keepCount, format: c.format, folderId: c.folderId || null,
       lastSuccess: c.lastSuccess || null, lastAttempt: c.lastAttempt || null,
       lastError: c.lastError || null, nextAttempt: c.nextAttempt || null, busy: this.busy,
+      progress: this.progress || null,
       encrypted: !!this.store.context,
       encryptBackups: this.store.backupEncryption().cloud,
       authorization: this.pending && this.pending.expiresAt > this.now() ? {
@@ -317,18 +318,24 @@ export class GoogleDrive {
       const c = this.config();
       if (!c.refreshToken || !idPattern.test(c.folderId || '')) throw fail(400, 'Connect a Google account before creating a cloud backup.');
       this.busy = true;
+      this.progress = { percent: 0, stage: 'Preparing complete application snapshot…' };
       try {
         await this.save({ lastAttempt: new Date(this.now()).toISOString(), lastError: null }, epoch);
         const headers = await this.headers(c, epoch);
         const exports = await this.store.serial(async () => {
           this.check(epoch);
           if (actor) this.store.role(actor, 'owner');
-          return backupFiles(this.store, c.format, this.store.backupEncryption().cloud);
+          return backupFiles(this.store, c.format, this.store.backupEncryption().cloud, { onProgress: (percent, stage) => {
+            this.check(epoch);
+            this.progress = { percent: Math.floor(percent * .6), stage };
+          } });
         });
         this.check(epoch);
         const batch = randomUUID(), uploadedIds = new Set(), properties = new Map();
         const baseName = 'Fakturocel-' + new Date(this.now()).toISOString().replace(/[:.]/g, '-') + '-' + batch.slice(0, 8);
         for (const exported of exports) {
+          this.check(epoch);
+          this.progress = { percent: 60 + Math.floor(30 * uploadedIds.size / exports.length), stage: 'Uploading backup files to Google Drive…' };
           const { bytes } = exported, name = baseName + '.' + exported.extension;
           const appProperties = { fakturocel: 'backup', installation: c.installationId, batch, format: exported.format, expectedCount: String(exports.length), verified: 'false' };
           const start = await this.request(UPLOAD, { method: 'POST', headers: { ...headers,
@@ -347,6 +354,7 @@ export class GoogleDrive {
           uploadedIds.add(file.id);
           properties.set(file.id, appProperties);
         }
+        this.progress = { percent: 90, stage: 'Verifying the complete cloud backup…' };
         // A partially uploaded pair must never displace an older complete backup.
         for (const id of uploadedIds) {
           const mark = await this.request(DRIVE + '/' + id + '?fields=id', { method: 'PATCH', headers: { ...headers, 'Content-Type': 'application/json' },
@@ -367,11 +375,13 @@ export class GoogleDrive {
           (valid ? complete : incomplete).push(group);
         }
         const older = complete.sort((a,b) => String(b[0].createdTime).localeCompare(String(a[0].createdTime)));
+        this.progress = { percent: 95, stage: 'Applying cloud backup retention…' };
         for (const old of [...older.slice(c.keepCount - 1), ...incomplete].flat()) {
           const removed = await this.request(DRIVE + '/' + old.id, { method: 'DELETE', headers }, epoch);
           if (!removed.ok && removed.status !== 404) throw this.error(removed);
         }
         await this.save({ lastSuccess: new Date(this.now()).toISOString(), lastError: null, nextAttempt: null, failures: 0 }, epoch);
+        this.progress = { percent: 100, stage: 'Cloud backup uploaded and verified.' };
       } catch (e) {
         if (this.epoch === epoch && !this.closed && this.store.ready && this.store.context && !this.store.transitioning) {
           const failures = (this.config().failures || 0) + 1;
