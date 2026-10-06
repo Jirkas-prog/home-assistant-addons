@@ -44,7 +44,7 @@ export function DocumentViewer({ resource, onClose, navigation }) {
     setDoc(null);
     setTextLoaded(false);
     setEditing(false);
-    api(asText ? `${base}/as-text` : base)
+    api(asText ? `${base}/as-text` : base, { signal: abort.signal })
       .then(async (r) => {
         if (!live) return;
         setDoc(r);
@@ -64,7 +64,7 @@ export function DocumentViewer({ resource, onClose, navigation }) {
         }
       })
       .catch((e) => {
-        if (live) setError(e.message);
+        if (live) setError(abort.signal.aborted ? t("sync.timeout") : e.message);
       })
       .finally(() => clearTimeout(timeout));
     return () => {

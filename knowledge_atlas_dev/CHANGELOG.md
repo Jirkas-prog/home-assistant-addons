@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.22
+
+- Load journal navigation metadata separately from record bodies and retrieve only the selected entry's complete text and attachment list.
+- Load photos and document previews only after the user selects Download attachment preview; do not preload neighboring photo originals.
+- Search journal bodies, places, tags and attachment labels on the server without downloading the full knowledge library.
+- Preserve complete-record editing, revision checks, automatic Markdown updates, entry filters and English/Czech controls.
+- Cancel obsolete entry, search and document requests and show localized loading, retry and timeout states.
+
 ## 5.0.1-dev.21
 
 - Add a compact five-column task board, configurable project columns, card ordering and keyboard/touch move controls.

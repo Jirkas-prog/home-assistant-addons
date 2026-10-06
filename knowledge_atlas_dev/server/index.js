@@ -28,6 +28,7 @@ import { validateNode, graphIssues } from "../shared/schema.js";
 import { TaskData, validateTaskData } from "./task-data.js";
 import { columnsFor, columnFor, validateBoard } from "../shared/boards.js";
 import { projectIdFor } from "../shared/tools.js";
+import { workspaceNode } from "../shared/workspace.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const compress = promisify(gzip);
 export async function createApp({
@@ -323,8 +324,8 @@ export async function createApp({
   app.get(["/api/nodes", "/api/atlas", "/api/workspace"], async (req, res) => {
     const content =
       req.path === "/api/workspace"
-        ? req.query.content === "records"
-          ? "records"
+        ? ["records", "journal"].includes(req.query.content)
+          ? req.query.content
           : "tasks"
         : "map";
     const indexed = req.path !== "/api/nodes";
@@ -417,34 +418,7 @@ export async function createApp({
         ...snapshot,
         // Navigation needs identities and titles, but no knowledge bodies,
         // attachments, cross-links or map coordinates on the task landing page.
-        nodes:
-          content === "tasks"
-            ? snapshot.nodes.map((node) =>
-                node.type === "task"
-                  ? node
-                  : {
-                      id: node.id,
-                      title: node.title,
-                      parent: node.parent,
-                      type: node.type,
-                      color: node.color,
-                      status: node.status,
-                      importance: node.importance,
-                      position: node.position,
-                      positionFixed: node.positionFixed,
-                      created: node.created,
-                      updated: node.updated,
-                      date: node.date,
-                      ...(node.tool ? { tool: { kind: node.tool.kind } } : {}),
-                      partial: true,
-                      summary: "",
-                      body: "",
-                      tags: [],
-                      related: [],
-                      resources: [],
-                    },
-              )
-            : snapshot.nodes,
+        nodes: snapshot.nodes.map((node) => workspaceNode(node, content)),
         content,
         settings: config,
         ...(savedMap ? { mapPositions: savedMap } : {}),
@@ -602,6 +576,22 @@ export async function createApp({
   app.get("/api/nodes/:id", async (req, res) =>
     res.json(await getNode(req.params.id)),
   );
+  app.get("/api/journal/search", async (req, res) => {
+    const query = String(req.query.q || "").slice(0, 2000);
+    const snapshot = store.snapshot || (await store.read());
+    const config = await settings.read();
+    const matches = filterNodes(
+      snapshot.nodes.filter((n) => n.tool?.kind === "journal"),
+      {
+        query,
+        locations: config.locations,
+      },
+    );
+    res.set("Cache-Control", "no-store").json({
+      revision: snapshot.revision,
+      ids: matches.map((n) => n.id),
+    });
+  });
   app.get("/api/tasks/:id/comments", async (req, res) => {
     await getNode(req.params.id);
     const data = await taskData.comments(req.params.id);

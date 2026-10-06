@@ -51,6 +51,10 @@ Create daily entries, seven-day summaries, summaries through month end or custom
 
 The notebook reuses the existing photo gallery, local document viewer, text fallback, place records, drafts and conflict protection. Managed attachments and journal Markdown remain part of full backups and incremental packages. It works without external services when the local add-on is reachable. User content is never included in the distributed add-on.
 
+The notebook initially loads navigation metadata, then the text and attachment list of the selected entry. It does not download the bodies of unrelated knowledge records. Journal search runs against the server's indexed entry text, places, tags and attachment labels, including entries that have not been opened. Searching does not read or index the contents of attached PDFs or images.
+
+Choose **Download attachment preview** on an individual photo or document to open it in the integrated viewer. Opening an entry does not request attachment contents. Photo navigation loads only the photo you select. Closing the viewer returns to the entry. A preview may still transfer a large original file; this release does not generate reduced-resolution thumbnails. Device and physical locations describe where a file or object can be found; they do not provide server access to it.
+
 ## Library and automatic updates
 
 Each top-level `.md` file in `/config/knowledge` describes one record. See [FORMAT.md](FORMAT.md) and [templates](templates/README.md). Edit files externally or use the web editor. A visible browser checks for changes about every three seconds and refreshes after returning to the window. Search, counters, maps, inventory and task views are derived from the current records; no rebuild or AI is needed.

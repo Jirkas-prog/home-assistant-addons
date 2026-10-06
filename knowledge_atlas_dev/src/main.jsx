@@ -245,20 +245,24 @@ function App() {
     [toolProject, setToolProject] = useState(""),
     [journalCreate, setJournalCreate] = useState(false);
   const content =
-    view === "map" && mapRequested
-      ? "map"
-      : (view !== "map" && detail) ||
-          showSettings ||
-          ["library", "inventory", "tools", "journal"].includes(view)
-        ? "records"
-        : "tasks";
+    view === "journal" && !showSettings
+      ? "journal"
+      : view === "map" && mapRequested
+        ? "map"
+        : (view !== "map" && detail) ||
+            showSettings ||
+            ["library", "inventory", "tools"].includes(view)
+          ? "records"
+          : "tasks";
   const snapshotReady =
     !!snapshotContent &&
-    (content === "tasks" ||
+    ((content === "tasks" && snapshotContent !== "journal") ||
       snapshotContent === content ||
+      (content === "journal" && ["records", "map"].includes(snapshotContent)) ||
       (content === "records" && snapshotContent === "map"));
   const mapActive = view === "map" && mapRequested && snapshotContent === "map";
-  const showDetail = detail && (view !== "map" || mapRequested);
+  const showDetail =
+    view !== "journal" && detail && (view !== "map" || mapRequested);
   const graphRef = useRef(),
     importRef = useRef(),
     searchRef = useRef(),
@@ -1118,14 +1122,16 @@ function App() {
                 </button>
               </div>
             )}
-            <button
-              className="icon-button"
-              disabled={view === "map" && !mapRequested}
-              aria-label={detail ? t("m143") : t("m398")}
-              onClick={() => setDetail(!detail)}
-            >
-              <PanelLeftClose size={18} />
-            </button>
+            {view !== "journal" && (
+              <button
+                className="icon-button"
+                disabled={view === "map" && !mapRequested}
+                aria-label={detail ? t("m143") : t("m398")}
+                onClick={() => setDetail(!detail)}
+              >
+                <PanelLeftClose size={18} />
+              </button>
+            )}
           </div>
           {view === "map" && (
             <p className="map-layout-description" id="map-layout-description">

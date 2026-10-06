@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.21` on 2026-10-06.
+Validated for Knowledge Atlas Dev `5.0.1-dev.22` on 2026-10-06.
 
-- All 197 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 198 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1153 matching translation keys.
+- English/Czech language audits pass with 1157 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -38,7 +38,15 @@ Browser checks with a generic 109-record library verified the five tabs, English
 
 Request logs retain the lightweight task profile and no automatic atlas, map-renderer or 3D-module request. The initial JavaScript is approximately 544 kB before compression and 173 kB compressed, about 2.2% above the preceding 169 kB baseline. Board and card code are separate lazy chunks, approximately 2.9 kB and 4.9 kB compressed. Comments, activity and document bytes do not enter startup snapshots. These are local build and generic-fixture checks; timing on Home Assistant hardware remains unmeasured.
 
-## Validation limits
+## Journal loading
+
+The journal regression case verifies a metadata-only workspace profile, distinct ETags, complete selected-entry retrieval, rejection of partial-record saves, preserved attachment references after an importance edit, full-text search over unloaded entries, and automatic search changes after manual Markdown edits. Listing, searching and editing do not read attachment contents or saved map positions.
+
+A generic 1,531-record fixture returned approximately 0.50 MB of journal navigation JSON compared with 98.80 MB for complete records, before compression. Compressed payloads were approximately 74 kB and 664 kB respectively; the repetitive synthetic bodies compress unusually well. One local request pair completed in 72 ms and 1,083 ms; these are individual development-machine measurements, not medians or Home Assistant performance guarantees. A selected journal entry was 928 bytes and its initial request took approximately 171 ms.
+
+English/Czech browser checks verified selection and reload, body-only search matches from an unopened entry, importance saving, and explicit photo/Markdown previews. Request logs showed no attachment request before clicking its preview button and no preload of the second photo. The gallery contains no image elements before preview selection. A 390-pixel viewport had no horizontal page overflow. The production build reported no browser console errors. Existing automated tests cover update preservation and backup/restore; these checks used generic local data, not a live Home Assistant installation.
+
+## Runtime validation limits
 
 A real Home Assistant Supervisor installation, container startup and update have not been verified in this environment. The Docker daemon is unavailable, so Dockerfile checks are static; an image build and container startup were not run. Backup recovery has automated process and fault-injection coverage; this is not physical power-loss certification. External documents remain references unless they are stored in the managed document directory. Save browser drafts before exporting a library.
 

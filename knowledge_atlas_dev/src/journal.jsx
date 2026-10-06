@@ -7,6 +7,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Image as ImageIcon,
+  Download,
 } from "lucide-react";
 import { t } from "../shared/i18n.js";
 import {
@@ -17,19 +19,24 @@ import {
 } from "../shared/journal.js";
 import { documentType } from "../shared/document-types.js";
 import { api } from "./client.js";
+import { resourceLocation } from "./atlas-model.js";
 import { DocumentViewer } from "./documents.jsx";
 import { MarkdownContent } from "./markdown.jsx";
 import "./journal.css";
 
+const imageResources = (node, settings) =>
+  node.resources.filter(
+    (r) =>
+      settings.locations.some(
+        (l) =>
+          l.id === resourceLocation(r) && ["addon", "server"].includes(l.kind),
+      ) && documentType(r.path || "").kind === "image",
+  );
+
 export function AttachmentGallery({ node, settings }) {
   const [selected, setSelected] = useState(null);
   useEffect(() => setSelected(null), [node.id]);
-  const images = node.resources.filter(
-    (r) =>
-      settings.locations.some(
-        (l) => l.id === r.locationId && ["addon", "server"].includes(l.kind),
-      ) && documentType(r.path || "").kind === "image",
-  );
+  const images = imageResources(node, settings);
   const index = images.findIndex((r) => r.id === selected?.id);
   if (!images.length) return null;
   return (
@@ -40,15 +47,15 @@ export function AttachmentGallery({ node, settings }) {
           className="photo-card"
           onClick={() => setSelected(r)}
         >
-          <img
-            loading="lazy"
-            src={`./api/nodes/${node.id}/resources/${r.id}/file`}
-            alt={r.label}
-          />
+          <ImageIcon size={28} aria-hidden="true" />
           <span>{r.label}</span>
           {r.photo?.takenAt && (
             <small>{r.photo.takenAt.replace("T", " ")}</small>
           )}
+          <span className="attachment-preview-action">
+            <Download size={14} />
+            {t("journal.loadPreview")}
+          </span>
         </button>
       ))}
       {selected && (
@@ -515,6 +522,9 @@ export function JournalEntry({
   onEntry,
 }) {
   const [document, setDocument] = useState(null);
+  useEffect(() => setDocument(null), [node.id]);
+  const imageIds = new Set(imageResources(node, settings).map((r) => r.id));
+  const files = node.resources.filter((r) => !imageIds.has(r.id));
   const range = journalRange(node.tool),
     index = entries.findIndex((n) => n.id === node.id);
   const linked = [...new Set([node.projectId, ...node.related].filter(Boolean))]
@@ -553,7 +563,6 @@ export function JournalEntry({
           <span>{t("tools.duration", node.tool.minutes)}</span>
         )}
       </div>
-      <AttachmentGallery node={node} settings={settings} />
       <MarkdownContent>{node.body}</MarkdownContent>
       <PlaceMap places={node.tool.places} />
       {linked.length > 0 && (
@@ -572,24 +581,50 @@ export function JournalEntry({
         </section>
       )}
       {node.resources.length > 0 && (
+        <p className="field-help">{t("journal.manualPreviewHelp")}</p>
+      )}
+      <AttachmentGallery node={node} settings={settings} />
+      {files.length > 0 && (
         <section className="journal-files">
           <h3>{t("journal.attachments")}</h3>
-          {node.resources.map((r) => (
-            <button
-              key={r.id}
-              className="resource record-document"
-              onClick={() =>
-                setDocument({
-                  nodeId: node.id,
-                  resourceId: r.id,
-                  title: r.label,
-                })
-              }
-            >
-              <FileText size={16} />
-              <span>{r.label}</span>
-            </button>
-          ))}
+          {files.map((r) => {
+            const location = settings.locations.find(
+              (l) => l.id === resourceLocation(r),
+            );
+            const available = ["addon", "server", "web"].includes(
+              location?.kind,
+            );
+            return available ? (
+              <button
+                key={r.id}
+                className="resource record-document"
+                onClick={() =>
+                  setDocument({
+                    nodeId: node.id,
+                    resourceId: r.id,
+                    title: r.label,
+                  })
+                }
+              >
+                <FileText size={16} />
+                <span>
+                  {r.label}
+                  <small>{t("journal.loadPreview")}</small>
+                </span>
+                <Download size={16} />
+              </button>
+            ) : (
+              <div className="resource" key={r.id}>
+                <MapPin size={16} />
+                <span>
+                  {r.label}
+                  <small>
+                    {location?.name}: {r.path || r.url}
+                  </small>
+                </span>
+              </div>
+            );
+          })}
         </section>
       )}
       {node.tool.next && (

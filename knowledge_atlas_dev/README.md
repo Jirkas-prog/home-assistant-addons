@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.21**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.22**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Nested branches, cross-links, searchable records and live statistics.
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.
@@ -22,6 +22,7 @@ This is the **development channel**, version **5.0.1-dev.21**. The add-on name a
 - Work journals, inventory-linked bills of materials and shopping lists.
 - A dedicated notebook journal with day/week/month contents, date ranges, experience markers, linked tasks, photo galleries, EXIF suggestions and offline places.
 - Multiple journal attachments, Office text previews and an explicit open-as-text fallback for local files.
+- Lightweight journal navigation with server-side text search and attachment previews downloaded only on request.
 - Reusable procedures with independent, persistent checklist runs.
 - Source-linked flashcards, review history and deterministic review schedules.
 - Saved views that automatically recompute from manually edited Markdown.

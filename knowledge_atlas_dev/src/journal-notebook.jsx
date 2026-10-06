@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { BookOpen, Plus, Pencil } from "lucide-react";
+import { BookOpen, Plus, Pencil, LoaderCircle } from "lucide-react";
 import { t, locale } from "../shared/i18n.js";
 import {
   journalEntries,
@@ -10,6 +10,7 @@ import { filterNodes } from "./atlas-model.js";
 import { JournalEntry } from "./journal.jsx";
 import { ToolEditor, newTool } from "./tool-editor.jsx";
 import { RecordImportance } from "./importance.jsx";
+import { api } from "./client.js";
 
 export function JournalNotebook({
   nodes,
@@ -30,25 +31,79 @@ export function JournalNotebook({
     [from, setFrom] = useState(""),
     [to, setTo] = useState(""),
     [project, setProject] = useState(""),
-    [experienceOnly, setExperienceOnly] = useState(false);
+    [experienceOnly, setExperienceOnly] = useState(false),
+    [search, setSearch] = useState(null),
+    [searchError, setSearchError] = useState(""),
+    [loaded, setLoaded] = useState(null),
+    [entryError, setEntryError] = useState(""),
+    [retry, setRetry] = useState(0);
+  const searchQuery = query.trim();
+  useEffect(() => {
+    setSearchError("");
+    if (!searchQuery) {
+      setSearch(null);
+      return;
+    }
+    const abort = new AbortController();
+    const timeout = setTimeout(
+      () =>
+        abort.abort(
+          new DOMException("The search request timed out.", "TimeoutError"),
+        ),
+      60000,
+    );
+    const timer = setTimeout(() => {
+      api(`journal/search?q=${encodeURIComponent(searchQuery)}`, {
+        signal: abort.signal,
+      })
+        .then((result) => {
+          if (!abort.signal.aborted)
+            setSearch({ query: searchQuery, ids: new Set(result.ids) });
+        })
+        .catch((error) => {
+          if (
+            !abort.signal.aborted ||
+            abort.signal.reason?.name === "TimeoutError"
+          )
+            setSearchError(
+              abort.signal.reason?.name === "TimeoutError"
+                ? t("sync.timeout")
+                : error.message,
+            );
+        })
+        .finally(() => clearTimeout(timeout));
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(timeout);
+      abort.abort();
+    };
+  }, [searchQuery, nodes, settings.revision, retry]);
+  const searching =
+    !!searchQuery && search?.query !== searchQuery && !searchError;
   const entries = useMemo(
     () =>
       journalEntries(
         filterNodes(nodes, {
-          query,
+          query: "",
           scope,
           importance,
           type: experienceOnly ? "experience" : "all",
           locations: settings.locations,
         }).filter(
           (n) =>
-            !project || n.projectId === project || n.related.includes(project),
+            (!project ||
+              n.projectId === project ||
+              n.related.includes(project)) &&
+            (!searchQuery ||
+              (search?.query === searchQuery && search.ids.has(n.id))),
         ),
         { from, to },
       ),
     [
       nodes,
-      query,
+      searchQuery,
+      search,
       scope,
       importance,
       settings,
@@ -61,7 +116,47 @@ export function JournalNotebook({
   useEffect(() => {
     if (focusId) setActiveId(focusId);
   }, [focusId]);
-  const active = entries.find((n) => n.id === activeId) || entries[0];
+  const summary = entries.find((n) => n.id === activeId) || entries[0];
+  const active =
+    loaded &&
+    summary &&
+    loaded.node.id === summary.id &&
+    loaded.indexRevision === summary.revision
+      ? loaded.node
+      : summary;
+  useEffect(() => {
+    setEntryError("");
+    if (!summary?.partial) return;
+    const abort = new AbortController();
+    const timeout = setTimeout(
+      () =>
+        abort.abort(
+          new DOMException("The record request timed out.", "TimeoutError"),
+        ),
+      60000,
+    );
+    api(`nodes/${summary.id}`, { signal: abort.signal })
+      .then((result) => {
+        if (!abort.signal.aborted)
+          setLoaded({ node: result, indexRevision: summary.revision });
+      })
+      .catch((error) => {
+        if (
+          !abort.signal.aborted ||
+          abort.signal.reason?.name === "TimeoutError"
+        )
+          setEntryError(
+            abort.signal.reason?.name === "TimeoutError"
+              ? t("sync.timeout")
+              : error.message,
+          );
+      })
+      .finally(() => clearTimeout(timeout));
+    return () => {
+      clearTimeout(timeout);
+      abort.abort();
+    };
+  }, [summary?.id, summary?.revision, summary?.partial, retry]);
   const groups = journalGroups(entries, grouping);
   const date = (value) =>
     new Intl.DateTimeFormat(locale(), {
@@ -148,9 +243,22 @@ export function JournalNotebook({
         >
           {t("journal.allDates")}
         </button>
-        <span>{t("tools.entries", entries.length)}</span>
+        {!searching && !searchError && (
+          <span>{t("tools.entries", entries.length)}</span>
+        )}
       </div>
-      {!active ? (
+      {searchError && (
+        <p className="error-banner" role="alert">
+          {searchError}
+          <button onClick={() => setRetry((n) => n + 1)}>{t("m146")}</button>
+        </p>
+      )}
+      {searching ? (
+        <p className="journal-loading" role="status">
+          <LoaderCircle className="spin" size={18} />
+          {t("journal.searching")}
+        </p>
+      ) : searchError ? null : !active ? (
         <div className="tool-empty">
           <BookOpen size={34} />
           <h2>{t("tools.empty.journal")}</h2>
@@ -212,24 +320,42 @@ export function JournalNotebook({
               </div>
               <button
                 className="secondary-button"
+                disabled={active.partial}
                 onClick={() => setEditing(active)}
               >
                 <Pencil size={15} />
                 {t("tools.edit.journal")}
               </button>
             </header>
-            <RecordImportance node={active} onSaved={onRefresh} />
+            {!active.partial && (
+              <RecordImportance node={active} onSaved={onRefresh} />
+            )}
             {active.summary && (
               <p className="notebook-summary">{active.summary}</p>
             )}
-            <JournalEntry
-              node={active}
-              entries={entries}
-              settings={settings}
-              nodes={nodes}
-              onSelect={onSelect}
-              onEntry={setActiveId}
-            />
+            {entryError ? (
+              <p className="error-banner" role="alert">
+                {entryError}
+                <button onClick={() => setRetry((n) => n + 1)}>
+                  {t("m146")}
+                </button>
+              </p>
+            ) : active.partial ? (
+              <p className="journal-loading" role="status">
+                <LoaderCircle className="spin" size={18} />
+                {t("journal.loadingEntry")}
+              </p>
+            ) : (
+              <JournalEntry
+                key={active.id}
+                node={active}
+                entries={entries}
+                settings={settings}
+                nodes={nodes}
+                onSelect={onSelect}
+                onEntry={setActiveId}
+              />
+            )}
           </article>
         </div>
       )}
