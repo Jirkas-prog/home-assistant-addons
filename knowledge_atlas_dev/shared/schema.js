@@ -2,6 +2,7 @@ import { validateStock } from "./inventory.js";
 import { validateTool, toolReferences, validDate } from "./tools.js";
 import { validImportance } from "./importance.js";
 import { validateCheckpoints } from "./checkpoints.js";
+import { validateBoard } from "./boards.js";
 export const TYPES = [
   "category",
   "project",
@@ -19,6 +20,9 @@ export function fail(message, status = 400) {
   });
 }
 export function validateNode(n) {
+  validateBoard(n.board, fail);
+  if (n.task?.columnId != null && !idPattern.test(n.task.columnId))
+    fail("Invalid task column ID.");
   if (n.partial) fail("Load the complete record before saving changes.");
   if (!idPattern.test(n.id || ""))
     fail(

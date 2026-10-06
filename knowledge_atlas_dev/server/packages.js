@@ -12,6 +12,8 @@ import { Settings, digest, locationId } from "./settings.js";
 import { safePath } from "./documents.js";
 import { historyDirectory } from "./file-safety.js";
 import { operationRoot, hashFile, archiveName } from "./backups.js";
+import { taskDataPath } from "./task-data.js";
+import { readPackageMetadata, metadataEntries } from "./package-metadata.js";
 
 const UUID = /^[0-9a-f-]{36}$/;
 const RECORD = /^[a-z0-9][a-z0-9_-]{0,119}\.md$/;
@@ -30,6 +32,8 @@ function packagePath(name) {
     name.split("/").some((part) => part.startsWith(".")) ||
     !(
       name.startsWith("documents/") ||
+      name === "library/selection.json" ||
+      (name.startsWith("library/") && taskDataPath(name.slice(8))) ||
       (name.startsWith("library/") && RECORD.test(name.slice(8)))
     )
   )
@@ -66,6 +70,14 @@ const detail = (node) =>
         type: node.type,
       }
     : null;
+const commentPreview = (value) => ({
+  total: value?.entries?.length || 0,
+  entries: (value?.entries || []).slice(-10).map((c) => ({
+    id: c.id,
+    body: c.body.slice(0, 1000),
+    deleted: c.deleted,
+  })),
+});
 async function fileHash(file) {
   const stat = await exists(file);
   if (!stat) return null;
@@ -74,6 +86,14 @@ async function fileHash(file) {
   return hashFile(file);
 }
 async function target(directory, config, entry, create = false) {
+  if (
+    entry.kind === "metadata" &&
+    (taskDataPath(entry.name) ||
+      ["settings.json", "map-positions.json", "list-order.json"].includes(
+        entry.name,
+      ))
+  )
+    return safePath(directory, entry.name, { create });
   if (entry.kind === "record") {
     if (!RECORD.test(entry.name)) fail("Invalid package recovery journal.");
     return path.join(directory, entry.name);
@@ -93,6 +113,13 @@ async function target(directory, config, entry, create = false) {
 }
 async function readIncoming(backups, id, manifest, config) {
   const stage = path.join(backups.root, id, "extracted");
+  const metadata = await readPackageMetadata(
+    backups.directory,
+    stage,
+    manifest,
+    config,
+  );
+  config = metadata.config;
   const source = await new Store(path.join(stage, "library")).read();
   if (source.errors.some((e) => !e.key) || !source.nodes.length)
     fail("The package contains invalid or missing records.");
@@ -143,7 +170,9 @@ async function readIncoming(backups, id, manifest, config) {
       )
         fail("Inventory placements require an existing physical place.");
   }
-  return { nodes, documents, packageHash };
+  if (metadata.sidecars.some((s) => !nodes.some((n) => n.id === s.recordId)))
+    fail("Discussion data references a missing packaged record.");
+  return { nodes, documents, packageHash, metadata };
 }
 async function select(
   backups,
@@ -153,12 +182,13 @@ async function select(
 ) {
   if (!decisions || typeof decisions !== "object" || Array.isArray(decisions))
     fail("Invalid package conflict choices.");
-  const current = await new Store(backups.directory).read(),
-    config = await backups.settings.read();
+  const current = await new Store(backups.directory).read();
+  let config = await backups.settings.read();
   if (current.errors.length) fail("Repair the file errors first.", 409);
   if (parent != null && !current.nodes.some((n) => n.id === parent))
     fail("The selected parent branch does not exist.");
   const incoming = await readIncoming(backups, id, manifest, config);
+  config = incoming.metadata.config;
   const byId = new Map(current.nodes.map((n) => [n.id, n]));
   const rows = [],
     selected = [];
@@ -168,9 +198,15 @@ async function select(
       ...node,
       parent: !old && node.parent === null ? parent : node.parent,
     };
+    const discussionChanged = incoming.metadata.sidecars.some(
+      (s) =>
+        s.recordId === node.id &&
+        JSON.stringify(s.value) !== JSON.stringify(s.previous),
+    );
+    const context = incoming.metadata.selection?.contexts.includes(node.id);
     const status = !old
       ? "added"
-      : content(old) === content(next)
+      : context || (content(old) === content(next) && !discussionChanged)
         ? "identical"
         : "conflict";
     const decision = Object.hasOwn(decisions, node.id)
@@ -182,8 +218,24 @@ async function select(
       id: node.id,
       title: next.title,
       status,
-      current: detail(old),
-      incoming: detail(next),
+      current: old
+        ? {
+            ...detail(old),
+            comments: commentPreview(
+              incoming.metadata.sidecars.find(
+                (s) => s.name === `comments/${node.id}.json`,
+              )?.previous,
+            ),
+          }
+        : null,
+      incoming: {
+        ...detail(next),
+        comments: commentPreview(
+          incoming.metadata.sidecars.find(
+            (s) => s.name === `comments/${node.id}.json`,
+          )?.value,
+        ),
+      },
     });
     if (!old || (status !== "identical" && decision === "replace")) {
       const now = new Date().toISOString();
@@ -209,7 +261,10 @@ async function select(
     issue = error.message;
   }
   const revision = digest(
-    current.revision + config.revision + incoming.packageHash,
+    current.revision +
+      config.revision +
+      incoming.packageHash +
+      incoming.metadata.revision,
   );
   return { ...incoming, current, config, rows, selected, issue, revision };
 }
@@ -218,6 +273,11 @@ export async function previewPackage(backups, id, manifest, signal) {
     fail("Invalid data package manifest.");
   for (const entry of manifest.files) packagePath(entry.path);
   for (const name of manifest.directories) {
+    if (
+      ["library/comments", "library/activity"].includes(name) ||
+      /^library\/activity\/[a-z0-9][a-z0-9_-]{0,119}$/.test(name)
+    )
+      continue;
     if (!["library", "documents"].includes(name))
       packagePath(name + "/placeholder");
   }
@@ -246,6 +306,8 @@ export async function previewPackage(backups, id, manifest, signal) {
     packageHash: selection.packageHash,
     title:
       typeof manifest.title === "string" ? manifest.title.slice(0, 180) : "",
+    sections: selection.metadata.selection?.parts || [],
+    contexts: selection.metadata.selection?.contexts.length || 0,
     records: selection.rows,
     documents: selection.documents.length,
     reused,
@@ -464,6 +526,7 @@ export class PackageImports {
           raw,
         });
       }
+      entries.push(...(await metadataEntries(b.directory, selected)));
       for (const [index, entry] of entries.entries()) {
         if (entry.before) {
           const original = await target(b.directory, selected.config, entry);
@@ -515,7 +578,7 @@ export class PackageImports {
             "The library changed after the package preview. Refresh the preview before importing.",
             409,
           );
-        if (entry.before) {
+        if (entry.before && entry.kind === "record") {
           const history = await historyDirectory(
             b.directory,
             ".history",

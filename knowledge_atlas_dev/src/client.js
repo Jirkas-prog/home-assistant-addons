@@ -48,9 +48,11 @@ export function useDialogKeys(React, close) {
   closeRef.current = close;
   React.useEffect(() => {
     const previous = document.activeElement;
+    const owned = [...document.querySelectorAll('[role="dialog"]')].at(-1);
     const handler = (e) => {
       const dialogs = [...document.querySelectorAll('[role="dialog"]')],
         dialog = dialogs.at(-1);
+      if (dialog !== owned) return;
       if (!dialog?.contains(document.activeElement) && e.key !== "Escape")
         return;
       if (e.key === "Escape") {

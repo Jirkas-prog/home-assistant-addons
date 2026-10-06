@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.0.1-dev.21
+
+- Add a compact five-column task board, configurable project columns, card ordering and keyboard/touch move controls.
+- Add a task dialog with Details, Attachments, Comments, Activity and Checkpoints tabs, Markdown formatting and integrated document previews.
+- Persist revision-protected comments, recoverable deletions and independent activity events with undo/redo and interrupted-event recovery.
+- Add checkbox-selected backups for tasks, journals, the knowledge map, inventory and other tools, including combined selections, managed files and discussion data.
+- Merge selected backups with conflict previews, stable IDs, hierarchy references and preservation of unrelated records.
+- Keep the timeline as the initial page and load the board, task dialog and map renderer on demand.
+
 ## 5.0.1-dev.20
 
 - Open Tasks and timeline in timeline mode by default. Explicit section links remain supported.

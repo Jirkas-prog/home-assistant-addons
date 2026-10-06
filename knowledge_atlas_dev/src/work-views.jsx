@@ -1,5 +1,5 @@
-import { t, locale } from "../shared/i18n.js";
-import React, { useState, useMemo } from "react";
+import { t } from "../shared/i18n.js";
+import React, { useState, useMemo, lazy, Suspense } from "react";
 import {
   Plus,
   Box,
@@ -8,15 +8,15 @@ import {
   CalendarRange,
   ArrowUpRight,
 } from "lucide-react";
-import { resourceLocation, filterNodes } from "./atlas-model.js";
+import { filterNodes } from "./atlas-model.js";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
 import { locationLabel } from "../shared/locations.js";
-import { importancePriority } from "../shared/importance.js";
 import { Timeline } from "./timeline.jsx";
 import { RecordStamp } from "./record-list.jsx";
-import { checkpoints, taskUrgencies } from "../shared/checkpoints.js";
+import { taskUrgencies } from "../shared/checkpoints.js";
 import { useToday } from "./use-today.js";
-import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
+import { TASK_STATUS, projectFor } from "./work-model.js";
+const TaskBoard = lazy(() => import("./task-board.jsx"));
 export function Inventory({
   importance = [],
   nodes,
@@ -126,6 +126,7 @@ export function Inventory({
   );
 }
 export function Tasks({
+  orderRevision,
   importance = [],
   nodes,
   settings,
@@ -133,8 +134,6 @@ export function Tasks({
   scope,
   onEdit,
   onNew,
-  onMove,
-  onSelect,
   onRefresh,
 }) {
   const [project, setProject] = useState(""),
@@ -146,9 +145,7 @@ export function Tasks({
       "learning",
       "done",
     ]),
-    [busy, setBusy] = useState(""),
-    [error, setError] = useState(""),
-    [dragging, setDragging] = useState(null);
+    [error, setError] = useState("");
   const tasks = useMemo(
     () =>
       filterNodes(nodes, {
@@ -172,92 +169,6 @@ export function Tasks({
   const urgencyById = useMemo(
     () => taskUrgencies(allTasks, today),
     [allTasks, today],
-  );
-  async function move(n, status) {
-    if (n.status === status) return;
-    setBusy(n.id);
-    setError("");
-    try {
-      await onMove(n, status);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setBusy("");
-      setDragging(null);
-    }
-  }
-  const card = (n) => (
-    <article
-      className={`task-card ${urgencyById.get(n.id).overdue ? "overdue" : ""}`}
-      key={n.id}
-      draggable={!busy}
-      onDragStart={(e) => {
-        e.dataTransfer.setData("text/plain", n.id);
-        setDragging(n.id);
-      }}
-      onDragEnd={() => setDragging(null)}
-    >
-      <button className="task-title" onClick={() => onEdit(n)}>
-        {n.title}
-      </button>
-      <p>{n.summary}</p>
-      <RecordStamp node={n} importance />
-      <div className="task-meta">
-        <span className={`priority ${importancePriority(n)}`}>
-          {PRIORITIES[importancePriority(n)]}
-        </span>
-        {n.task?.due && (
-          <span>
-            {t("m245") + " "}
-            {new Date(n.task.due + "T12:00:00").toLocaleDateString(locale())}
-            {n.status !== "done" && n.task.due < today ? t("m246") : ""}
-          </span>
-        )}
-      </div>
-      {checkpoints(n).length > 0 && (
-        <p className="task-checkpoint-progress">
-          {t("checkpoint.title")} ·{" "}
-          {t(
-            "checkpoint.progress",
-            checkpoints(n).filter((p) => p.done).length,
-            checkpoints(n).length,
-          )}
-          {urgencyById.get(n.id).overdueCheckpoints > 0 && (
-            <strong>
-              {t(
-                "checkpoint.overdueCount",
-                urgencyById.get(n.id).overdueCheckpoints,
-              )}
-            </strong>
-          )}
-        </p>
-      )}
-      <small>
-        {projectFor(n, nodes)?.title || t("m404")}
-        {n.task?.assignee && ` · ${n.task.assignee}`}
-      </small>
-      <div className="task-bottom">
-        <select
-          disabled={busy === n.id}
-          aria-label={t("m247", n.title)}
-          value={n.status}
-          onChange={(e) => move(n, e.target.value)}
-        >
-          {Object.entries(TASK_STATUS).map(([id, label]) => (
-            <option key={id} value={id}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <button
-          className="icon-button"
-          aria-label={t("m248", n.title)}
-          onClick={() => onSelect(n)}
-        >
-          <ArrowUpRight size={16} />
-        </button>
-      </div>
-    </article>
   );
   return (
     <section className="collection-view tasks-view">
@@ -325,42 +236,18 @@ export function Tasks({
         </div>
       )}
       {mode === "board" ? (
-        <div className="kanban">
-          {Object.entries(TASK_STATUS).map(([id, label]) => (
-            <section
-              className={`kanban-column ${dragging ? "drop-ready" : ""}`}
-              key={id}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const n = nodes.find(
-                  (n) =>
-                    n.id === e.dataTransfer.getData("text/plain") &&
-                    n.type === "task",
-                );
-                if (n && !busy) move(n, id);
-              }}
-            >
-              <header>
-                <span className={`column-dot ${id}`} />
-                <h3>{label}</h3>
-                <span>{tasks.filter((n) => n.status === id).length}</span>
-                <button
-                  className="icon-button"
-                  aria-label={t("m259", label)}
-                  onClick={() => onNew(project, id)}
-                >
-                  <Plus size={16} />
-                </button>
-              </header>
-              {tasks.filter((n) => n.status === id).map(card)}
-              <p className="drop-hint">{dragging ? t("m260") : t("m261")}</p>
-            </section>
-          ))}
-        </div>
+        <Suspense fallback={<p role="status">{t("m148")}</p>}>
+          <TaskBoard
+            tasks={tasks}
+            nodes={nodes}
+            projectId={project}
+            orderRevision={orderRevision}
+            urgencyById={urgencyById}
+            onEdit={onEdit}
+            onNew={onNew}
+            onRefresh={onRefresh}
+          />
+        </Suspense>
       ) : (
         <Timeline
           tasks={tasks}

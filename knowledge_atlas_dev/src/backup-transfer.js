@@ -260,7 +260,13 @@ export class BackupTransfer {
       this.emit({ phase: "error", error: errorMessage(error) });
     }
   }
-  async start(direction, file, resumeSession = null, purpose = "restore") {
+  async start(
+    direction,
+    file,
+    resumeSession = null,
+    purpose = "restore",
+    selection,
+  ) {
     if (this.active) return;
     // Open a picker before the first await consumes transient user activation.
     const filename =
@@ -355,6 +361,7 @@ export class BackupTransfer {
             size: file?.size,
             source,
             purpose,
+            selection,
           }),
         });
       }

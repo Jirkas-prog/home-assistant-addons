@@ -38,6 +38,15 @@ export function PackagePreview({
         {preview.title && ` · ${preview.title}`}
       </h3>
       <p>{t("package.help")}</p>
+      {preview.sections?.length > 0 && (
+        <p>
+          {t(
+            "backup.selectedPreview",
+            preview.sections.map((p) => t(`backup.part.${p}`)).join(", "),
+            preview.contexts,
+          )}
+        </p>
+      )}
       <p>
         {t(
           "package.counts",
@@ -117,6 +126,16 @@ export function PackagePreview({
                     <pre>{detail.body}</pre>
                     {detail.truncated && <p>{t("package.truncated")}</p>}
                     <p>{t("package.attachments", detail.attachments)}</p>
+                    {detail.comments?.total > 0 && (
+                      <>
+                        <p>{t("task.commentPreview", detail.comments.total)}</p>
+                        {detail.comments.entries.map((c) => (
+                          <pre key={c.id}>
+                            {c.deleted ? t("task.deletedComment") : c.body}
+                          </pre>
+                        ))}
+                      </>
+                    )}
                   </div>
                 ))}
             </div>

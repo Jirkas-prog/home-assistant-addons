@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.20**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.21**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Nested branches, cross-links, searchable records and live statistics.
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.
@@ -14,7 +14,9 @@ This is the **development channel**, version **5.0.1-dev.20**. The add-on name a
 - Full breadcrumb paths wrap onto multiple lines.
 - Six retained map layouts in 2D and 3D, cached geometry and readable labels with progressive detail.
 - Combined topic, type and multi-value importance filters.
-- Projects, a task board and a timeline with start and due dates.
+- Projects, configurable task boards and a timeline with start and due dates.
+- Five-tab task cards: details, attachments, comments, activity and checkpoints.
+- Full backups or checkbox-selected sections with a merge preview, managed attachments and discussion history.
 - Five-star importance controls on records and timeline tasks; importance influences bubble sizes.
 - A resizable details panel with a remembered width and keyboard controls.
 - Work journals, inventory-linked bills of materials and shopping lists.

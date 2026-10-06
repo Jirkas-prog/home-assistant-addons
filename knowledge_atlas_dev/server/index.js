@@ -25,6 +25,9 @@ import { MapPositions, validateMapPositions } from "./map-positions.js";
 import { validateOrder } from "./record-order.js";
 import { UndoHistory } from "./undo.js";
 import { validateNode, graphIssues } from "../shared/schema.js";
+import { TaskData, validateTaskData } from "./task-data.js";
+import { columnsFor, columnFor, validateBoard } from "../shared/boards.js";
+import { projectIdFor } from "../shared/tools.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const compress = promisify(gzip);
 export async function createApp({
@@ -41,7 +44,9 @@ export async function createApp({
   await settings.init();
   const backups = new Backups(directory, settings);
   const maintenance = new Maintenance(store, settings, backups);
+  const taskData = new TaskData(directory);
   const undo = new UndoHistory(directory, {
+    audit: (changes, event) => taskData.audit(changes, event),
     document: (target) =>
       documentFor({ params: { id: target.id, index: target.resourceId } }),
     validate: async (changes) => {
@@ -50,6 +55,11 @@ export async function createApp({
         config = await settings.read();
       for (const change of changes) {
         const target = change.target;
+        if (target.kind === "comments" && change.after !== null)
+          validateTaskData(
+            `comments/${target.id}.json`,
+            JSON.parse(change.after),
+          );
         if (
           target.kind === "metadata" &&
           target.name === "settings.json" &&
@@ -113,7 +123,9 @@ export async function createApp({
     const original = object[method].bind(object);
     object[method] = async (...args) => {
       if (undo.context.getStore()) await before(args);
-      return original(...args);
+      const result = await original(...args);
+      await undo.confirmWrites();
+      return result;
     };
   };
   observe(store, "save", async (args) => {
@@ -126,6 +138,7 @@ export async function createApp({
     const label = {
       kind: existingId ? "record" : "create",
       title: input.title,
+      recordId: id,
     };
     await undo.watch({ kind: "record", id }, label);
     if (!existingId)
@@ -150,6 +163,7 @@ export async function createApp({
       { kind: "metadata", name: "list-order.json" },
       {
         kind: "order",
+        recordId: id,
         title: store.snapshot?.nodes.find((n) => n.id === id)?.title,
       },
     ),
@@ -185,6 +199,7 @@ export async function createApp({
       store.stopBackground();
       try {
         await store.reading?.catch(() => {});
+        await taskData.observing;
         return await (history
           ? undo.record(async () => {
               const result = await fn();
@@ -340,6 +355,7 @@ export async function createApp({
     const snapshot = indexed
       ? { ...store.snapshot, errors: [...store.snapshot.errors] }
       : await store.read();
+    if (!mutationActive) await taskData.observe(snapshot.nodes);
     let config;
     try {
       config = await settings.read();
@@ -586,6 +602,165 @@ export async function createApp({
   app.get("/api/nodes/:id", async (req, res) =>
     res.json(await getNode(req.params.id)),
   );
+  app.get("/api/tasks/:id/comments", async (req, res) => {
+    await getNode(req.params.id);
+    const data = await taskData.comments(req.params.id);
+    const page = Math.max(0, Math.floor(Number(req.query.page) || 0));
+    const entries = data.entries.toReversed();
+    res.set("Cache-Control", "no-store").json({
+      revision: data.revision,
+      entries: entries.slice(page * 50, (page + 1) * 50),
+      total: entries.length,
+      next: entries.length > (page + 1) * 50 ? page + 1 : null,
+    });
+  });
+  app.post("/api/tasks/:id/comments", async (req, res) => {
+    await mutate(async () => {
+      const node = await getNode(req.params.id);
+      if (node.type !== "task") fail("Comments belong to tasks.");
+      await undo.watch(
+        { kind: "comments", id: node.id },
+        { kind: "record", title: node.title },
+      );
+      await taskData.comment(node.id, req.body);
+      await undo.confirmWrites();
+    });
+    res.json({ ok: true });
+  });
+  app.get("/api/tasks/:id/activity", async (req, res) => {
+    await getNode(req.params.id);
+    res
+      .set("Cache-Control", "no-store")
+      .json(
+        await taskData.activity(req.params.id, String(req.query.before || "")),
+      );
+  });
+  app.get("/api/task-counts", async (req, res) => {
+    const tasks = (await store.read()).nodes.filter((n) => n.type === "task");
+    const counts = {};
+    for (const n of tasks)
+      counts[n.id] = (await taskData.comments(n.id)).entries.filter(
+        (c) => !c.deleted,
+      ).length;
+    res.set("Cache-Control", "no-store").json(counts);
+  });
+  app.put("/api/tasks/:id/move", async (req, res) => {
+    const node = await mutate(async () => {
+      const n = await getNode(req.params.id);
+      if (n.type !== "task") fail("Choose a task.");
+      const snapshot = await store.read();
+      const owner = projectIdFor(n, snapshot.nodes);
+      const project = owner ? await getNode(owner) : null;
+      const columns = req.body.aggregate
+        ? columnsFor(null)
+        : columnsFor(project);
+      const column = columns.find((c) => c.id === req.body.columnId);
+      if (!column) fail("The selected column does not exist.", 409);
+      if (
+        column.status === "done" &&
+        n.status !== "done" &&
+        n.task?.checkpoints?.some((c) => !c.done) &&
+        !req.body.confirmIncomplete
+      )
+        fail(
+          "This task still has incomplete checkpoints. Confirm completion explicitly.",
+          409,
+        );
+      let before, targetPosition;
+      if (req.body.beforeId) {
+        before = snapshot.nodes.find(
+          (x) => x.id === req.body.beforeId && x.type === "task",
+        );
+        if (!before) fail("The destination task no longer exists.", 409);
+        if (snapshot.orderRevision !== req.body.orderRevision)
+          fail("The list order has changed. Refresh and try again.", 409);
+        if (n.positionFixed)
+          fail("Unfix this task before changing its list position.", 409);
+        targetPosition =
+          before.position - (n.position < before.position ? 1 : 0);
+        const reserved = new Set(
+          snapshot.nodes.filter((x) => x.positionFixed).map((x) => x.position),
+        );
+        while (reserved.has(targetPosition)) targetPosition--;
+        if (targetPosition < 1)
+          fail("Choose an insertion position that is not fixed.", 409);
+      }
+      const actualColumn =
+        req.body.aggregate && project?.board
+          ? columnsFor(project).find(
+              (c) => c.id === column.id && c.status === column.status,
+            ) || columnsFor(project).find((c) => c.status === column.status)
+          : column;
+      const saved = await store.save(
+        {
+          ...n,
+          revision: req.body.revision,
+          status: column.status,
+          task: { ...n.task, columnId: actualColumn.id },
+        },
+        n.id,
+        req.body.revision,
+      );
+      if (before)
+        await store.move(n.id, targetPosition, req.body.orderRevision);
+      return saved;
+    });
+    res.json(node);
+  });
+  app.put("/api/projects/:id/board", async (req, res) => {
+    res.json(
+      await mutate(async () => {
+        const n = await getNode(req.params.id);
+        if (n.type !== "project") fail("Choose a project board.");
+        validateBoard(req.body.board, fail);
+        const nodes = (await store.read()).nodes;
+        const columns = req.body.board.columns;
+        const affected = nodes.filter(
+          (x) =>
+            x.type === "task" &&
+            projectIdFor(x, nodes) === n.id &&
+            !columns.some(
+              (c) =>
+                c.id === columnFor(x, columnsFor(n))?.id &&
+                c.status === x.status,
+            ),
+        );
+        for (const task of affected) {
+          const destination = columns.find(
+            (c) =>
+              c.id ===
+              req.body.destinations?.[columnFor(task, columnsFor(n))?.id],
+          );
+          if (!destination)
+            fail(
+              "Choose a destination for tasks in removed or changed columns.",
+            );
+        }
+        const saved = await store.save(
+          { ...n, board: req.body.board, revision: req.body.revision },
+          n.id,
+          req.body.revision,
+        );
+        for (const task of affected) {
+          const destination = columns.find(
+            (c) =>
+              c.id ===
+              req.body.destinations[columnFor(task, columnsFor(n))?.id],
+          );
+          await store.save(
+            {
+              ...task,
+              status: destination.status,
+              task: { ...task.task, columnId: destination.id },
+            },
+            task.id,
+            task.revision,
+          );
+        }
+        return saved;
+      }),
+    );
+  });
   app.get("/api/nodes/:id/markdown", async (req, res) => {
     const n = await getNode(req.params.id);
     res

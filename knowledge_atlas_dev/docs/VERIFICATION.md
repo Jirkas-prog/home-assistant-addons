@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.20` on 2026-10-06.
+Validated for Knowledge Atlas Dev `5.0.1-dev.21` on 2026-10-06.
 
-- All 185 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 197 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1043 matching translation keys.
+- English/Czech language audits pass with 1153 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -16,7 +16,7 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.20` on 2026-10-06.
 - English/Czech browser checks cover all eight timeline presets, status checkboxes, importance saves inside bars, keyboard pan/zoom, labels following the viewport and a 390-pixel layout without horizontal page overflow. Native physical touchpad and touchscreen gestures have not been exercised on hardware; their coordinate calculations have automated coverage.
 - Checkpoint tests cover validation, completion timestamps, inclusive dates, importance thresholds, overdue overrides, nearby deadline pressure, manual edits, search, API conflict protection, restart, backup restoration and localization.
 - English/Czech browser checks cover adding and removing checkpoints, editing dates and criteria, quick completion and reopening, saved completion times after restart, red/green bar changes, overdue counts, checkpoint search and marker dialogs. Filters retain urgency from hidden neighboring tasks. Saves preserve the timeline range, keyboard focus returns after saving and closing, and the checklist and editor fit a 390-pixel layout. No browser console errors were recorded.
-- Restart and update tests preserve existing records and saved language settings; no storage schema or path changes are introduced by this release.
+- Restart and update tests preserve existing records and saved language settings. Existing record schemas and storage paths remain compatible; task discussion data uses the additional files described below.
 - Journal tests cover old daily records, inclusive and overlapping ranges, leap months, manual Markdown search, place validation, EXIF dates/offsets/GPS hemispheres, inert Office previews, binary and UTF-16 text fallback, preview limits and original-byte downloads.
 - English/Czech browser checks cover creating and editing entries, day/week/month/custom ranges, related-record links, saved-place lookup, multi-file uploads, EXIF suggestions, photo navigation, PDF/Markdown/DOCX viewing and custom-extension text previews. Saved language and the selected entry survive reloads; console checks found no errors. All fixtures are generic.
 
@@ -29,6 +29,14 @@ Three additional tests cover lightweight task snapshots, distinct conditional-re
 English/Czech browser checks confirm the default timeline, persisted language, the central map button, keyboard activation, successful 2D/3D rendering, full Markdown loading in record details and the editor, and task importance changes that preserve notes and checkpoints. At 390 pixels the button remains fully visible without horizontal page overflow. No browser console errors were recorded.
 
 Server request logs show no atlas request, map renderer, layout worker or 3D module before the download button is activated, including after visiting the map section. The 3D module is requested only on switching to 3D. A generic 213-record fixture produced a 55.5 kB initial workspace JSON response compared with 5.87 MB for its complete map snapshot, before compression. The initial JavaScript bundle is approximately 533 kB before compression, down from 892 kB; its precompressed HTTP response is approximately 169 kB. These are local fixture and build measurements, not Home Assistant startup-time guarantees.
+
+## Task workspace and selected backups
+
+Twelve regression tests cover legacy column mapping, revision-protected comments, recoverable comment deletion, independent activity and undo/redo events, incomplete-checkpoint completion confirmation, project-column migration, and rollback after a board-order write failure. Backup cases cover selected tasks, combined tasks and journals, managed attachment bytes, reference-only ancestors, unchanged destination project content, full discussion restoration, and idempotent reimport. Map exports restore coordinates into an empty library while preserving existing manual arrangements. Fault injection checks interrupted activity outbox writes and rollback of a failed discussion import.
+
+Browser checks with a generic 109-record library verified the five tabs, English comment creation, Czech checkpoint completion, persistent language and checkpoint IDs after reload, integrated Markdown viewing with Escape returning to the task card, project-column renaming, and a 390-pixel card without horizontal page overflow. The checkbox-selected task/journal download reached 100.00% in an embedded frame. The browser automation could not capture the resulting Blob download, so final operating-system file saving was not verified in that run; server archive contents and restore round trips are covered by automated tests. No browser console errors were recorded.
+
+Request logs retain the lightweight task profile and no automatic atlas, map-renderer or 3D-module request. The initial JavaScript is approximately 544 kB before compression and 173 kB compressed, about 2.2% above the preceding 169 kB baseline. Board and card code are separate lazy chunks, approximately 2.9 kB and 4.9 kB compressed. Comments, activity and document bytes do not enter startup snapshots. These are local build and generic-fixture checks; timing on Home Assistant hardware remains unmeasured.
 
 ## Validation limits
 

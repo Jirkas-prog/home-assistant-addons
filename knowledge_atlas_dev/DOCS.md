@@ -1,5 +1,7 @@
 # Knowledge Atlas documentation
 
+See [Task workspace](docs/TASK-WORKSPACE.md) for configurable boards, the five-tab task card, comments and activity.
+
 To add only new or updated records and documents to an existing library, use **Backup and restore > Import data package**. Review conflicts before merging; this preserves the rest of the library and its settings. See [Incremental data packages](docs/DATA-PACKAGES.md) for the workflow and package creation command.
 
 ## First start
@@ -157,7 +159,7 @@ Settings can rename places, assign parents or move all references to a replaceme
 
 V5 provides a dedicated **Backup and restore** page. See [the full backup guide](docs/BACKUP-RESTORE.md). New archives include empty directories and use manifest version 2; version 1 archives remain readable. Export verifies the final file inventory as well as each file's streamed content.
 
-**Download full backup** includes the record directory, settings, managed document root (including unattached files), history and trash, with a SHA-256 manifest. Files stream through the ZIP writer; complete PDFs or ZIPs are not buffered in RAM. `api/export?history=0` omits history. The current limits are 20 GiB of source/extracted data, 20 GiB of upload data and fewer than 50,000 files. Symbolic links, special files and a document root containing the library directory are rejected. Pause external file edits while backing up; a file changing during archive creation aborts the download.
+With **Complete library** selected, **Download full backup** includes the record directory, settings, managed document root (including unattached files), history and trash, with a SHA-256 manifest. Files stream through the ZIP writer; complete PDFs or ZIPs are not buffered in RAM. `api/export?history=0` omits history. The current limits are 20 GiB of source/extracted data, 20 GiB of upload data and fewer than 50,000 files. Symbolic links, special files and a document root containing the library directory are rejected. Pause external file edits while backing up; a file changing during archive creation aborts the download.
 
 External devices, web URLs and additional server roots such as `/share` are references, not included files. Back those roots up separately. Home Assistant backups remain important; the add-on uses cold backup mode. Real Supervisor backup and restore have not been verified in this environment.
 
@@ -193,7 +195,7 @@ Library cards wrap long titles and descriptions inside their boundaries. A previ
 
 Use **Sort by** in the library, task board or inventory to choose **List order**, **Date: newest first**, **Date: oldest first** or **Importance: highest first**. The choice is remembered in this browser and also orders siblings in the branch tree. Importance sorting uses manual order for ties. It never changes the saved positions.
 
-Select a record and enter a **List position** in its details, then choose **Move**. For example, moving position 1 to 50 shifts positions 2–50 up by one; moving 50 to 1 shifts positions 1–49 down by one. New entries take the first position that is not fixed (normally position 1). These are global positions, shared by all record types and independent of filters and star ratings. Task cards show the same number as the library; use their details arrow to change it. Full backups include the saved sequence and fixed positions.
+Select a record and enter a **List position** in its details, then choose **Move**. For example, moving position 1 to 50 shifts positions 2–50 up by one; moving 50 to 1 shifts positions 1–49 down by one. New entries take the first position that is not fixed (normally position 1). These are global positions, shared by all record types and independent of filters and star ratings. Task cards show the same number as the library; open Details > Links, branch and list order to change it. Full backups include the saved sequence and fixed positions.
 
 Check **Fixed position** below the number to save a reservation immediately. This applies to every record type. For example, when position 5 is fixed, adding a new record shifts 1 to 2, 2 to 3, 3 to 4 and 4 to 6; the fixed record stays at 5. If position 1 is fixed, a new record starts at 2 or the next unreserved number. A small lock appears beside fixed numbers on cards and in record details.
 

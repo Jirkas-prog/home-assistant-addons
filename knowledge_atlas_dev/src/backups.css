@@ -230,3 +230,23 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+.backup-selection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #3c4450;
+  border-radius: 10px;
+  margin: 20px 0;
+}
+.backup-selection label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+}
+.backup-selection p {
+  width: 100%;
+  margin: 0;
+}

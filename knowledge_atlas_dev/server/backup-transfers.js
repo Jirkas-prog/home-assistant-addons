@@ -146,7 +146,7 @@ export class BackupTransfers {
         session.job = null;
       });
   }
-  async create({ direction, size, source, purpose = "restore" }) {
+  async create({ direction, size, source, purpose = "restore", selection }) {
     if (
       !["restore", "merge"].includes(purpose) ||
       (direction === "download" && purpose !== "restore")
@@ -199,6 +199,7 @@ export class BackupTransfers {
           try {
             await this.backups.export(output, {
               signal: session.controller.signal,
+              selection,
             });
             session.total = (await fs.stat(session.file)).size;
             session.state = "ready";

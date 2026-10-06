@@ -1,5 +1,13 @@
 # Incremental data packages
 
+## Selected-backup extension
+
+The app's checkbox-selected exports use package manifest version **2**. Version 1 packages remain supported by the importer and the existing record/document package creation script. Older importers reject version 2 instead of silently losing discussion data.
+
+Version 2 also permits `library/comments/<record-id>.json`, `library/activity/<record-id>/<event-id>.json` and `library/selection.json`. Discussion schemas are described in [Task workspace](TASK-WORKSPACE.md). Sidecars must reference packaged record IDs. The selection file uses schema 1 and contains `parts`, `contexts` (reference-only record IDs), relevant `locations`, `order` entries (`id`, `position`, `fixed`) and optional `map` positions by layout slot. These are validated before writes; arbitrary metadata filenames remain rejected.
+
+The selected-backup merge adds missing location definitions without replacing existing ones, preserves existing global order, and adds missing saved positions for accepted records. Existing map arrangements win, including on reimport. Comment and event files participate in conflict preview, checksum validation, stale-preview detection, atomic installation and recovery rollback. Stable event IDs cannot be replaced by different content. Reimporting the same package is idempotent. Settings unrelated to these additions retain their destination values.
+
 Use **Backup and restore > Import data package** to add branches, projects, knowledge, journal entries, tasks or inventory records with their managed attachments. A package contains only the records and files being delivered. The existing library does not need to be uploaded, replaced or copied as a whole.
 
 ## Import workflow
@@ -14,7 +22,7 @@ Matching uses permanent record IDs, not titles. Identical records are skipped. R
 
 Documents go under `imports/<package-content-hash>/<original-path>` in the existing document root. Attachment paths in record metadata are rewritten. Existing files at other paths are never overwritten. All packaged documents are retained, including unlinked files. Reimport refuses to replace previously imported documents that were edited locally; update the package contents to deliver a new version. Markdown prose and code remain verbatim, so arbitrary inline paths are not rewritten. Use structured attachments for portable document links.
 
-Settings, language, library identity, locations, history and unrelated records remain in place. The package's special `addon` location ID maps to the receiving Add-on location. Other location IDs must already exist; create them in Settings before import. Device, physical-place and web references remain references. Full backup ZIPs use **Preview and restore backup** and retain their complete-replacement behavior.
+Settings, language, library identity, locations, history and unrelated records remain in place. The package's special `addon` location ID maps to the receiving Add-on location. In version 1 packages, other location IDs must already exist; create them in Settings before import. Version 2 selected exports include the required location definitions. Device, physical-place and web references remain references. Full backup ZIPs use **Preview and restore backup** and retain their complete-replacement behavior.
 
 ## Create a package outside the add-on
 
@@ -49,7 +57,7 @@ node scripts/create-package.js /path/to/school-input /path/to/school-package.zip
 
 The output must be outside the input directory and must not already exist. This offline tool streams files into ZIP, calculates checksums and rejects links, unexpected record filenames and oversized input. Keep input files idle during creation. It prints record/document counts and input size when complete. No data is sent to a network service.
 
-## ZIP format for other applications
+## Version 1 ZIP format for other applications
 
 ZIP entries use UTF-8 relative paths with forward slashes. The root contains `manifest.json`, `library/` and `documents/`. The manifest has these fields:
 

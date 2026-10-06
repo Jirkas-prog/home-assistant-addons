@@ -1,5 +1,15 @@
 # Backup and restore
 
+## Selected sections
+
+Use **Choose backup contents** to select Tasks, Journals, Knowledge map and projects, Inventory, Other work tools, or any combination. **Complete library** retains the full backup workflow. An empty selection means the complete library; a nonempty selection exports only the chosen sections.
+
+Selected exports include record metadata and Markdown, managed attachments, comments, activity, checkpoints and required hierarchy/link reference records. Reference-only records carry titles and identities with empty bodies and no attachments; existing destination records are always preserved. Map exports include selected saved positions. Project board definitions travel with their project records. Device, external server and web files remain references. Unattached managed files, unrelated content and the global undo stack are included only in complete backups.
+
+Upload a selected ZIP through **Preview and restore backup** or **Import data package**. It is recognized as a merge package, with a review of sections, references and conflicts. It never invokes a whole-library replacement. Existing record IDs, comments and event IDs prevent duplicates. Conflicts keep the current version by default; choosing incoming merges comments by stable ID and retains unrelated destination comments and events. Existing project bodies, locations, language and library identity stay in place. Missing referenced location definitions are added; conflicting location kinds must be resolved before import.
+
+Existing global order, fixed reservations and saved map arrangements win during a merge. Newly imported records receive the exported relative ordering, available fixed positions and missing map coordinates. This avoids reshuffling unrelated records or undoing manual map adjustments. For an exact whole-library snapshot, use Complete library. All selected downloads use the same streamed ZIP verification, progress, pause/cancel and upload-continuation workflow as full backups.
+
 Open **Backup and restore** in the sidebar. The file counts come from the current library and managed document root. Use **Refresh file counts** after external edits.
 
 For additive imports, use **Import data package**. This separate workflow adds or updates selected records and attachments while preserving the rest of the library. See [Incremental data packages](DATA-PACKAGES.md). Full restore remains a complete library replacement.

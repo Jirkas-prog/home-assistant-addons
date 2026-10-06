@@ -9,7 +9,7 @@ import {
   urgencyStyle,
   dateDay,
 } from "../shared/checkpoints.js";
-import { CheckpointDialog, urgencyDescription } from "./checkpoints.jsx";
+import { urgencyDescription } from "./checkpoints.jsx";
 import { useToday } from "./use-today.js";
 import {
   TIME_PRESETS,
@@ -37,8 +37,6 @@ export function Timeline({
     () => taskUrgencies(allTasks, todayDate),
     [allTasks, todayDate],
   );
-  const [checkpointTaskId, setCheckpointTaskId] = useState(null);
-  const checkpointTask = allTasks.find((node) => node.id === checkpointTaskId);
   const [view, setView] = useState({
     start: today - 5,
     days: 30,
@@ -340,7 +338,7 @@ export function Timeline({
                   className="timeline-checkpoint-button"
                   aria-label={t("checkpoint.forTask", node.title)}
                   title={urgencyText}
-                  onClick={() => setCheckpointTaskId(node.id)}
+                  onClick={() => onEdit(node, "checkpoints")}
                 >
                   <Flag size={14} />
                   {points.filter((p) => p.done).length}/{points.length}
@@ -368,7 +366,7 @@ export function Timeline({
                         dated.length,
                       )}
                       title={dated.map((p) => p.description).join(" · ")}
-                      onClick={() => setCheckpointTaskId(node.id)}
+                      onClick={() => onEdit(node, "checkpoints")}
                     />
                   );
                 })}
@@ -382,15 +380,6 @@ export function Timeline({
       <p className="timeline-lane-count">
         {t("timeline.lanes", layout.items.length, layout.lanes)}
       </p>
-      {checkpointTask && (
-        <CheckpointDialog
-          node={checkpointTask}
-          allTasks={allTasks}
-          onSaved={onRefresh}
-          onEdit={onEdit}
-          onClose={() => setCheckpointTaskId(null)}
-        />
-      )}
     </div>
   );
 }

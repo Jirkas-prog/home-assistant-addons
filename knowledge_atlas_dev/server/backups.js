@@ -5,12 +5,14 @@ import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { pipeline } from "node:stream/promises";
 import { Transform } from "node:stream";
-import { ZipArchive } from "archiver";
+import { writeBackupArchive } from "./backup-archive.js";
 import yauzl from "yauzl";
 import { Store, fail } from "./store.js";
 import { Settings } from "./settings.js";
 import { resourceLocation } from "../src/atlas-model.js";
 import { transferExpired } from "../shared/transfer-policy.js";
+import { TaskData, validateTaskData, taskDataPath } from "./task-data.js";
+import { exportSelected } from "./selected-backup.js";
 
 const MAX_BYTES = 20 * 1024 ** 3;
 const MAX_ENTRIES = 50_000;
@@ -200,7 +202,8 @@ export class Backups {
       errors: snapshot.errors,
     };
   }
-  async export(output, { history = true, signal } = {}) {
+  async export(output, { history = true, signal, selection } = {}) {
+    if (selection) return exportSelected(this, output, selection, signal);
     signal?.throwIfAborted();
     const config = await this.settings.read();
     const { files, directories } = await inventory(
@@ -230,86 +233,7 @@ export class Backups {
         sha256: await hashFile(entry.file, signal),
       });
     }
-    const manifestText = JSON.stringify(manifest, null, 2);
-    if (Buffer.byteLength(manifestText) > 8_000_000)
-      fail(
-        "The backup manifest is too large. Split the library or attachment tree.",
-      );
-    const archive = new ZipArchive({ zlib: { level: 6 }, forceZip64: true });
-    const finished = pipeline(archive, output, { signal });
-    // Attach a rejection handler immediately; errors may arrive while entries
-    // are still being queued. The same promise is awaited below.
-    finished.catch(() => {});
-    archive.on("warning", (error) => archive.destroy(error));
-    try {
-      // Finish directory entries before using per-file entry completion events.
-      if (directories.length)
-        await new Promise((resolve, reject) => {
-          let pending = directories.length;
-          const done = () => {
-            if (--pending === 0) {
-              archive.off("entry", done);
-              archive.off("error", reject);
-              resolve();
-            }
-          };
-          archive.on("entry", done);
-          archive.once("error", reject);
-          for (const directory of directories) {
-            archiveName(directory);
-            archive.append(Buffer.alloc(0), {
-              name: directory + "/",
-              type: "directory",
-            });
-          }
-        });
-      for (const [index, entry] of files.entries()) {
-        signal?.throwIfAborted();
-        const expected = manifest.files[index];
-        const stream = createReadStream(entry.file, { signal });
-        const hash = createHash("sha256");
-        let size = 0;
-        const verified = new Transform({
-          transform(chunk, encoding, done) {
-            hash.update(chunk);
-            size += chunk.length;
-            done(null, chunk);
-          },
-          flush(done) {
-            done(
-              size !== expected.bytes || hash.digest("hex") !== expected.sha256
-                ? new Error(
-                    "A file changed during backup. Retry when external editors are idle.",
-                  )
-                : null,
-            );
-          },
-        });
-        stream.on("error", (error) => verified.destroy(error));
-        verified.on("error", (error) => archive.destroy(error));
-        try {
-          await new Promise((resolve, reject) => {
-            const cleanup = () => {
-              archive.off("entry", done);
-              archive.off("error", error);
-            };
-            const done = () => {
-              cleanup();
-              resolve();
-            };
-            const error = (e) => {
-              cleanup();
-              reject(e);
-            };
-            archive.once("entry", done);
-            archive.once("error", error);
-            archive.append(stream.pipe(verified), { name: entry.name });
-          });
-        } finally {
-          stream.destroy();
-          verified.destroy();
-        }
-      }
+    await writeBackupArchive(output, files, manifest, signal, async () => {
       if (
         inventoryDigest(manifest.files, directories) !==
         (await fingerprint(
@@ -323,16 +247,7 @@ export class Backups {
           "The library changed during backup. Retry when external editors are idle.",
           409,
         );
-      archive.append(manifestText, {
-        name: "manifest.json",
-      });
-      await archive.finalize();
-      await finished;
-    } catch (error) {
-      archive.destroy(error);
-      await finished.catch(() => {});
-      throw error;
-    }
+    });
   }
   async prepare(input, { signal, id: requestedId, purpose = "restore" } = {}) {
     signal?.throwIfAborted();
@@ -438,10 +353,11 @@ export class Backups {
       const manifest = JSON.parse(
         await fs.readFile(path.join(extracted, "manifest.json"), "utf8"),
       );
+      if (manifest.format === "knowledge-atlas-package") purpose = "merge";
       if (
         (purpose === "merge"
           ? manifest.format !== "knowledge-atlas-package" ||
-            manifest.version !== 1
+            ![1, 2].includes(manifest.version)
           : manifest.format !== "knowledge-atlas-backup" ||
             ![1, 2].includes(manifest.version)) ||
         !Array.isArray(manifest.files) ||
@@ -498,6 +414,12 @@ export class Backups {
       });
       const snapshot = await new Store(candidate).read();
       await new MapPositions(candidate).read();
+      for (const entry of manifest.files) {
+        const name = entry.path.slice(8);
+        if (entry.path.startsWith("library/") && taskDataPath(name)) {
+          await new TaskData(candidate).read(name);
+        }
+      }
       if (snapshot.errors.length)
         fail(
           "The backup contains invalid records. Repair them before restoring.",

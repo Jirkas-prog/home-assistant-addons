@@ -17,6 +17,7 @@ import { t, locale, localizeMessage } from "../shared/i18n.js";
 import { backupTransfer } from "./backup-transfer.js";
 import { BackupTransferPanel } from "./backup-transfer-panel.jsx";
 import { PackagePreview } from "./package-preview.jsx";
+import { BACKUP_PARTS } from "../shared/backup-selection.js";
 
 export function DataTools({ onChanged, backupOnly = false }) {
   const transfer = useSyncExternalStore(
@@ -24,6 +25,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
     backupTransfer.getSnapshot,
   );
   const [coverage, setCoverage] = useState(null);
+  const [selection, setSelection] = useState([]);
   const [working, setBusy] = useState(false),
     [error, setError] = useState(""),
     [message, setMessage] = useState(""),
@@ -89,6 +91,7 @@ export function DataTools({ onChanged, backupOnly = false }) {
       <p className="field-help">{t("data.description")}</p>
       {coverage && (
         <div className="backup-coverage">
+          <h3>{t("backup.full")}</h3>
           <div className="backup-metrics">
             <div>
               <strong>{coverage.records}</strong>
@@ -126,6 +129,36 @@ export function DataTools({ onChanged, backupOnly = false }) {
           </button>
         </div>
       )}
+      <fieldset className="backup-selection" disabled={busy}>
+        <legend>{t("backup.selection")}</legend>
+        <label>
+          <input
+            type="checkbox"
+            checked={!selection.length}
+            onChange={() => setSelection([])}
+          />
+          {t("backup.full")}
+        </label>
+        {BACKUP_PARTS.map((part) => (
+          <label key={part}>
+            <input
+              type="checkbox"
+              checked={selection.includes(part)}
+              onChange={(e) =>
+                setSelection((old) =>
+                  e.target.checked
+                    ? [...old, part]
+                    : old.filter((p) => p !== part),
+                )
+              }
+            />
+            {t(`backup.part.${part}`)}
+          </label>
+        ))}
+        <p className="field-help">
+          {t(selection.length ? "backup.selectionHelp" : "backup.fullHelp")}
+        </p>
+      </fieldset>
       <div className="data-actions">
         <button
           type="button"
@@ -133,11 +166,17 @@ export function DataTools({ onChanged, backupOnly = false }) {
           disabled={busy}
           onClick={() => {
             setError("");
-            backupTransfer.start("download");
+            backupTransfer.start(
+              "download",
+              null,
+              null,
+              "restore",
+              selection.length ? selection : undefined,
+            );
           }}
         >
           <Download size={16} />
-          {t("data.backup")}
+          {t(selection.length ? "backup.downloadSelected" : "data.backup")}
         </button>
         <label className="secondary-button upload-label">
           <Upload size={16} />

@@ -114,6 +114,7 @@ import {
 import { createAtlasSync } from "./atlas-sync.js";
 import { Breadcrumbs } from "./breadcrumbs.jsx";
 import { createRecordNavigation } from "./breadcrumb-model.js";
+const TaskDialog = lazy(() => import("./task-dialog.jsx"));
 const MapView = lazy(() => import("./map-view.jsx"));
 const WorkTools = lazy(() =>
   import("./work-tools.jsx").then((module) => ({ default: module.WorkTools })),
@@ -415,6 +416,11 @@ function App() {
   );
   const choose = (n) => {
     const id = typeof n === "string" ? n : n.id;
+    const record = nodes.find((item) => item.id === id);
+    if (record?.type === "task" && view !== "map") {
+      setEditing(record);
+      return;
+    }
     setSelected(id);
     location.hash = encodeURIComponent(id);
     setDetail(true);
@@ -439,6 +445,7 @@ function App() {
     type = "knowledge",
     status = "draft",
     projectId = "",
+    columnId,
   ) =>
     setEditing({
       schema: 1,
@@ -471,6 +478,7 @@ function App() {
         ? {
             projectId,
             task: {
+              ...(columnId ? { columnId } : {}),
               start: "",
               due: "",
               priority: "normal",
@@ -1275,9 +1283,16 @@ function App() {
                   query={query}
                   scope={scope}
                   onSelect={choose}
-                  onEdit={setEditing}
-                  onNew={(project = "", status = "draft") =>
-                    newNode(project || scope || homeId, "task", status, project)
+                  orderRevision={orderRevision}
+                  onEdit={(n, tab) => setEditing({ ...n, _tab: tab })}
+                  onNew={(project = "", status = "draft", columnId) =>
+                    newNode(
+                      project || scope || homeId,
+                      "task",
+                      status,
+                      project,
+                      columnId,
+                    )
                   }
                   onMove={async (n, status) => {
                     await api(`nodes/${n.id}`, {
@@ -1764,24 +1779,61 @@ function App() {
           e.target.value = "";
         }}
       />
-      {editing && (
-        <Editor
-          initial={editing}
-          nodes={nodes}
-          settings={settings}
-          onManage={() => setShowSettings(true)}
-          onClose={() => setEditing(null)}
-          onSave={async (value) => {
-            const n = await api(editing.id ? `nodes/${editing.id}` : "nodes", {
-              method: editing.id ? "PUT" : "POST",
-              body: JSON.stringify(value),
-            });
-            await load();
-            choose(n);
-            setEditing(null);
-            notify(t("m181"));
-          }}
-        />
+      {editing?.type === "task" ? (
+        <Suspense
+          fallback={
+            <div className="modal-backdrop">
+              <p role="status">{t("m148")}</p>
+            </div>
+          }
+        >
+          <TaskDialog
+            key={editing.id || "new-task"}
+            initial={editing}
+            nodes={nodes}
+            settings={settings}
+            env={env}
+            orderRevision={orderRevision}
+            onManage={() => setShowSettings(true)}
+            onClose={() => setEditing(null)}
+            onRefresh={load}
+            onSave={async (value) => {
+              const result = await api(
+                editing.id ? `nodes/${editing.id}` : "nodes",
+                {
+                  method: editing.id ? "PUT" : "POST",
+                  body: JSON.stringify(value),
+                },
+              );
+              if (!editing.id) setEditing(result);
+              await load();
+              return result;
+            }}
+          />
+        </Suspense>
+      ) : (
+        editing && (
+          <Editor
+            initial={editing}
+            nodes={nodes}
+            settings={settings}
+            onManage={() => setShowSettings(true)}
+            onClose={() => setEditing(null)}
+            onSave={async (value) => {
+              const n = await api(
+                editing.id ? `nodes/${editing.id}` : "nodes",
+                {
+                  method: editing.id ? "PUT" : "POST",
+                  body: JSON.stringify(value),
+                },
+              );
+              await load();
+              choose(n);
+              setEditing(null);
+              notify(t("m181"));
+            }}
+          />
+        )
       )}
       {reader && (
         <div

@@ -6,6 +6,7 @@ import { gzip, gunzip } from "node:zlib";
 import { promisify } from "node:util";
 import { historyDirectory } from "./file-safety.js";
 import { fail } from "../shared/schema.js";
+import { safePath } from "./documents.js";
 
 const compress = promisify(gzip),
   decompress = promisify(gunzip);
@@ -29,10 +30,11 @@ const conflict = () =>
 // The existing mutation queue serializes edits and travel. Only touched text
 // files are captured; attachments are never copied with a map move or a rating.
 export class UndoHistory {
-  constructor(directory, { document, validate } = {}) {
+  constructor(directory, { document, validate, audit } = {}) {
     this.directory = directory;
     this.document = document;
     this.validate = validate;
+    this.audit = audit || (async () => {});
     this.context = new AsyncLocalStorage();
   }
   async folder() {
@@ -174,6 +176,10 @@ export class UndoHistory {
   }
   async target(spec) {
     if (!spec || typeof spec !== "object") invalid();
+    if (spec.kind === "comments" && ID.test(spec.id))
+      return safePath(this.directory, `comments/${spec.id}.json`, {
+        create: true,
+      });
     if (
       spec.kind === "record" &&
       typeof spec.id === "string" &&
@@ -213,13 +219,22 @@ export class UndoHistory {
     context.label ||= {
       kind: label.kind,
       title: String(label.title || "").slice(0, 240),
+      ...(label.recordId ? { recordId: label.recordId } : {}),
     };
     await this.packed("pending.json.gz", {
       mode: "edit",
       root: context.state.root,
       revision: context.state.revision,
-      changes: [...context.changes.values()],
+      changes: [...context.changes.values()].map(
+        ({ written, ...change }) => change,
+      ),
     });
+  }
+  async confirmWrites() {
+    const context = this.context.getStore();
+    if (!context) return;
+    for (const change of context.changes.values())
+      change.written = await this.readFile(await this.target(change.target));
   }
   async changes(value, complete = true) {
     if (!Array.isArray(value) || value.length > 10000) invalid();
@@ -304,23 +319,46 @@ export class UndoHistory {
         }
       }
     } else invalid();
+    if (pending.audit && state.revision === pending.nextRevision)
+      await this.audit(pending.changes, pending.audit);
     await fs.unlink(pendingFile);
   }
   async record(fn) {
     await this.recover();
     const state = await this.state();
     const context = { state, changes: new Map(), label: null };
-    let completed;
+    let completed,
+      result,
+      completedFn = false;
     try {
-      const result = await this.context.run(context, fn);
+      result = await this.context.run(context, fn);
+      completedFn = true;
       completed = [];
       for (const change of context.changes.values()) {
         const after = await this.readFile(await this.target(change.target));
-        if (change.before !== after) completed.push({ ...change, after });
+        const { written, ...saved } = change;
+        if (change.before !== after) completed.push({ ...saved, after });
       }
       if (completed.length) {
         const id = randomUUID(),
           bytes = await this.packed(`${id}.json.gz`, { changes: completed });
+        const nextRevision = randomUUID();
+        const audit = {
+          id,
+          at: new Date().toISOString(),
+          source: "edit",
+          ...(context.label?.recordId
+            ? { recordId: context.label.recordId }
+            : {}),
+        };
+        await this.packed("pending.json.gz", {
+          mode: "edit",
+          root: state.root,
+          revision: state.revision,
+          nextRevision,
+          changes: completed,
+          audit,
+        });
         const entries = [
           ...state.entries.slice(0, state.cursor),
           { id, bytes, ...context.label },
@@ -330,16 +368,24 @@ export class UndoHistory {
           total -= entries.shift().bytes;
         await this.saveState({
           ...state,
-          revision: randomUUID(),
+          revision: nextRevision,
           entries,
           cursor: entries.length,
         });
+        await this.audit(completed, audit);
         await this.pruneEntries(entries);
       }
       if (context.changes.size)
         await fs.unlink(path.join(await this.folder(), "pending.json.gz"));
       return result;
     } catch (error) {
+      if (!completed)
+        completed = [...context.changes.values()]
+          .filter(
+            (change) =>
+              change.written !== undefined && change.written !== change.before,
+          )
+          .map(({ written, ...change }) => ({ ...change, after: written }));
       if (
         completed?.length &&
         (await this.state()).revision === state.revision
@@ -350,6 +396,8 @@ export class UndoHistory {
           await this.replace(change.file, change.before, change.after);
       }
       await this.recover();
+      if (completedFn && (await this.state()).revision !== state.revision)
+        return result;
       throw error;
     }
   }
@@ -389,11 +437,19 @@ export class UndoHistory {
       revision: state.revision,
       nextRevision: next.revision,
       changes: changes.map(({ file, ...change }) => change),
+      audit: {
+        id: next.revision,
+        at: new Date().toISOString(),
+        source: direction,
+        ...(entry.recordId ? { recordId: entry.recordId } : {}),
+      },
     });
     try {
       for (const change of changes)
         await this.replace(change.file, change.after, change.before);
       await this.saveState(next);
+      const pending = await this.unpack("pending.json.gz");
+      await this.audit(changes, pending.audit);
     } catch (error) {
       await this.recover();
       throw error;
