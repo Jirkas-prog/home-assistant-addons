@@ -1,4 +1,5 @@
 import { exerciseNavigation } from './navigation-browser.mjs';
+import { exerciseSessions } from './session-browser.mjs';
 import { navigationClick } from './navigation-helpers.mjs';
 import { exerciseCalculatorDraft, exerciseCalculatorSettings } from './calculators-browser.mjs';
 import { exerciseSecurity } from './security-browser.mjs';
@@ -383,6 +384,7 @@ try {
   await exerciseExports({ page, click, choose, closed, acceptMessage, app, root, progress, czech });
   await exerciseGoogleDrive({ page, click, fill, choose, closed, acceptMessage, app, google, root, progress, czech });
   await exerciseNavigation({ page, click, choose, fill, closed, acceptMessage, app, root, progress, czech });
+  await exerciseSessions({ page, click, choose, fill, closed, acceptMessage, app, root, progress, czech });
   assert.deepEqual(errors, []);
   assert.deepEqual(nativeDialogs, []);
   assert.equal(app.store.read().state.settings.appearance.theme, 'custom');

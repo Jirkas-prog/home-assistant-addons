@@ -12,7 +12,7 @@ import './theme.css';
 import './workspace.css';
 import { clone, uid, now, today, norm, money, total, paid, balance, dateLabel, newDocument, customDefaults, textRules, checksFor, fieldsFor, filename, unpackBackup, bytesBase64, base64Bytes, statusNames, fieldValue } from './model.js';
 import { $, esc, button, field, area, select, table, on, actions, toast, modal, formDialog, values, closeModal, setDirty, picker, job, confirmDialog, showError, validateForm, requestPassword } from './ui.js';
-import { api, assetUrl, loadState, session, loadAsset, downloadBytes, downloadBackup, pickFile, upload, base, loadSecurity, exportExcel, downloadRecovery } from './api.js';
+import { api, assetUrl, loadState, session, loadAsset, downloadBytes, downloadBackup, pickFile, upload, base, loadSecurity, exportExcel, downloadRecovery, renewAccess } from './api.js';
 import { renderDocument } from './renderer.js';
 import { openEditor, exportTemplate } from './editor.js';
 import { showSecurityGate, needsSecurity, installSecurityActions, encryptionNotice } from './security-ui.js';
@@ -95,7 +95,7 @@ let gateLoading = false;
 addEventListener("Fakturocel-locked", () => {
   if (gateLoading) return;
   gateLoading = true;
-  void reload().catch(e => showError(e)).finally(() => gateLoading = false);
+  void (nativeClient ? reload() : renewAccess()).catch(e => showError(e)).finally(() => gateLoading = false);
 });
 async function save(ops, reason = '') {
   const result = await api('commit', {
@@ -277,7 +277,7 @@ function documentList() {
 }
 function catalog(key, label, heads, cells) {
   const rows = state[key].filter(x => !search || norm(JSON.stringify(x)).includes(norm(search)));
-  return `<section class="card"><div class="section-head"><h2>${label} · ${rows.length}</h2>${canEdit() ? button('editRecord:' + key + ':new', "+ Add", 'primary') : ''}</div><input id="search" value="${esc(search)}" placeholder="Hledat…">${table([...heads, "State", "Last change", "Source of change", ''], rows.map(x => {
+  return `<section class="card"><div class="section-head"><h2>${label} · ${rows.length}</h2>${canEdit() ? button('editRecord:' + key + ':new', "+ Add", 'primary') : ''}</div><input id="search" value="${esc(search)}" placeholder="Search…">${table([...heads, "State", "Last change", "Source of change", ''], rows.map(x => {
     const info = recordInfo(key, x.id);
     return `<tr data-record-id="${esc(x.id)}">${cells(x).map(v => `<td>${esc(v)}</td>`).join('')}<td>${x.archived ? "Archived" : ''}</td><td>${info.at ? esc(new Date(info.at).toLocaleString(locale())) : '—'}</td><td>${esc(info.source)}${info.actor ? ' · ' + esc(info.actor) : ''}</td><td>${button('editRecord:' + key + ':' + x.id, "Open", 'small')}</td></tr>`;
   }))}</section>`;
@@ -1001,12 +1001,10 @@ on('importTemplate', async () => {
     });
   } catch (e) {
     if (e.status !== 422) throw e;
-    const password = await requestPassword("Enter the recovery key from PDF or the original password of this template.");
-    if (password === null) return;
-    result = await api('import/template', {
-      text: importText,
-      password
+    result = await requestPassword("Enter the recovery key from PDF or the original password of this template.", undefined, {
+      validate: password => api('import/template', { text: importText, password })
     });
+    if (result === null) return;
   }
   const {
     bundle
@@ -1217,12 +1215,12 @@ on('restore', async () => {
     });
   } catch (e) {
     if (e.status !== 422) throw e;
-    password = await requestPassword("Enter the recovery key from PDF or the original password of this backup.");
-    if (password === null) return;
-    p = await api('restore/preview', {
-      text,
-      password
+    const result = await requestPassword("Enter the recovery key from PDF or the original password of this backup.", undefined, {
+      validate: async value => ({ password: value, preview: await api('restore/preview', { text, password: value }) })
     });
+    if (result === null) return;
+    password = result.password;
+    p = result.preview;
   }
   if (!(await confirmDialog(`Restore ${p.documents} documents, ${p.companies} companies and ${p.templates} templates? Current data is first backed up and then replaced.`))) return;
   adopt(await api('restore', {
@@ -1369,7 +1367,7 @@ async function init() {
   refreshTimer = setInterval(async () => {
     if (document.hidden || nativeClient && $('#modal').innerHTML) return;
     try {
-      const r = await api('meta');
+      const r = await api('meta', undefined, { recoverAccess: false });
       if (nativeClient) {
         Object.assign(session, r);
         if (r.revision !== revision) adopt(r);else {

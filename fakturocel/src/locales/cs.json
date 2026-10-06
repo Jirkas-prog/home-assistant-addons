@@ -1845,6 +1845,16 @@
     " · group": " · skupina",
     "Backup saved": "Záloha uložena",
     "Download backup to this device": "Stáhnout zálohu do zařízení",
-    "Google Drive": "Disk Google"
+    "Google Drive": "Disk Google",
+    "The security token needs to be renewed. Your edits are still in the open form.": "Je potřeba obnovit ochranný token. Rozepsané údaje zůstávají v otevřeném formuláři.",
+    "Unlocking was cancelled. Your edits remain in the open form. Save again when you are ready.": "Odemknutí bylo zrušeno. Rozepsané údaje zůstávají v otevřeném formuláři. Až budete připraveni, znovu je uložte.",
+    "Unlock to continue. Your open form and entered values will be kept.": "Pro pokračování aplikaci odemkněte. Otevřený formulář i zadané hodnoty zůstanou zachované.",
+    "Recovery key or original password": "Obnovovací klíč nebo původní heslo",
+    "Show entered value": "Zobrazit zadanou hodnotu",
+    "Hide entered value": "Skrýt zadanou hodnotu",
+    "Paste or type the value, then choose Continue. Escape keeps this window open.": "Vložte nebo napište hodnotu a pak zvolte Pokračovat. Klávesa Escape toto okno nezavře.",
+    "Enter your access PIN.": "Zadejte přístupový PIN.",
+    "Enter the recovery key or original password.": "Zadejte obnovovací klíč nebo původní heslo.",
+    "Verifying…": "Ověřuji…"
   }
 }

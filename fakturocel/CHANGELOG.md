@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.11.1
+
+- Renew stale security tokens without reloading the page or discarding edited forms, including after changes in another browser tab.
+- Keep forms open during access-PIN renewal and resume operations rejected before execution. Network failures and revision conflicts are never automatically replayed.
+- Keep recovery-key entry open during verification and after errors. Escape and Enter in the field no longer discard or prematurely submit the entered value.
+- Use a masked recovery field with a visibility toggle and password-manager exclusion hints, separate from account-login password fields.
+- Limit password clearing to the completed security form and test session renewal and encrypted restoration in English and Czech.
+
 ## 3.11.0
 
 - Replaced the long flat menu with six main sections, contextual horizontal navigation, and a collapsible mobile menu.

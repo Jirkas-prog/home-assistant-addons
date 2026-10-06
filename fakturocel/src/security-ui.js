@@ -1,6 +1,6 @@
 import { nativeClient } from './client-sync.js';
 import { $, esc, button, field, select, modal, on, setDirty, closeModal, validateForm, confirmDialog, toast, requestPassword } from './ui.js';
-import { api, session, loadSecurity, downloadRecovery } from './api.js';
+import { api, session, loadSecurity, downloadRecovery, installAccessRecovery } from './api.js';
 const warning = "With encryption turned off, stored data and backups can be accessed by other users with access to files or device storage.";
 const network = () => !nativeClient && !isSecureContext ? "<p class=\"notice\">To protect the PIN and key during transfer, use Home Assistant via HTTPS.</p>" : '';
 export const needsSecurity = s => s.blocked || !s.configured || s.locked || s.pinRequired || s.migrationPending || s.transitioning;
@@ -43,9 +43,21 @@ function securityValues() {
     confirm: !enabled && v.disableConfirmed ? "DISABLE ENCRYPTION" : ''
   };
 }
-function clearPasswords() {
-  document.querySelectorAll('input[type=password]').forEach(x => x.value = '');
+function clearPasswords(form) {
+  document.querySelector(form)?.querySelectorAll('input[type=password]').forEach(x => x.value = '');
 }
+installAccessRecovery(async () => {
+  const { security } = await loadSecurity();
+  if (!security.pinRequired) return true;
+  return await requestPassword('Unlock to continue. Your open form and entered values will be kept.', 'The application is locked', {
+    pin: true,
+    immediate: true,
+    validate: async pin => {
+      await api('security/pin-login', { pin }, { recoverAccess: false });
+      return true;
+    }
+  });
+});
 export function showSecurityGate(security, onReady) {
   if (security.blocked) {
     $('#app').innerHTML = "<main class=\"security-gate\"><h1>The add-on needs to be restarted</h1><p>The last write could not be completed reliably. Restart Fakturocel in Home Assistant settings. The original files are not automatically replaced with empty data.</p></main>";
@@ -58,7 +70,7 @@ export function showSecurityGate(security, onReady) {
       await api('security/unlock', {
         password: $('[name="unlockPassword"]').value
       });
-      clearPasswords();
+      clearPasswords('#unlockForm');
       await onReady();
     });
     return;
@@ -70,15 +82,14 @@ export function showSecurityGate(security, onReady) {
       await api('security/pin-login', {
         pin: $('[name="loginPin"]').value
       });
-      clearPasswords();
+      clearPasswords('#pinUnlockForm');
       await onReady();
     });
     on('pinForgot', async () => {
-      const key = await requestPassword("The owner can turn off the forgotten PIN with the current recovery key from PDF.", "Restore access");
-      if (key === null) return;
-      await api('security/pin-recover', {
-        key
+      const result = await requestPassword("The owner can turn off the forgotten PIN with the current recovery key from PDF.", "Restore access", {
+        validate: key => api('security/pin-recover', { key })
       });
+      if (result === null) return;
       await onReady();
       toast("PIN was turned off. You can set a new one in Settings.");
     });
@@ -103,7 +114,7 @@ export function showSecurityGate(security, onReady) {
     }))) return;
     try {
       await api('security/setup', input);
-      clearPasswords();
+      clearPasswords('#securityForm');
       await onReady();
     } catch (e) {
       const r = await loadSecurity();
@@ -137,7 +148,7 @@ export function installSecurityActions(onReady) {
         await downloadRecovery();
       }
       await api('security/change', input);
-      clearPasswords();
+      clearPasswords('#securityForm');
       setDirty(false);
       await closeModal();
       await onReady();
@@ -174,7 +185,7 @@ export function installSecurityActions(onReady) {
         pin: v.pin,
         currentPin: v.currentPin
       });
-      clearPasswords();
+      clearPasswords('#pinForm');
       setDirty(false);
       await closeModal();
       await onReady();

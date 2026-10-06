@@ -71,9 +71,10 @@ async function restorePreview(route, data) {
   try { preview = await api(route, data); }
   catch (e) {
     if (e.status !== 422) throw e;
-    const password = await requestPassword('Enter the recovery key from PDF or the original password of this backup.');
-    if (password === null) return;
-    preview = await api(route, { ...data, password });
+    preview = await requestPassword('Enter the recovery key from PDF or the original password of this backup.', undefined, {
+      validate: password => api(route, { ...data, password })
+    });
+    if (preview === null) return;
   }
   const message = `${tr('Restore')} ${preview.documents} ${tr('documents')}, ${preview.companies} ${tr('companies')}, ${preview.templates} ${tr('templates')} ${tr('and')} ${preview.attachments} ${tr('attachments')}? ${tr('Current data is first backed up and then replaced.')}`;
   if (!(await confirmDialog(message, { title: tr('Restore backup') }))) return;

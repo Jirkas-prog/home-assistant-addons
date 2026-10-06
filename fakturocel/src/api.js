@@ -3,6 +3,12 @@ import { bytesBase64, base64Bytes } from './model.js';
 import { activity } from './ui.js';
 export const base = new URL('./', location.href);
 export let session = {};
+let accessRecovery, renewingAccess;
+export function installAccessRecovery(handler) { accessRecovery = handler; }
+export function renewAccess() {
+  if (!renewingAccess) renewingAccess = Promise.resolve().then(() => accessRecovery?.()).finally(() => { renewingAccess = null; });
+  return renewingAccess;
+}
 const stages = {
   commit: ['Saving changes and creating a local backup…', 'Changes saved.'],
   issue: ['Generating and archiving the invoice PDF…', 'Invoice PDF generated and archived.'],
@@ -28,34 +34,52 @@ export async function api(route, data, options = {}) {
       throw e;
     }
   }
-  let res;
-  try {
-    res = await fetch(new URL('api/' + route, base), {
-      method: data ? 'POST' : 'GET',
-      cache: 'no-store',
-      headers: data ? {
-        'Content-Type': 'application/json',
-        "X-Fakturocel-Token": session.csrf || ''
-      } : {},
-      body: data ? JSON.stringify(data) : undefined,
-      signal: options.signal || AbortSignal.timeout(route.startsWith('google-drive/') || route.startsWith('restore/') ? 360000 : 180000)
+  let tokenRenewed = false, accessRenewed = false;
+  // Retry only explicit rejections made before the server starts the operation.
+  // Never replay a network failure or a record-revision conflict.
+  for (;;) {
+    options.signal?.throwIfAborted();
+    let res;
+    try {
+      res = await fetch(new URL('api/' + route, base), {
+        method: data ? 'POST' : 'GET',
+        cache: 'no-store',
+        headers: data ? {
+          'Content-Type': 'application/json',
+          "X-Fakturocel-Token": session.csrf || ''
+        } : {},
+        body: data ? JSON.stringify(data) : undefined,
+        signal: options.signal || AbortSignal.timeout(route.startsWith('google-drive/') || route.startsWith('restore/') ? 360000 : 180000)
+      });
+    } catch (error) {
+      if (options.signal?.aborted) throw error;
+      throw Error("The server is not available. The edits are not yet confirmed as saved.");
+    }
+    let result;
+    try {
+      result = await res.json();
+    } catch {
+      throw Error("The server did not return the data. Verify login to Home Assistant.");
+    }
+    if (res.status === 403 && result.code === 'STALE_CSRF' && !tokenRenewed) {
+      tokenRenewed = true;
+      await loadSecurity();
+      continue;
+    }
+    if (res.status === 423 && result.code === 'ACCESS_PIN_REQUIRED' && !accessRenewed && options.recoverAccess !== false && accessRecovery) {
+      accessRenewed = true;
+      if (await renewAccess()) continue;
+      throw Error('Unlocking was cancelled. Your edits remain in the open form. Save again when you are ready.');
+    }
+    if (!res.ok) throw Object.assign(Error(result.error || 'The operation failed.'), {
+      status: res.status,
+      code: result.code
     });
-  } catch (error) {
-    if (options.signal?.aborted) throw error;
-    throw Error("The server is not available. The edits are not yet confirmed as saved.");
+    if (result.csrf) session.csrf = result.csrf;
+    if (result.security) session.security = result.security;
+    if (stage && data && stage[1]) activity(stage[1], stage[1]);
+    return result;
   }
-  let result;
-  try {
-    result = await res.json();
-  } catch {
-    throw Error("The server did not return the data. Verify login to Home Assistant.");
-  }
-  if (res.status === 423) window.dispatchEvent(new Event("Fakturocel-locked"));
-  if (!res.ok) throw Object.assign(Error(result.error || 'The operation failed.'), {
-    status: res.status
-  });
-  if (stage && data && stage[1]) activity(stage[1], stage[1]);
-  return result;
 }
 export async function loadState() {
   session = await api('state');

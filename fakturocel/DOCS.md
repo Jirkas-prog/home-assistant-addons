@@ -62,6 +62,10 @@ Turning local backup encryption back on converts existing managed plaintext `.fa
 
 Working-data encryption can be disabled after a warning and explicit confirmation. Unencrypted files can be read by other users who can access the same storage. An optional 6–12 digit application PIN is available and is disabled by default.
 
+Security-token renewal does not reload the page. If an access PIN expires while saving, unlock the dialog to continue with the same entered values. Cancelling unlock keeps the form open for a later attempt. A connection failure or a conflicting record change keeps the form open and reports the problem without automatically repeating the write.
+
+When restoring an encrypted file from another installation, paste its recovery key or original password into the masked recovery field. Use **Show entered value** to check it, then select **Continue**. Incorrect entries remain available for correction in the same dialog. Escape does not close this dialog; use **Cancel** to dismiss it. Recovery values are not saved in browser storage.
+
 Open **Settings → Backups and encryption → Restore and reset** for local/cloud recovery and data deletion. Complete data deletion requires all of these steps:
 
 1. download the current portable backup;

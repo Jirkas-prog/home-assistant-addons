@@ -58,6 +58,9 @@ export async function createApp(options) {
   const backupRestore = new BackupRestore(store);
   const exports = new ExportJobs(store);
   let csrf = randomBytes(32).toString('hex');
+  const checkCsrf = req => {
+    if (req.headers['x-fakturocel-token'] !== csrf) throw Object.assign(fail(403, 'The security token needs to be renewed. Your edits are still in the open form.'), { code: 'STALE_CSRF' });
+  };
   const allowed = options.allowRequest || (req => ['172.30.32.2', '::ffff:172.30.32.2'].includes(req.socket.remoteAddress));
   const server = http.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -82,16 +85,21 @@ export async function createApp(options) {
         ...store.actor(id, name),
         validateAccess: () => access.require(req, id)
       });
+      // This code is only returned before dispatch, so clients can safely retry after unlocking.
+      const requireAccess = () => {
+        try { access.require(req, id); }
+        catch (e) { throw Object.assign(e, { code: 'ACCESS_PIN_REQUIRED' }); }
+      };
       if (req.method === 'GET' && p === '/api/security') return json(200, {
         security: access.status(req, id),
         csrf
       });
       if (req.method === 'POST' && p.startsWith('/api/security/')) {
-        if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
+        checkCsrf(req);
         const input = await body(req, 4096);
-        if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
+        checkCsrf(req);
         if (p === '/api/security/setup') await store.setup(input, id, name);else if (p === '/api/security/unlock') await store.unlock(input.password, id, name);else if (p === '/api/security/pin-login') await access.login(input, req, res, id, name);else if (p === '/api/security/pin-recover') await access.recover(input, req, res, id, name);else {
-          access.require(req, id);
+          requireAccess();
           if (p === '/api/security/retry') await store.retryMigration(id, name);else if (p === '/api/security/change') {
             if (input.enabled === false && googleDrive.config().refreshToken) throw fail(400, 'Disconnect Google Drive before disabling data encryption.');
             googleDrive.cancel();
@@ -106,7 +114,7 @@ export async function createApp(options) {
           csrf
         });
       }
-      if (p.startsWith('/api/')) access.require(req, id);
+      if (p.startsWith('/api/')) requireAccess();
       const actor = p.startsWith('/api/') ? store.actor(id, name) : null;
       if (actor) actor.validateAccess = () => access.require(req, id);
       if (req.method === 'GET' && p === '/api/state') return json(200, {
@@ -196,10 +204,10 @@ export async function createApp(options) {
         return res.end(b.data);
       }
       if (req.method === 'POST' && p.startsWith('/api/')) {
-        if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
+        checkCsrf(req);
         const input = await body(req, p === '/api/restore/file/preview' ? 410 * 1024 * 1024 : MAX);
-        if (req.headers["x-fakturocel-token"] !== csrf) throw fail(403, "The session has changed. Refresh the page.");
-        access.require(req, id);
+        checkCsrf(req);
+        requireAccess();
         if (p === '/api/export/start') {
           const job = await exports.start(input.format, actor);
           if (res.destroyed) { await exports.cancel(job.id, actor); return; }
@@ -354,7 +362,8 @@ export async function createApp(options) {
       stream.pipe(res);
     } catch (e) {
       if (!res.headersSent) json(e.status || 400, {
-        error: e.message
+        error: e.message,
+        code: e.code === 'STALE_CSRF' || e.code === 'ACCESS_PIN_REQUIRED' ? e.code : undefined
       });else res.destroy();
     }
   });

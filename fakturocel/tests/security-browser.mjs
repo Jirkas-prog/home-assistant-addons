@@ -17,9 +17,9 @@ export async function exerciseSecurity({
   progress
 }) {
   const enterPassword = async value => {
-    await page.locator('#messageOverlay input[type=password]').fill(value);
+    await page.locator('#messageOverlay [data-secret-input]').fill(value);
     await page.locator('#messageOverlay [data-message="ok"]').click();
-    await page.locator('#messageOverlay input[type=password]').waitFor({
+    await page.locator('#messageOverlay [data-secret-input]').waitFor({
       state: 'detached'
     });
   };

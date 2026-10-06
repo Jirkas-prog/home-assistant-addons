@@ -47,15 +47,20 @@ function messageDialog({
   confirmText = "I understand",
   cancelText = '',
   danger = false,
-  password = false
+  password = false,
+  validate,
+  pin = false,
+  immediate = false
 }) {
   const open = () => new Promise(resolve => {
     const previous = document.activeElement,
       overlay = document.createElement('div');
-    overlay.id = 'messageOverlay';
+    overlay.id = immediate ? 'accessOverlay' : 'messageOverlay';
     overlay.className = 'message-veil';
-    overlay.innerHTML = `<section class="message-dialog ${danger ? 'message-error' : ''}" role="alertdialog" aria-modal="true" aria-labelledby="messageTitle" aria-describedby="messageText"><div class="message-symbol" aria-hidden="true">${danger ? '!' : '?'}</div><h2 id="messageTitle">${esc(title)}</h2><p id="messageText">${esc(message)}</p>${details ? `<details><summary>Details</summary><pre>${esc(details)}</pre></details>` : ''}<div class="form-actions">${cancelText ? `<button type="button" data-message="cancel">${esc(cancelText)}</button>` : ''}<button type="button" class="${danger ? 'danger-fill' : 'primary'}" data-message="ok">${esc(confirmText)}</button></div></section>`;
-    if (password) overlay.querySelector('.form-actions').insertAdjacentHTML('beforebegin', "<label>Password<input id=\"messagePassword\" type=\"password\" autocomplete=\"current-password\" maxlength=\"256\"></label><p id=\"passwordProblem\" class=\"field-error\" role=\"status\"></p>");
+    const titleId = immediate ? 'accessTitle' : 'messageTitle', textId = immediate ? 'accessText' : 'messageText',
+      hintId = immediate ? 'accessHint' : 'secretHint', problemId = immediate ? 'accessProblem' : 'passwordProblem';
+    overlay.innerHTML = `<section class="message-dialog ${danger ? 'message-error' : ''}" role="alertdialog" aria-modal="true" aria-labelledby="${titleId}" aria-describedby="${textId}"><div class="message-symbol" aria-hidden="true">${danger ? '!' : '?'}</div><h2 id="${titleId}">${esc(title)}</h2><p id="${textId}">${esc(message)}</p>${details ? `<details><summary>Details</summary><pre>${esc(details)}</pre></details>` : ''}<div class="form-actions">${cancelText ? `<button type="button" data-message="cancel">${esc(cancelText)}</button>` : ''}<button type="button" class="${danger ? 'danger-fill' : 'primary'}" data-message="ok">${esc(confirmText)}</button></div></section>`;
+    if (password) overlay.querySelector('.form-actions').insertAdjacentHTML('beforebegin', `<label>${pin ? 'Access PIN' : 'Recovery key or original password'}<textarea data-secret-input class="secret-input concealed" rows="2" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true" data-bwignore ${pin ? 'inputmode="numeric" maxlength="12"' : 'maxlength="255"'} aria-describedby="${hintId} ${problemId}"></textarea></label><button type="button" data-secret-toggle aria-pressed="false">Show entered value</button><p id="${hintId}" class="muted">Paste or type the value, then choose Continue. Escape keeps this window open.</p><p id="${problemId}" data-secret-problem class="field-error" role="status" aria-live="polite"></p>`);
     const covered = [...document.body.children].filter(x => x !== overlay && x.tagName !== 'SCRIPT').map(el => ({
       el,
       inert: el.inert
@@ -64,40 +69,64 @@ function messageDialog({
       el
     }) => el.inert = true);
     document.body.append(overlay);
+    const input = overlay.querySelector('[data-secret-input]'), ok = overlay.querySelector('[data-message="ok"]');
+    let checking = false;
+    overlay.querySelector('[data-secret-toggle]')?.addEventListener('click', e => {
+      const concealed = input.classList.toggle('concealed');
+      e.currentTarget.textContent = tr(concealed ? 'Show entered value' : 'Hide entered value');
+      e.currentTarget.setAttribute('aria-pressed', String(!concealed));
+      input.focus({ preventScroll: true });
+    });
     const finish = value => {
+      if (input) input.value = '';
       overlay.remove();
       covered.forEach(({
         el,
         inert
       }) => el.inert = inert);
-      if (previous?.isConnected) previous.focus();
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
       resolve(value);
     };
-    const accept = () => {
-      const input = overlay.querySelector('#messagePassword');
+    const accept = async () => {
+      if (checking) return;
       if (password && !input.value) {
-        overlay.querySelector('#passwordProblem').textContent = "Enter your password.";
+        overlay.querySelector('[data-secret-problem]').textContent = tr(pin ? 'Enter your access PIN.' : 'Enter the recovery key or original password.');
         input.focus();
         return;
       }
-      const value = password ? input.value : true;
-      if (input) input.value = '';
-      finish(value);
+      checking = true;
+      overlay.setAttribute('aria-busy', 'true');
+      overlay.querySelectorAll('button').forEach(b => { b.disabled = true; });
+      if (input) input.readOnly = true;
+      if (password) overlay.querySelector('[data-secret-problem]').textContent = tr('Verifying…');
+      try {
+        const value = password ? input.value : true;
+        finish(validate ? await validate(value) : value);
+      } catch (error) {
+        overlay.querySelector('[data-secret-problem]').textContent = tr(error.message || 'The operation failed.');
+        input?.focus({ preventScroll: true });
+      } finally {
+        checking = false;
+        overlay.setAttribute('aria-busy', 'false');
+        overlay.querySelectorAll('button').forEach(b => { b.disabled = false; });
+        if (input) input.readOnly = false;
+      }
     };
-    overlay.querySelector('[data-message="ok"]').onclick = accept;
-    overlay.querySelector('[data-message="cancel"]')?.addEventListener('click', () => finish(password ? null : false));
+    ok.onclick = accept;
+    overlay.querySelector('[data-message="cancel"]')?.addEventListener('click', () => { if (!checking) finish(password ? null : false); });
     overlay.onkeydown = e => {
       e.stopPropagation();
       if (e.key === 'Escape') {
         e.preventDefault();
-        finish(password ? null : !cancelText);
-      } else if (password && e.key === 'Enter') {
+        if (!password && !checking) finish(!cancelText);
+      } else if (password && e.key === 'Enter' && e.target === input) {
         e.preventDefault();
-        accept();
       } else trapFocus(e, overlay);
     };
-    (overlay.querySelector('#messagePassword') || overlay.querySelector('[data-message="cancel"]') || overlay.querySelector('[data-message="ok"]')).focus();
+    (input || overlay.querySelector('[data-message="cancel"]') || ok).focus({ preventScroll: true });
   });
+  // Reauthentication can be needed while a recovery-key dialog is being verified.
+  if (immediate) return open();
   const pending = messageTail.then(open);
   messageTail = pending.catch(() => {});
   return pending;
@@ -109,12 +138,13 @@ export const confirmDialog = (message, options = {}) => messageDialog({
   cancelText: "Cancel",
   ...options
 });
-export const requestPassword = (message, title = "The password for the encrypted file") => messageDialog({
+export const requestPassword = (message, title = "The password for the encrypted file", options = {}) => messageDialog({
   title,
   message,
   password: true,
   confirmText: "Continue",
-  cancelText: "Cancel"
+  cancelText: "Cancel",
+  ...options
 });
 export function showError(error, title = "The action could not be completed") {
   const e = error instanceof Error ? error : Error(String(error || "Unknown error."));

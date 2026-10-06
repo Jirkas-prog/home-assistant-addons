@@ -58,6 +58,27 @@ async function fixture() {
     cookies
   };
 }
+test('stale tokens are rejected before writes and can be refreshed without replacing records', async () => {
+  const { app, request } = await fixture();
+  try {
+    const state = app.store.read();
+    assert.equal((await request('security/pin', { enabled: false })).status, 200);
+    const stale = await request('backup/preferences', { format: 'both' });
+    assert.equal(stale.status, 403);
+    assert.equal((await stale.json()).code, 'STALE_CSRF');
+    assert.equal(app.store.meta('backupExportFormat', 'zip'), 'zip');
+    await request('security');
+    assert.equal((await request('backup/preferences', { format: 'both' })).status, 200);
+    assert.deepEqual(app.store.read(), state);
+    assert.equal((await request('security/pin', { enabled: true, pin: '628194' })).status, 200);
+    app.access.sessions.clear();
+    const locked = await request('backup/preferences', { format: 'excel' });
+    assert.equal(locked.status, 423);
+    assert.equal((await locked.json()).code, 'ACCESS_PIN_REQUIRED');
+    assert.equal(app.store.meta('backupExportFormat'), 'both');
+  } finally { await app.close(); }
+});
+
 test('PIN defaults off; grants are per browser and HA user, roles and all data routes remain protected', async () => {
   const f = await fixture(),
     {
