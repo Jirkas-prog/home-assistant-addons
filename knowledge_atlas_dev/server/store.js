@@ -87,7 +87,14 @@ export class Store {
     });
   }
   async read() {
-    // Concurrent readers share one scan. Callers receive their own mutable copy.
+    return structuredClone(await this.refresh());
+  }
+  async readNode(id) {
+    const snapshot = await this.refresh();
+    return structuredClone(snapshot.nodes.find((node) => node.id === id));
+  }
+  async refresh() {
+    // Concurrent readers share one scan. Public record reads clone only their result.
     if (!this.reading)
       this.reading = this.scan()
         .catch((error) => {
@@ -97,7 +104,7 @@ export class Store {
         .finally(() => {
           this.reading = null;
         });
-    return structuredClone(await this.reading);
+    return await this.reading;
   }
   startBackground() {
     if (this.background) return;
@@ -109,7 +116,7 @@ export class Store {
     clearTimeout(this.backgroundTimer);
     this.backgroundTimer = setTimeout(async () => {
       try {
-        await this.read();
+        await this.refresh();
       } catch {
         /* Keep the last successful snapshot and retry on the next scan. */
       } finally {

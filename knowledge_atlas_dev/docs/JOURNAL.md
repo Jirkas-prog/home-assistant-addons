@@ -38,6 +38,19 @@ Entries may overlap, and navigation does not create placeholder days. Duration
 is optional work effort expressed as `minutes` (zero means unspecified), not a
 claim that every hour of a multi-day range was spent working.
 
+Optional `startTime` and `endTime` fields are paired `HH:MM` local clock values.
+Omit both (or leave both empty) for all-day records. The combined end date/time
+must be later than the start. A timed entry ending at `00:00` does not occupy
+the following date. No timezone conversion changes the recorded local dates.
+Times survive the same Markdown, backup, restore and package flows as other
+tool fields. The calendar's display mode does not change the saved record period.
+
+The Journal page starts with a monthly calendar and also offers week, day and
+year views. Opening a record loads its body and sequentially downloads accessible
+Add-on/Server attachments up to 10,000,000 bytes each. Calendar navigation only
+uses metadata. Closing or switching records cancels pending downloads and releases
+temporary previews. Larger files, external URLs and device locations remain explicit.
+
 Each place needs a stable ID and a label or a pair of valid coordinates. Up to
 100 places are supported. Coordinates use WGS84 decimal degrees, including zero
 and negative values. A text-only place works offline. Place labels and coordinates,

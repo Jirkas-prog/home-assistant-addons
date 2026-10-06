@@ -30,6 +30,8 @@ export function workspaceNode(node, content) {
                 date: node.tool.date,
                 endDate: node.tool.endDate,
                 period: node.tool.period,
+                startTime: node.tool.startTime,
+                endTime: node.tool.endTime,
                 experience: node.tool.experience,
                 places: node.tool.places,
               }

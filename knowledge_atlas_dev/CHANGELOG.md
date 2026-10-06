@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.0.1-dev.23
+
+- Replace journal navigation with a month calendar by default, plus week, day and year views, date navigation and multi-day event bars.
+- Open entries in a focused dialog and preserve the calendar date, filters and scroll position when it closes.
+- Add optional local start/end times, all-day entries, overlap columns and creation from a calendar date or hour.
+- Download managed attachments up to 10 MB each sequentially only for the open entry. Cancel unfinished downloads on close or entry change; keep larger files and web links manual.
+- Reuse downloaded photo and PDF bytes in the integrated viewer, with photo navigation and cleanup on close.
+- Avoid cloning unrelated record bodies when reading a single entry or attachment.
+- Retain existing Markdown records, backups, experience flags, related tasks and English/Czech settings.
+
 ## 5.0.1-dev.22
 
 - Load journal navigation metadata separately from record bodies and retrieve only the selected entry's complete text and attachment list.

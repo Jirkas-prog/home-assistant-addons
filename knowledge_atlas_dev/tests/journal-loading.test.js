@@ -60,6 +60,8 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
       date: "2026-10-01",
       endDate: "2026-10-07",
       period: "week",
+      startTime: "09:00",
+      endTime: "16:00",
       minutes: 60,
       next: "Repeat the review",
       experience: true,
@@ -110,6 +112,8 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
   assert.equal(summary.resourceCount, 1);
   assert.equal(summary.tool.date, entry.tool.date);
   assert.equal(summary.tool.endDate, entry.tool.endDate);
+  assert.equal(summary.tool.startTime, entry.tool.startTime);
+  assert.equal(summary.tool.endTime, entry.tool.endTime);
   assert.equal(summary.tool.experience, true);
   assert.deepEqual(summary.related, ["task"]);
   assert.deepEqual(summary.tags, ["Workshop"]);
@@ -152,6 +156,15 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
   assert.deepEqual(full.resources, entry.resources);
   assert.equal(full.tool.next, entry.tool.next);
   assert.equal(full.partial, undefined);
+  const isolated = await store.readNode("journal");
+  isolated.title = "Unsaved change";
+  isolated.resources[0].label = "Unsaved attachment change";
+  assert.equal((await store.readNode("journal")).title, entry.title);
+  assert.equal(
+    (await store.readNode("journal")).resources[0].label,
+    entry.resources[0].label,
+  );
+  assert.equal(await store.readNode("absent"), undefined);
   const headers = {
     "Content-Type": "application/json",
     "X-Knowledge-Client": "atlas",
@@ -196,5 +209,56 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
     mapReads,
     0,
     "Journal navigation never reads saved map positions",
+  );
+  // Metadata requests inspect sizes without reading even a text attachment.
+  const edited = await (await fetch(base + "nodes/journal")).json();
+  edited.resources.push({
+    id: "text",
+    locationId: "addon",
+    path: "notes.txt",
+    label: "Notes",
+  });
+  const textFile = path.join(config.documentRoot, "notes.txt");
+  await fs.writeFile(textFile, "Example text");
+  assert.equal(
+    (
+      await fetch(base + "nodes/journal", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify(edited),
+      })
+    ).status,
+    200,
+  );
+  let textReads = 0;
+  t.mock.method(fs, "readFile", async (file, ...args) => {
+    if (String(file) === textFile) textReads++;
+    return readFile(file, ...args);
+  });
+  const info = await (
+    await fetch(base + "nodes/journal/resources/text?metadata=1")
+  ).json();
+  assert.equal(info.size, 12);
+  assert.equal(info.kind, "text");
+  assert.equal(info.body, undefined);
+  assert.equal(textReads, 0);
+  assert.equal(
+    (await fetch(base + "nodes/journal/resources/text/file?preview=1")).status,
+    200,
+  );
+  await fs.writeFile(textFile, Buffer.alloc(10_000_001, 65));
+  const oversized = await fetch(
+    base + "nodes/journal/resources/text/file?preview=1",
+  );
+  assert.equal(oversized.status, 413);
+  const original = await fetch(
+    base + "nodes/journal/resources/text/file?download=1",
+  );
+  assert.equal(original.status, 200);
+  assert.equal((await original.arrayBuffer()).byteLength, 10_000_001);
+  assert.equal(
+    textReads,
+    0,
+    "Metadata and original streaming do not load text into the editor",
   );
 });

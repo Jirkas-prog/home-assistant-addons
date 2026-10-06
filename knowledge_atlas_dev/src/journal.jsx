@@ -22,6 +22,7 @@ import { api } from "./client.js";
 import { resourceLocation } from "./atlas-model.js";
 import { DocumentViewer } from "./documents.jsx";
 import { MarkdownContent } from "./markdown.jsx";
+import { JournalAttachments } from "./journal-attachments.jsx";
 import "./journal.css";
 
 const imageResources = (node, settings) =>
@@ -276,6 +277,42 @@ export function JournalFields({ form, setForm, nodes, busy, onBusy }) {
         </label>
       </div>
       <p className="field-help">{t("journal.rangeHelp")}</p>
+      <label className="journal-experience-filter">
+        <input
+          type="checkbox"
+          checked={!(tool.startTime || tool.endTime)}
+          onChange={(e) =>
+            change(
+              e.target.checked
+                ? { startTime: "", endTime: "" }
+                : { startTime: "09:00", endTime: "10:00" },
+            )
+          }
+        />
+        {t("calendar.allDay")}
+      </label>
+      {(tool.startTime || tool.endTime) && (
+        <div className="form-grid">
+          <label>
+            {t("calendar.startTime")}
+            <input
+              type="time"
+              required
+              value={tool.startTime}
+              onChange={(e) => change({ startTime: e.target.value })}
+            />
+          </label>
+          <label>
+            {t("calendar.endTime")}
+            <input
+              type="time"
+              required
+              value={tool.endTime || ""}
+              onChange={(e) => change({ endTime: e.target.value })}
+            />
+          </label>
+        </div>
+      )}
       <h3>{t("journal.places")}</h3>
       <datalist id="journal-known-places">
         {knownPlaces.map((p) => (
@@ -520,6 +557,7 @@ export function JournalEntry({
   nodes,
   onSelect,
   onEntry,
+  autoPreview = false,
 }) {
   const [document, setDocument] = useState(null);
   useEffect(() => setDocument(null), [node.id]);
@@ -580,52 +618,58 @@ export function JournalEntry({
           ))}
         </section>
       )}
-      {node.resources.length > 0 && (
-        <p className="field-help">{t("journal.manualPreviewHelp")}</p>
-      )}
-      <AttachmentGallery node={node} settings={settings} />
-      {files.length > 0 && (
-        <section className="journal-files">
-          <h3>{t("journal.attachments")}</h3>
-          {files.map((r) => {
-            const location = settings.locations.find(
-              (l) => l.id === resourceLocation(r),
-            );
-            const available = ["addon", "server", "web"].includes(
-              location?.kind,
-            );
-            return available ? (
-              <button
-                key={r.id}
-                className="resource record-document"
-                onClick={() =>
-                  setDocument({
-                    nodeId: node.id,
-                    resourceId: r.id,
-                    title: r.label,
-                  })
-                }
-              >
-                <FileText size={16} />
-                <span>
-                  {r.label}
-                  <small>{t("journal.loadPreview")}</small>
-                </span>
-                <Download size={16} />
-              </button>
-            ) : (
-              <div className="resource" key={r.id}>
-                <MapPin size={16} />
-                <span>
-                  {r.label}
-                  <small>
-                    {location?.name}: {r.path || r.url}
-                  </small>
-                </span>
-              </div>
-            );
-          })}
-        </section>
+      {autoPreview ? (
+        <JournalAttachments key={node.id} node={node} settings={settings} />
+      ) : (
+        <>
+          {node.resources.length > 0 && (
+            <p className="field-help">{t("journal.manualPreviewHelp")}</p>
+          )}
+          <AttachmentGallery node={node} settings={settings} />
+          {files.length > 0 && (
+            <section className="journal-files">
+              <h3>{t("journal.attachments")}</h3>
+              {files.map((r) => {
+                const location = settings.locations.find(
+                  (l) => l.id === resourceLocation(r),
+                );
+                const available = ["addon", "server", "web"].includes(
+                  location?.kind,
+                );
+                return available ? (
+                  <button
+                    key={r.id}
+                    className="resource record-document"
+                    onClick={() =>
+                      setDocument({
+                        nodeId: node.id,
+                        resourceId: r.id,
+                        title: r.label,
+                      })
+                    }
+                  >
+                    <FileText size={16} />
+                    <span>
+                      {r.label}
+                      <small>{t("journal.loadPreview")}</small>
+                    </span>
+                    <Download size={16} />
+                  </button>
+                ) : (
+                  <div className="resource" key={r.id}>
+                    <MapPin size={16} />
+                    <span>
+                      {r.label}
+                      <small>
+                        {location?.name}: {r.path || r.url}
+                      </small>
+                    </span>
+                  </div>
+                );
+              })}
+            </section>
+          )}
+        </>
       )}
       {node.tool.next && (
         <section className="tool-next">

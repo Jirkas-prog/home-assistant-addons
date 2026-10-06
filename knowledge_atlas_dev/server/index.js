@@ -29,6 +29,7 @@ import { TaskData, validateTaskData } from "./task-data.js";
 import { columnsFor, columnFor, validateBoard } from "../shared/boards.js";
 import { projectIdFor } from "../shared/tools.js";
 import { workspaceNode } from "../shared/workspace.js";
+import { JOURNAL_PREVIEW_LIMIT } from "../shared/preview-limits.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const compress = promisify(gzip);
 export async function createApp({
@@ -568,8 +569,7 @@ export async function createApp({
     res.json(await mutate(() => moveStock(store, req.params.id, req.body))),
   );
   async function getNode(id) {
-    const { nodes } = await store.read();
-    const n = nodes.find((n) => n.id === id);
+    const n = await store.readNode(id);
     if (!n) fail("The record does not exist.", 404);
     return n;
   }
@@ -850,11 +850,13 @@ export async function createApp({
     const { file, ...metadata } = resolved;
     res.set("Cache-Control", "no-store").json({
       ...metadata,
-      ...(resolved.kind === "text" && resolved.file
-        ? await readText(resolved)
-        : resolved.kind === "office" && resolved.file
-          ? await readOffice(resolved)
-          : {}),
+      ...(req.query.metadata === "1"
+        ? {}
+        : resolved.kind === "text" && resolved.file
+          ? await readText(resolved)
+          : resolved.kind === "office" && resolved.file
+            ? await readOffice(resolved)
+            : {}),
     });
   });
   app.get("/api/nodes/:id/resources/:index/as-text", async (req, res) => {
@@ -889,6 +891,8 @@ export async function createApp({
     const doc = await documentFor(req);
     if (!doc.file || ["folder", "place"].includes(doc.kind))
       fail("This link is not an accessible file.", 404);
+    if (req.query.preview === "1" && doc.size > JOURNAL_PREVIEW_LIMIT)
+      fail("Automatic previews support files up to 10 MB.", 413);
     res.set("Cache-Control", "private, no-cache");
     if (doc.mime && req.query.download !== "1")
       res

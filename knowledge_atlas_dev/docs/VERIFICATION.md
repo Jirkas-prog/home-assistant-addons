@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.22` on 2026-10-06.
+Validated for Knowledge Atlas Dev `5.0.1-dev.23` on 2026-10-06.
 
-- All 198 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 206 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1157 matching translation keys.
+- English/Czech language audits pass with 1183 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -44,7 +44,9 @@ The journal regression case verifies a metadata-only workspace profile, distinct
 
 A generic 1,531-record fixture returned approximately 0.50 MB of journal navigation JSON compared with 98.80 MB for complete records, before compression. Compressed payloads were approximately 74 kB and 664 kB respectively; the repetitive synthetic bodies compress unusually well. One local request pair completed in 72 ms and 1,083 ms; these are individual development-machine measurements, not medians or Home Assistant performance guarantees. A selected journal entry was 928 bytes and its initial request took approximately 171 ms.
 
-English/Czech browser checks verified selection and reload, body-only search matches from an unopened entry, importance saving, and explicit photo/Markdown previews. Request logs showed no attachment request before clicking its preview button and no preload of the second photo. The gallery contains no image elements before preview selection. A 390-pixel viewport had no horizontal page overflow. The production build reported no browser console errors. Existing automated tests cover update preservation and backup/restore; these checks used generic local data, not a live Home Assistant installation.
+The current calendar regression tests cover Monday-based weeks, leap dates, month/year navigation, inclusive spanning bars, minimum non-overlapping lanes, timed overlap columns, midnight endpoints and optional clock validation. Download tests verify sequential transfers, the inclusive 10 MB boundary, unknown-size and remote references, cancellation before the next file, streamed size enforcement and recovery after one file fails. HTTP checks prove metadata requests do not read text attachment contents, the automatic file endpoint rejects oversized files, explicit original downloads remain complete, and single-record reads are isolated from the store cache.
+
+English/Czech browser checks on a generic 1,533-record library verified the default month, day/week/year navigation, spanning bars, overflow-day navigation, the record dialog, persisted clock edits and language settings, photo navigation and return to the calendar. Request logs show sequential small-file downloads only after opening their entry and no original request for the 10,000,001-byte attachment. The integrated photo and PDF viewers use Blob URLs from completed downloads; the PDF page rendered successfully and the Markdown viewer displayed formatted text. Calendar navigation requests neither entry bodies nor attachments. A 390-pixel viewport was checked for page and dialog overflow, including long header controls. No browser console errors were recorded. These are local fixtures, not a real Home Assistant installation.
 
 ## Runtime validation limits
 

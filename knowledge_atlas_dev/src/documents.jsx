@@ -8,7 +8,7 @@ import { readRemoteText } from "./remote-text.js";
 import { documentType } from "../shared/document-types.js";
 import "./document-preview.css";
 const Pdf = lazy(() => import("./pdf-viewer.jsx"));
-export function DocumentViewer({ resource, onClose, navigation }) {
+export function DocumentViewer({ resource, onClose, navigation, preloaded }) {
   const [doc, setDoc] = useState(null),
     [body, setBody] = useState(""),
     [error, setError] = useState(""),
@@ -21,6 +21,7 @@ export function DocumentViewer({ resource, onClose, navigation }) {
   const [asText, setAsText] = useState(false);
   const base = `nodes/${resource.nodeId}/resources/${resource.resourceId}`,
     fileURL = `./api/${base}/file`;
+  const sourceURL = preloaded?.url || doc?.url || fileURL;
   const markdown =
     doc?.format === "markdown" ||
     documentType(doc?.resolvedPath || "").format === "markdown";
@@ -44,7 +45,14 @@ export function DocumentViewer({ resource, onClose, navigation }) {
     setDoc(null);
     setTextLoaded(false);
     setEditing(false);
-    api(asText ? `${base}/as-text` : base, { signal: abort.signal })
+    const cached =
+      !asText &&
+      preloaded?.url &&
+      !["text", "office"].includes(preloaded.metadata.kind);
+    (cached
+      ? Promise.resolve(preloaded.metadata)
+      : api(asText ? `${base}/as-text` : base, { signal: abort.signal })
+    )
       .then(async (r) => {
         if (!live) return;
         setDoc(r);
@@ -64,7 +72,8 @@ export function DocumentViewer({ resource, onClose, navigation }) {
         }
       })
       .catch((e) => {
-        if (live) setError(abort.signal.aborted ? t("sync.timeout") : e.message);
+        if (live)
+          setError(abort.signal.aborted ? t("sync.timeout") : e.message);
       })
       .finally(() => clearTimeout(timeout));
     return () => {
@@ -72,7 +81,7 @@ export function DocumentViewer({ resource, onClose, navigation }) {
       abort.abort();
       clearTimeout(timeout);
     };
-  }, [base, asText]);
+  }, [base, asText, preloaded?.url]);
   useEffect(() => {
     if (!dirty) return;
     const handler = (e) => {
@@ -174,14 +183,14 @@ export function DocumentViewer({ resource, onClose, navigation }) {
         )}
         {doc?.kind === "pdf" && (
           <Suspense fallback={<div className="empty">{t("m009")}</div>}>
-            <Pdf url={doc.url || fileURL} />
+            <Pdf url={sourceURL} />
           </Suspense>
         )}
         {doc && ["image", "audio", "video"].includes(doc.kind) && (
           <div className="media-document">
             {doc.kind === "image" ? (
               <img
-                src={doc.url || fileURL}
+                src={sourceURL}
                 alt={resource.title}
                 referrerPolicy="no-referrer"
                 onError={() => setError(t("documents.mediaError"))}
@@ -190,7 +199,7 @@ export function DocumentViewer({ resource, onClose, navigation }) {
               <audio
                 controls
                 preload="metadata"
-                src={doc.url || fileURL}
+                src={sourceURL}
                 aria-label={resource.title}
                 onError={() => setError(t("documents.mediaError"))}
               />
@@ -198,7 +207,7 @@ export function DocumentViewer({ resource, onClose, navigation }) {
               <video
                 controls
                 preload="metadata"
-                src={doc.url || fileURL}
+                src={sourceURL}
                 aria-label={resource.title}
                 onError={() => setError(t("documents.mediaError"))}
               />

@@ -50,6 +50,19 @@ export function validateTool(tool, fail) {
       "experience",
     );
     check(validDate(tool.date), "date");
+    const clock = (value) =>
+      typeof value === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
+    if (
+      (tool.startTime != null && tool.startTime !== "") ||
+      (tool.endTime != null && tool.endTime !== "")
+    ) {
+      check(clock(tool.startTime) && clock(tool.endTime), "time");
+      check(
+        `${tool.endDate || tool.date}T${tool.endTime}` >
+          `${tool.date}T${tool.startTime}`,
+        "timeRange",
+      );
+    }
     check(
       tool.endDate == null ||
         (validDate(tool.endDate) && tool.endDate >= tool.date),
