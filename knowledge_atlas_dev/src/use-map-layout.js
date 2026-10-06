@@ -38,15 +38,16 @@ async function cache(slot, value) {
   }
 }
 
-export function useMapLayout(nodes, layout, mode) {
+export function useMapLayout(nodes, layout, mode, enabled = true) {
   const dimensions = mode === "3d" ? 3 : 2;
   const key = useMemo(
-    () => layoutKey(nodes, layout, dimensions),
-    [nodes, layout, dimensions],
+    () => (enabled ? layoutKey(nodes, layout, dimensions) : ""),
+    [nodes, layout, dimensions, enabled],
   );
   const slot = `${layout}:${dimensions}`;
   const [state, setState] = useState({ key: "", positions: [], error: "" });
   useEffect(() => {
+    if (!enabled) return;
     let stopped = false,
       worker;
     async function build() {
@@ -104,14 +105,14 @@ export function useMapLayout(nodes, layout, mode) {
       stopped = true;
       worker?.terminate();
     };
-  }, [key, slot]);
+  }, [key, slot, enabled]);
   const sameMode =
     state.key &&
     JSON.parse(state.key)[1] === layout &&
     JSON.parse(state.key)[2] === dimensions;
   return {
-    positions: sameMode ? state.positions : [],
-    building: state.key !== key,
+    positions: enabled && sameMode ? state.positions : [],
+    building: enabled && state.key !== key,
     error: state.key === key ? state.error : "",
   };
 }

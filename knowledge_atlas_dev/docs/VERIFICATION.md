@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.19` on 2026-10-03.
+Validated for Knowledge Atlas Dev `5.0.1-dev.20` on 2026-10-06.
 
-- All 182 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 185 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1038 matching translation keys.
+- English/Czech language audits pass with 1043 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -21,6 +21,14 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.19` on 2026-10-03.
 - English/Czech browser checks cover creating and editing entries, day/week/month/custom ranges, related-record links, saved-place lookup, multi-file uploads, EXIF suggestions, photo navigation, PDF/Markdown/DOCX viewing and custom-extension text previews. Saved language and the selected entry survive reloads; console checks found no errors. All fixtures are generic.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
+
+## Timeline startup and deferred map
+
+Three additional tests cover lightweight task snapshots, distinct conditional-response validators for each content profile, absence of saved-position reads until a map request, complete record retrieval, rejection of partial-record saves, automatic Markdown updates, cancellation of obsolete requests, and gzip asset negotiation with original MIME types and uncompressed fallback.
+
+English/Czech browser checks confirm the default timeline, persisted language, the central map button, keyboard activation, successful 2D/3D rendering, full Markdown loading in record details and the editor, and task importance changes that preserve notes and checkpoints. At 390 pixels the button remains fully visible without horizontal page overflow. No browser console errors were recorded.
+
+Server request logs show no atlas request, map renderer, layout worker or 3D module before the download button is activated, including after visiting the map section. The 3D module is requested only on switching to 3D. A generic 213-record fixture produced a 55.5 kB initial workspace JSON response compared with 5.87 MB for its complete map snapshot, before compression. The initial JavaScript bundle is approximately 533 kB before compression, down from 892 kB; its precompressed HTTP response is approximately 169 kB. These are local fixture and build measurements, not Home Assistant startup-time guarantees.
 
 ## Validation limits
 

@@ -97,3 +97,73 @@
 .map-bottom {
   flex-wrap: wrap;
 }
+
+.map-locked > .toolbar,
+.map-locked > .filter-bar,
+.map-locked > .map-layout-description {
+  display: none;
+}
+.map-download-gate {
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  height: 100%;
+  padding: 32px 20px;
+  background: radial-gradient(ellipse at center, #a7e87b0e, transparent 65%);
+}
+.map-download-button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: min(100%, 480px);
+  padding: 30px 26px;
+  border: 1px solid #91bd6970;
+  border-radius: 24px;
+  background: linear-gradient(145deg, #26352b, #151e24 70%);
+  box-shadow:
+    0 0 45px #a7e87b0e,
+    inset 0 1px #d1efb426;
+  color: #e4f4da;
+  text-align: center;
+}
+.map-download-button:hover {
+  border-color: #b0ef88;
+  background-color: #26352b;
+}
+.map-download-button:focus-visible {
+  outline: 3px solid #b0ef88;
+  outline-offset: 6px;
+}
+.map-download-button strong {
+  font-size: clamp(20px, 3vw, 26px);
+}
+.map-download-button > span:last-child {
+  max-width: 360px;
+  color: #b4c6bb;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.map-download-orbit {
+  display: grid;
+  place-items: center;
+  position: relative;
+  width: 116px;
+  height: 116px;
+  border: 1px dashed #a7e87b70;
+  border-radius: 50%;
+  color: #b0ef88;
+  background: radial-gradient(circle, #a7e87b25, transparent 70%);
+  box-shadow: 0 0 0 10px #a7e87b05;
+}
+.map-download-orbit > svg:last-child {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  padding: 6px;
+  width: 37px;
+  height: 37px;
+  border-radius: 50%;
+  background: #b0ef88;
+  color: #1c2c17;
+}

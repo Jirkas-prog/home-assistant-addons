@@ -1,3 +1,4 @@
+import { compressedAssets } from "./assets.js";
 import { release } from "../shared/release.js";
 import express from "express";
 import fs from "node:fs/promises";
@@ -264,7 +265,7 @@ export async function createApp({
   app.use(async (req, res, next) => {
     if (
       !/^\/api\/packages\/[^/]+\/status$/.test(req.path) &&
-      req.path !== "/api/atlas"
+      !["/api/atlas", "/api/workspace"].includes(req.path)
     ) {
       if (req.method === "GET") await packageImports?.wait();
       checkPackageRecovery();
@@ -302,10 +303,16 @@ export async function createApp({
       .set("Cache-Control", "no-store")
       .json(await packageImports.status(req.params.id)),
   );
-  let atlasResponse;
+  const atlasResponses = new Map();
   const backgroundServers = new WeakSet();
-  app.get(["/api/nodes", "/api/atlas"], async (req, res) => {
-    const indexed = req.path === "/api/atlas";
+  app.get(["/api/nodes", "/api/atlas", "/api/workspace"], async (req, res) => {
+    const content =
+      req.path === "/api/workspace"
+        ? req.query.content === "records"
+          ? "records"
+          : "tasks"
+        : "map";
+    const indexed = req.path !== "/api/nodes";
     if (indexed) {
       const server = req.socket.server;
       if (server && !backgroundServers.has(server)) {
@@ -345,28 +352,33 @@ export async function createApp({
       };
     }
     let savedMap;
-    try {
-      savedMap = await mapPositions.read();
-    } catch (error) {
-      snapshot.errors.push({
-        file: "map-positions.json",
-        message: error.message,
-      });
-      savedMap = { views: {}, revision: digest(error.message), invalid: true };
-    }
+    if (content === "map")
+      try {
+        savedMap = await mapPositions.read();
+      } catch (error) {
+        snapshot.errors.push({
+          file: "map-positions.json",
+          message: error.message,
+        });
+        savedMap = {
+          views: {},
+          revision: digest(error.message),
+          invalid: true,
+        };
+      }
     let undoState;
     try {
       undoState = await undo.status();
     } catch (error) {
       undoState = { undo: 0, redo: 0, error: error.message };
     }
-    const etag = `W/"${version}-${snapshot.revision}-${config.revision}-${savedMap.revision}-${undoState.revision || "invalid"}"`;
+    const etag = `W/"${content}-${version}-${snapshot.revision}-${config.revision}-${savedMap?.revision || ""}-${undoState.revision || "invalid"}"`;
     res
       .set("Cache-Control", "private, no-cache")
       .set("ETag", etag)
       .vary("Accept-Encoding");
     if (req.get("If-None-Match") === etag) return res.status(304).end();
-    if (atlasResponse?.etag !== etag) {
+    if (atlasResponses.get(content)?.etag !== etag) {
       for (const n of snapshot.nodes)
         for (const r of [...n.resources, ...(n.stock?.placements || [])])
           if (!config.locations.some((l) => l.id === locationId(r)))
@@ -387,8 +399,39 @@ export async function createApp({
             });
       const body = JSON.stringify({
         ...snapshot,
+        // Navigation needs identities and titles, but no knowledge bodies,
+        // attachments, cross-links or map coordinates on the task landing page.
+        nodes:
+          content === "tasks"
+            ? snapshot.nodes.map((node) =>
+                node.type === "task"
+                  ? node
+                  : {
+                      id: node.id,
+                      title: node.title,
+                      parent: node.parent,
+                      type: node.type,
+                      color: node.color,
+                      status: node.status,
+                      importance: node.importance,
+                      position: node.position,
+                      positionFixed: node.positionFixed,
+                      created: node.created,
+                      updated: node.updated,
+                      date: node.date,
+                      ...(node.tool ? { tool: { kind: node.tool.kind } } : {}),
+                      partial: true,
+                      summary: "",
+                      body: "",
+                      tags: [],
+                      related: [],
+                      resources: [],
+                    },
+              )
+            : snapshot.nodes,
+        content,
         settings: config,
-        mapPositions: savedMap,
+        ...(savedMap ? { mapPositions: savedMap } : {}),
         undo: undoState,
         environment: {
           ingress,
@@ -399,11 +442,12 @@ export async function createApp({
           version,
         },
       });
-      atlasResponse = { etag, body, compressed: compress(body) };
+      const response = { etag, body, compressed: compress(body) };
       // Attach a handler immediately; concurrent requests can share this encoding.
-      atlasResponse.compressed.catch(() => {});
+      response.compressed.catch(() => {});
+      atlasResponses.set(content, response);
     }
-    const response = atlasResponse;
+    const response = atlasResponses.get(content);
     res.type("json");
     if (req.acceptsEncodings("gzip"))
       res.set("Content-Encoding", "gzip").send(await response.compressed);
@@ -800,6 +844,7 @@ export async function createApp({
       error: "Unknown operation.",
     }),
   );
+  app.use("/assets", compressedAssets(path.join(root, "dist", "assets")));
   app.use(
     express.static(path.join(root, "dist"), {
       index: false,

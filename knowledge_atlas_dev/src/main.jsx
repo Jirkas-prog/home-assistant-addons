@@ -17,11 +17,7 @@ import React, {
 } from "react";
 import { createRoot } from "react-dom/client";
 import { MarkdownContent as Md } from "./markdown.jsx";
-import { createMapActivation } from "./map-activation.js";
-import { preserveMapCamera } from "./map-camera.js";
-import { createBranchDrag } from "./map-positions.js";
 import { useMapPositions } from "./use-map-positions.js";
-import ForceGraph2D from "react-force-graph-2d";
 import {
   Network,
   Search,
@@ -62,7 +58,6 @@ import "./extensions.css";
 import "./v2.css";
 import "./scrollbars.css";
 import "./tools.css";
-import { WorkTools } from "./work-tools.jsx";
 import { DataTools } from "./data-tools.jsx";
 import { ResizableWorkspace } from "./resizable-workspace.jsx";
 import "./backups.css";
@@ -107,7 +102,6 @@ import {
   readMapLayout,
   saveMapLayout,
 } from "./use-map-layout.js";
-import { labelEligible, declutterLabels } from "./map-labels.js";
 import "./map-layout.css";
 import { Inventory, Tasks } from "./work-views.jsx";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
@@ -120,12 +114,12 @@ import {
 import { createAtlasSync } from "./atlas-sync.js";
 import { Breadcrumbs } from "./breadcrumbs.jsx";
 import { createRecordNavigation } from "./breadcrumb-model.js";
-import {
-  mapNodeGeometry,
-  paintMapNodePointer,
-  pickMapNode2D,
-} from "./map-node-geometry.js";
-const Graph3D = lazy(() => import("./map3d.jsx"));
+const MapView = lazy(() => import("./map-view.jsx"));
+const WorkTools = lazy(() =>
+  import("./work-tools.jsx").then((module) => ({ default: module.WorkTools })),
+);
+const EMPTY_NODES = [];
+const EMPTY_GRAPH = { nodes: [], links: [], matchCount: 0 };
 const TYPES = {
   get category() {
     return t("m390");
@@ -184,345 +178,6 @@ function Glyph({ type, ...props }) {
   const Icon = ICONS[type] || Circle;
   return <Icon size={17} {...props} />;
 }
-class MapBoundary extends React.Component {
-  state = {
-    error: false,
-  };
-  static getDerivedStateFromError() {
-    return {
-      error: true,
-    };
-  }
-  render() {
-    return this.state.error ? (
-      <div className="empty">
-        <Box />
-        <h3>{t("m087")}</h3>
-        <p>{t("m088")}</p>
-      </div>
-    ) : (
-      this.props.children
-    );
-  }
-}
-function MapView({
-  data,
-  mode,
-  selected,
-  onSelect,
-  onOpen,
-  viewerOpen,
-  relations,
-  graphRef,
-  allNodes,
-  positions,
-  onPositions,
-  dragDisabled,
-}) {
-  const callbacks = useRef(),
-    fitTimer = useRef(),
-    fitted = useRef(false),
-    visibleLabels = useRef(new Set());
-  const drag = useRef(null),
-    suppressClick = useRef(0);
-  callbacks.current = { onSelect, onOpen, viewerOpen };
-  const activation = useMemo(
-    () =>
-      createMapActivation({
-        select: (node) => callbacks.current.onSelect(node),
-        open: (node) => callbacks.current.onOpen(node),
-      }),
-    [],
-  );
-  useEffect(() => () => activation.cancel(), [activation, mode, data]);
-  useEffect(() => {
-    if (viewerOpen) {
-      activation.cancel();
-      clearTimeout(fitTimer.current);
-    }
-  }, [activation, viewerOpen]);
-  useEffect(() => {
-    if (viewerOpen) return preserveMapCamera(graphRef.current, mode);
-  }, [viewerOpen, mode, graphRef]);
-  const ref = useRef();
-  const [size, setSize] = useState({
-    width: 600,
-    height: 600,
-  });
-  const [hover, setHover] = useState(null);
-  useEffect(() => {
-    const observer = new ResizeObserver(([entry]) =>
-      setSize({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      }),
-    );
-    observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-  useEffect(() => {
-    if (callbacks.current.viewerOpen || fitted.current || !data.nodes.length)
-      return;
-    const timer = setTimeout(() => {
-      if (!callbacks.current.viewerOpen && graphRef.current) {
-        graphRef.current.zoomToFit(0, 65);
-        fitted.current = true;
-      }
-    }, 350);
-    fitTimer.current = timer;
-    return () => clearTimeout(timer);
-  }, [data, mode, size.width, size.height]);
-  useEffect(() => {
-    if (mode !== "2d") return;
-    const host = ref.current;
-    const wheel = (event) => {
-      const graph = graphRef.current;
-      const canvas = host.querySelector("canvas");
-      if (!graph || !canvas || !event.deltaY) return;
-      event.preventDefault();
-      event.stopPropagation();
-      const rect = canvas.getBoundingClientRect();
-      const x = event.clientX - rect.left;
-      const y = event.clientY - rect.top;
-      const before = graph.screen2GraphCoords(x, y);
-      // Match native wheel units and pinch gestures, with 25% more sensitivity.
-      const unit = event.deltaMode === 1 ? 0.05 : event.deltaMode ? 1 : 0.002;
-      const delta = -event.deltaY * unit * (event.ctrlKey ? 10 : 1) * 1.25;
-      graph.zoom(Math.max(0.002, Math.min(20, graph.zoom() * 2 ** delta)));
-      const after = graph.screen2GraphCoords(x, y);
-      const center = graph.centerAt();
-      graph.centerAt(
-        center.x + before.x - after.x,
-        center.y + before.y - after.y,
-      );
-    };
-    host.addEventListener("wheel", wheel, { capture: true, passive: false });
-    return () => host.removeEventListener("wheel", wheel, true);
-  }, [mode, graphRef]);
-  const label = (n) => {
-    const el = document.createElement("span");
-    el.textContent = n.title;
-    return el;
-  };
-  const click = (node, event) => {
-    if (performance.now() >= suppressClick.current)
-      activation.click(node, event);
-  };
-  const dragNode = (node, rendered) => {
-    activation.cancel();
-    clearTimeout(fitTimer.current);
-    fitted.current = true;
-    suppressClick.current = performance.now() + 500;
-    if (!drag.current)
-      drag.current = createBranchDrag(allNodes, positions, node.id);
-    return drag.current(node, rendered);
-  };
-  const endDrag = (node, rendered) => {
-    const next = dragNode(node, rendered);
-    drag.current = null;
-    onPositions(next);
-  };
-  const select2DAtClick = (event) => {
-    const canvas = ref.current?.querySelector("canvas");
-    const instance = graphRef.current;
-    if (!canvas || !instance) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
-    const node = pickMapNode2D(
-      data.nodes,
-      canvas.getContext("2d"),
-      instance.zoom(),
-      instance.screen2GraphCoords(x, y),
-      selected,
-      hover,
-      visibleLabels.current,
-    );
-    click(node, event);
-  };
-  return (
-    <div
-      className="map-canvas"
-      ref={ref}
-      onDoubleClickCapture={(event) => {
-        // Keep the canvas library from zooming on native double-click.
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-    >
-      {data.nodes.length === 0 && (
-        <div className="empty map-empty">
-          <Search />
-          <h3>{t("m089")}</h3>
-          <p>{t("m090")}</p>
-        </div>
-      )}
-      {mode === "3d" ? (
-        <MapBoundary key="3d">
-          <Suspense
-            fallback={
-              <div className="empty">
-                <LoaderCircle className="spin" />
-                {t("m091")}
-              </div>
-            }
-          >
-            <Graph3D
-              data={data}
-              size={size}
-              selected={selected}
-              onSelect={click}
-              onDrag={dragNode}
-              onDragEnd={endDrag}
-              dragDisabled={dragDisabled}
-              relations={relations}
-              graphRef={graphRef}
-            />
-          </Suspense>
-        </MapBoundary>
-      ) : (
-        <ForceGraph2D
-          ref={graphRef}
-          graphData={data}
-          width={size.width}
-          height={size.height}
-          backgroundColor="#11151c00"
-          nodeLabel={label}
-          cooldownTicks={0}
-          enableNodeDrag={!dragDisabled}
-          onNodeDrag={(node) => dragNode(node, data.nodes)}
-          onNodeDragEnd={(node) => endDrag(node, data.nodes)}
-          minZoom={0.002}
-          maxZoom={20}
-          onRenderFramePre={(ctx, scale) => {
-            const graph = graphRef.current;
-            if (!graph) return;
-            const candidates = [];
-            const eligible = new Set(
-              data.nodes
-                .filter((n) => labelEligible(n, scale, selected, hover))
-                .map((n) => n.id),
-            );
-            for (const node of data.nodes) {
-              if (!eligible.has(node.id)) continue;
-              const { label } = mapNodeGeometry(
-                node,
-                ctx,
-                scale,
-                selected,
-                hover,
-                eligible,
-              );
-              const [x, y, w, h] = label.box,
-                point = graph.graph2ScreenCoords(x, y);
-              candidates.push({
-                node,
-                box: [point.x, point.y, w * scale, h * scale],
-              });
-            }
-            visibleLabels.current = declutterLabels(
-              candidates,
-              size.width,
-              size.height,
-              selected,
-              hover,
-            );
-          }}
-          onNodeClick={(_, event) => select2DAtClick(event)}
-          onLinkClick={(_, event) => select2DAtClick(event)}
-          onBackgroundClick={select2DAtClick}
-          showPointerCursor={(node) => !!node?.id}
-          onNodeHover={(n) => setHover(n?.id)}
-          linkVisibility={(l) => relations || l.kind === "tree"}
-          linkColor={(l) =>
-            l.kind === "related" ? "#7686a060" : `${l.color}60`
-          }
-          linkWidth={(l) => (l.kind === "tree" ? 1.25 : 0.8)}
-          linkLineDash={(l) => (l.kind === "related" ? [4, 5] : null)}
-          nodeCanvasObject={(node, ctx, scale) => {
-            const { active, hovered, label } = mapNodeGeometry(
-              node,
-              ctx,
-              scale,
-              selected,
-              hover,
-              visibleLabels.current,
-            );
-            ctx.save();
-            ctx.globalAlpha = node.context
-              ? 0.3
-              : node.r * scale > 80 && !active && !hovered
-                ? 0.2
-                : 1;
-            const r = Math.max(node.r, 0.8 / scale);
-            if (active || hovered) {
-              ctx.beginPath();
-              ctx.arc(node.x, node.y, r + 7, 0, 2 * Math.PI);
-              ctx.fillStyle = `${node.color}15`;
-              ctx.fill();
-              ctx.strokeStyle = `${node.color}80`;
-              ctx.lineWidth = 1 / scale;
-              ctx.stroke();
-            }
-            const gradient = ctx.createRadialGradient(
-              node.x - r * 0.3,
-              node.y - r * 0.35,
-              0,
-              node.x,
-              node.y,
-              r,
-            );
-            gradient.addColorStop(0, node.color);
-            gradient.addColorStop(1, `${node.color}92`);
-            ctx.beginPath();
-            ctx.arc(node.x, node.y, r, 0, 2 * Math.PI);
-            ctx.fillStyle = gradient;
-            ctx.shadowColor = node.color;
-            ctx.shadowBlur = active ? 22 : node.depth < 2 ? 12 : 0;
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.beginPath();
-            ctx.arc(
-              node.x - r * 0.22,
-              node.y - r * 0.26,
-              r * 0.18,
-              0,
-              2 * Math.PI,
-            );
-            ctx.fillStyle = "#ffffff30";
-            ctx.fill();
-            if (label) {
-              ctx.font = label.font;
-              ctx.textAlign = label.align;
-              ctx.textBaseline = "top";
-              ctx.fillStyle = "#11151ce8";
-              ctx.fillRect(...label.box);
-              ctx.fillStyle = active
-                ? "#ffffff"
-                : node.depth <= 1
-                  ? "#e6eaf2"
-                  : "#a7afbe";
-              ctx.fillText(label.title, label.x, label.y);
-            }
-            ctx.restore();
-          }}
-          nodePointerAreaPaint={(n, color, ctx, scale) =>
-            paintMapNodePointer(
-              n,
-              color,
-              ctx,
-              scale,
-              selected,
-              hover,
-              visibleLabels.current,
-            )
-          }
-        />
-      )}
-    </div>
-  );
-}
 function App() {
   const language = React.useSyncExternalStore(subscribeLanguage, getLanguage);
   useEffect(() => {
@@ -542,7 +197,8 @@ function App() {
     [mapReset, setMapReset] = useState(0),
     [env, setEnv] = useState({}),
     [loading, setLoading] = useState(true),
-    [hasSnapshot, setHasSnapshot] = useState(false),
+    [snapshotContent, setSnapshotContent] = useState(""),
+    [mapRequested, setMapRequested] = useState(false),
     [indexProgress, setIndexProgress] = useState(null),
     [error, setError] = useState("");
   const [selected, setSelected] = useState(
@@ -574,22 +230,34 @@ function App() {
         "backups",
       ].includes(chosen)
         ? chosen
-        : "map";
+        : "tasks";
     }),
     [relations, setRelations] = useState(true),
     [expanded, setExpanded] = useState(new Set()),
     [sidebar, setSidebar] = useState(false),
     [detail, setDetail] = useState(
-      () =>
-        !["tasks", "inventory", "tools", "journal", "backups"].includes(
-          new URLSearchParams(location.search).get("view"),
-        ),
+      () => new URLSearchParams(location.search).get("view") === "library",
     ),
     [editing, setEditing] = useState(null),
     [reader, setReader] = useState(null),
     [toast, setToast] = useState(""),
     [toolProject, setToolProject] = useState(""),
     [journalCreate, setJournalCreate] = useState(false);
+  const content =
+    view === "map" && mapRequested
+      ? "map"
+      : (view !== "map" && detail) ||
+          showSettings ||
+          ["library", "inventory", "tools", "journal"].includes(view)
+        ? "records"
+        : "tasks";
+  const snapshotReady =
+    !!snapshotContent &&
+    (content === "tasks" ||
+      snapshotContent === content ||
+      (content === "records" && snapshotContent === "map"));
+  const mapActive = view === "map" && mapRequested && snapshotContent === "map";
+  const showDetail = detail && (view !== "map" || mapRequested);
   const graphRef = useRef(),
     importRef = useRef(),
     searchRef = useRef(),
@@ -600,17 +268,22 @@ function App() {
   };
   const load = () => syncRef.current?.refresh({ fresh: true });
   useEffect(() => {
+    setLoading(!snapshotReady);
     const sync = createAtlasSync({
+      url:
+        content === "map"
+          ? "./api/atlas"
+          : `./api/workspace?content=${content}`,
       isVisible: () => document.visibilityState !== "hidden",
       onIndex: (progress) =>
         setIndexProgress({ ...progress, receivedAt: Date.now() }),
       onSnapshot: (r) => {
-        setHasSnapshot(true);
+        setSnapshotContent(r.content);
         setDraftLibrary(r.settings.libraryId);
         setLanguage(r.settings.language);
         setNodes(r.nodes);
         setOrderRevision(r.orderRevision);
-        setMapPositions(r.mapPositions || { views: {} });
+        if (r.mapPositions) setMapPositions(r.mapPositions);
         setUndoState(r.undo || null);
         setErrors(r.errors);
         setEnv(r.environment);
@@ -641,11 +314,10 @@ function App() {
       document.removeEventListener("visibilitychange", resume);
       window.removeEventListener("hashchange", hash);
     };
-  }, []);
+  }, [content]);
   useEffect(() => {
     const url = new URL(location.href);
-    if (view === "map") url.searchParams.delete("view");
-    else url.searchParams.set("view", view);
+    url.searchParams.set("view", view);
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   }, [view]);
   const structure = useMemo(() => atlasStructure(nodes), [nodes]);
@@ -710,9 +382,10 @@ function App() {
   }, []);
   const node = nodes.find((n) => n.id === selected);
   const groups = structure.categories;
-  const layoutState = useMapLayout(nodes, mapLayout, mode);
+  const mapNodes = mapActive ? nodes : EMPTY_NODES;
+  const layoutState = useMapLayout(mapNodes, mapLayout, mode, mapActive);
   const manualMap = useMapPositions(
-    nodes,
+    mapNodes,
     layoutState.positions,
     mapPositions,
     `${mapLayout}:${mode === "3d" ? 3 : 2}`,
@@ -720,14 +393,17 @@ function App() {
   );
   const graph = useMemo(
     () =>
-      mapGraph(nodes, manualMap.positions, {
-        scope,
-        query,
-        type: filter,
-        importance: importanceFilter,
-        locations: settings.locations,
-      }),
+      mapActive
+        ? mapGraph(nodes, manualMap.positions, {
+            scope,
+            query,
+            type: filter,
+            importance: importanceFilter,
+            locations: settings.locations,
+          })
+        : EMPTY_GRAPH,
     [
+      mapActive,
       nodes,
       manualMap.positions,
       scope,
@@ -876,12 +552,12 @@ function App() {
         .map((sibling) => recordChoice(sibling, kind)),
     }));
   const section = sections.find((item) => item.id === "section:" + view);
-  const showRecordPath = detail && node && view !== "backups";
+  const showRecordPath = showDetail && node && view !== "backups";
   const topPath = [
     {
       id: "workspace",
       label: t("m117"),
-      target: { kind: "section", id: "map" },
+      target: { kind: "section", id: "tasks" },
       choices: sections,
       activeId: section.id,
       menuLabel: t("navigation.sections"),
@@ -992,7 +668,12 @@ function App() {
         <a
           className="brand"
           href={homeId ? `#${encodeURIComponent(homeId)}` : "#"}
-          onClick={() => choose(homeId)}
+          onClick={(event) => {
+            event.preventDefault();
+            setView("tasks");
+            setDetail(false);
+            setSidebar(false);
+          }}
         >
           <img
             className="brand-logo"
@@ -1011,6 +692,7 @@ function App() {
           className={`nav-button ${view === "map" ? "active" : ""}`}
           onClick={() => {
             setView("map");
+            if (!mapRequested) setDetail(false);
             setSidebar(false);
           }}
         >
@@ -1328,7 +1010,7 @@ function App() {
           </div>
         </section>
         <section
-          className={`workbench ${view === "backups" ? "backup-workbench" : ""}`}
+          className={`workbench ${view === "backups" ? "backup-workbench" : ""} ${view === "map" && !mapRequested ? "map-locked" : ""}`}
         >
           <div className="toolbar">
             <label className="search">
@@ -1430,6 +1112,7 @@ function App() {
             )}
             <button
               className="icon-button"
+              disabled={view === "map" && !mapRequested}
               aria-label={detail ? t("m143") : t("m398")}
               onClick={() => setDetail(!detail)}
             >
@@ -1465,16 +1148,18 @@ function App() {
                 {label}
               </button>
             ))}
-            <span className="filter-caption">
-              {graph.matchCount}
-              {" " + t("m145")}
-              {graph.nodes.length > graph.matchCount && (
-                <small>
-                  {" "}
-                  · {t("map.context", graph.nodes.length - graph.matchCount)}
-                </small>
-              )}
-            </span>
+            {view === "map" && (
+              <span className="filter-caption">
+                {graph.matchCount}
+                {" " + t("m145")}
+                {graph.nodes.length > graph.matchCount && (
+                  <small>
+                    {" "}
+                    · {t("map.context", graph.nodes.length - graph.matchCount)}
+                  </small>
+                )}
+              </span>
+            )}
           </div>
           {error && (
             <div className="error-banner" role="alert">
@@ -1493,14 +1178,30 @@ function App() {
               ))}
             </div>
           )}
-          <ResizableWorkspace detail={detail}>
+          <ResizableWorkspace detail={showDetail}>
             <div className="map-area">
-              {loading ? (
-                <div className="empty">
-                  <LoaderCircle className="spin" />
-                  {t("m148")}
+              {view === "map" && !mapRequested ? (
+                <div className="map-download-gate">
+                  <button
+                    className="map-download-button"
+                    onClick={() => setMapRequested(true)}
+                  >
+                    <span className="map-download-orbit" aria-hidden="true">
+                      <Network size={48} />
+                      <Download size={24} />
+                    </span>
+                    <strong>{t("map.download")}</strong>
+                    <span>{t("map.downloadHint")}</span>
+                  </button>
                 </div>
-              ) : !hasSnapshot && view !== "backups" ? (
+              ) : loading ? (
+                <div className="empty" role="status">
+                  <LoaderCircle className="spin" />
+                  {content === "map"
+                    ? t("map.downloading")
+                    : t("sync.loadingWorkspace")}
+                </div>
+              ) : !snapshotReady && view !== "backups" ? (
                 <div className="empty" role="status">
                   <LoaderCircle className="spin" />
                   {t("sync.waiting")}
@@ -1527,25 +1228,34 @@ function App() {
                   }}
                 />
               ) : view === "tools" ? (
-                <WorkTools
-                  importance={importanceFilter}
-                  nodes={nodes}
-                  settings={settings}
-                  query={query}
-                  scope={scope}
-                  homeId={homeId}
-                  initialProject={toolProject}
-                  focusId={
-                    nodes.find((n) => n.id === selected)?.tool ? selected : ""
+                <Suspense
+                  fallback={
+                    <div className="empty" role="status">
+                      <LoaderCircle className="spin" />
+                      {t("sync.loadingWorkspace")}
+                    </div>
                   }
-                  onRefresh={load}
-                  onSelect={(n) => {
-                    if (n) {
-                      choose(n);
-                      setView("library");
+                >
+                  <WorkTools
+                    importance={importanceFilter}
+                    nodes={nodes}
+                    settings={settings}
+                    query={query}
+                    scope={scope}
+                    homeId={homeId}
+                    initialProject={toolProject}
+                    focusId={
+                      nodes.find((n) => n.id === selected)?.tool ? selected : ""
                     }
-                  }}
-                />
+                    onRefresh={load}
+                    onSelect={(n) => {
+                      if (n) {
+                        choose(n);
+                        setView("library");
+                      }
+                    }}
+                  />
+                </Suspense>
               ) : view === "inventory" ? (
                 <Inventory
                   importance={importanceFilter}
@@ -1600,21 +1310,30 @@ function App() {
                       {t("map.failed")}
                     </div>
                   )}
-                  <MapView
-                    data={graph}
-                    key={`${mapLayout}:${mode}:${mapReset}`}
-                    allNodes={nodes}
-                    positions={manualMap.positions}
-                    onPositions={manualMap.save}
-                    dragDisabled={manualMap.disabled || layoutState.building}
-                    mode={mode}
-                    selected={selected}
-                    onSelect={choose}
-                    onOpen={openNodeDocument}
-                    viewerOpen={!!reader || !!openDocument}
-                    relations={relations}
-                    graphRef={graphRef}
-                  />
+                  <Suspense
+                    fallback={
+                      <div className="empty" role="status">
+                        <LoaderCircle className="spin" />
+                        {t("map.downloading")}
+                      </div>
+                    }
+                  >
+                    <MapView
+                      data={graph}
+                      key={`${mapLayout}:${mode}:${mapReset}`}
+                      allNodes={nodes}
+                      positions={manualMap.positions}
+                      onPositions={manualMap.save}
+                      dragDisabled={manualMap.disabled || layoutState.building}
+                      mode={mode}
+                      selected={selected}
+                      onSelect={choose}
+                      onOpen={openNodeDocument}
+                      viewerOpen={!!reader || !!openDocument}
+                      relations={relations}
+                      graphRef={graphRef}
+                    />
+                  </Suspense>
                   <div className="map-bottom">
                     <label className="relation-toggle">
                       <input
@@ -1713,13 +1432,18 @@ function App() {
                 </div>
               )}
             </div>
-            {detail && (
+            {showDetail && (
               <aside
                 id="record-details"
                 className="details"
                 aria-label={t("m159")}
               >
-                {node ? (
+                {!snapshotReady || node?.partial ? (
+                  <div className="empty" role="status">
+                    <LoaderCircle className="spin" />
+                    {t("m148")}
+                  </div>
+                ) : node ? (
                   <>
                     <RecordImportance
                       key={node.id}
@@ -2103,19 +1827,45 @@ function App() {
           </section>
         </div>
       )}
-      {showSettings && settings.documentRoot && (
-        <LocationsSettings
-          initial={settings}
-          nodes={nodes}
-          onClose={() => setShowSettings(false)}
-          onSaved={(r) => {
-            setSettings(r);
-            setLanguage(r.language);
-            load();
-            notify(t("m184"));
-          }}
-        />
-      )}
+      {showSettings &&
+        settings.documentRoot &&
+        (!snapshotReady ? (
+          <div className="modal-backdrop">
+            <section
+              className="modal"
+              role="dialog"
+              aria-modal="true"
+              aria-label={t("m029")}
+            >
+              <header>
+                <h2>{t("m029")}</h2>
+                <button
+                  className="icon-button"
+                  aria-label={t("m183")}
+                  onClick={() => setShowSettings(false)}
+                >
+                  <X />
+                </button>
+              </header>
+              <div className="empty" role="status">
+                <LoaderCircle className="spin" />
+                {error || t("m148")}
+              </div>
+            </section>
+          </div>
+        ) : (
+          <LocationsSettings
+            initial={settings}
+            nodes={nodes}
+            onClose={() => setShowSettings(false)}
+            onSaved={(r) => {
+              setSettings(r);
+              setLanguage(r.language);
+              load();
+              notify(t("m184"));
+            }}
+          />
+        ))}
       {openDocument && (
         <DocumentViewer
           key={`${openDocument.nodeId}:${openDocument.resourceId}`}

@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.20
+
+- Open Tasks and timeline in timeline mode by default. Explicit section links remain supported.
+- Load the knowledge map only after opening its section and pressing the central Download knowledge map button. Defer the map renderer, layout worker and saved coordinates until then.
+- Start with complete task records and lightweight navigation metadata. Load full knowledge contents when opening record views or settings, and prevent incomplete navigation records from overwriting saved content.
+- Load Markdown rendering and work tools on demand. Serve precompressed JavaScript and CSS with immutable caching for versioned assets.
+- Keep automatic file indexing, live task updates, stored map arrangements and library data intact.
+
 ## 5.0.1-dev.19
 
 - Remove the oversized topic legend below the map; use the topic filter and branch tree for navigation.

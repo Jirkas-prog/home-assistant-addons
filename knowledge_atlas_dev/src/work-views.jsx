@@ -138,7 +138,7 @@ export function Tasks({
   onRefresh,
 }) {
   const [project, setProject] = useState(""),
-    [mode, setMode] = useState("board"),
+    [mode, setMode] = useState("timeline"),
     [status, setStatus] = useState("all"),
     [timelineStatuses, setTimelineStatuses] = useState([
       "draft",

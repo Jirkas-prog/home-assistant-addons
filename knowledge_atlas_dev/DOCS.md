@@ -8,6 +8,14 @@ Start the add-on and open its web interface through Home Assistant. Ingress hand
 
 A fresh V5 installation starts with an empty library. Use Backup and restore to import a complete backup, or create your first record. Generic English examples are available only through the optional local `npm run seed` command. An existing library containing Markdown records is never replaced or reseeded. The `.initialized` file prevents deleted examples from returning after a restart.
 
+## Opening the workspace
+
+The default opening page is **Tasks and timeline**, with **Timeline** selected. The initial request contains full tasks and lightweight record identities for the branch tree, project filters and counters. Knowledge text, attachments and saved map coordinates are not part of this initial request. Record views and settings request complete records when needed; task edits preserve their full notes and checkpoints.
+
+Open **Knowledge map**, then press the large **Download knowledge map** button in the center. Merely visiting this section does not load the map. The button downloads the map data and renderer and enables the layout worker and its existing geometry cache. The 3D renderer loads when switching to **3D space**. Returning to the map within the same open page does not require another button press; reloading or reopening the page does. Saved manual arrangements are retained.
+
+Links containing an explicit `view` parameter still open that section. A link to the map still requires the download button. Background library indexing and task refresh continue independently of map loading, so manually edited Markdown remains searchable and counted. Markdown rendering and work-tool modules also load when used. Versioned JavaScript and CSS are served precompressed when the browser supports gzip.
+
 ## Language
 
 On the first launch of an empty installation, choose English (preselected) or Czech, then continue. The choice is saved on the server and survives restarts, browser changes and updates. If setup is interrupted before saving, it is offered again. Existing settings, older initialization markers and manually populated libraries skip this one-time screen and retain their saved language, defaulting to English if no language was stored.
@@ -45,7 +53,7 @@ The notebook reuses the existing photo gallery, local document viewer, text fall
 
 Each top-level `.md` file in `/config/knowledge` describes one record. See [FORMAT.md](FORMAT.md) and [templates](templates/README.md). Edit files externally or use the web editor. A visible browser checks for changes about every three seconds and refreshes after returning to the window. Search, counters, maps, inventory and task views are derived from the current records; no rebuild or AI is needed.
 
-The server maintains a map index in memory and in `.cache/atlas-index.json`. Background scans check file metadata about every three seconds, even with the browser closed; only new or changed Markdown is read and parsed again. Add-on changes trigger a scan immediately. The map uses the last completed index while the next one builds. A progress bar shows records checked, percentage, elapsed time and an approximate remaining time. Indexing continues if the page closes. Photos, PDFs, file history and other attachment contents are not read to build the map.
+The server maintains a library index in memory and in `.cache/atlas-index.json`. Background scans check file metadata about every three seconds, even with the browser closed; only new or changed Markdown is read and parsed again. Add-on changes trigger a scan immediately. Views use the last completed index while the next one builds. A progress bar shows records checked, percentage, elapsed time and an approximate remaining time. Indexing continues if the page closes. Photos, PDFs, file history and other attachment contents are not read to build this index. This server-side work does not download or render the knowledge map in the browser.
 
 The saved index is disposable and excluded from backups. Restart validates its file signatures; restore, external edits, deleted records and damaged or outdated caches trigger rebuilding from the original Markdown. Conditional responses reuse unchanged data, and compressed snapshots reduce transfer size. Ordinary page loads never wait for the background scan. An explicit refresh waits for a current scan; requests allow up to 60 seconds and distinguish a slow load from a connection error. Index data stays in the add-on's storage and is not sent to external services.
 

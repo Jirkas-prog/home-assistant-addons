@@ -343,12 +343,12 @@
   "m092": "The library could not be loaded. Retrying automatically; previously loaded data remains visible.",
   "sync.timeout": "Loading the library took too long. The server may still be indexing records. Retrying automatically; previously loaded data remains visible.",
   "sync.waiting": "Waiting for the library. Records have not loaded yet.",
-  "sync.indexTitle": "Building map index",
-  "sync.indexReady": "Map index ready",
+  "sync.indexTitle": "Building library index",
+  "sync.indexReady": "Library index ready",
   "sync.indexRecords": "{0} / {1} records checked",
   "sync.elapsed": "Elapsed: {0}",
-  "sync.background": "Indexing runs in the background. The last loaded map remains available; file changes update the map automatically.",
-  "sync.indexError": "The map index could not be updated. Retrying in the background; the last loaded map remains available.",
+  "sync.background": "Indexing runs in the background. The last loaded records remain available; file changes update the library automatically.",
+  "sync.indexError": "The library index could not be updated. Retrying in the background; the last loaded records remain available.",
   "m093": "# My notes\n\n",
   "m094": "Archive “{0}”? The file will remain in the .trash data folder.",
   "m095": "Record archived.",
@@ -1036,5 +1036,10 @@
   "undo.invalidRecord": "The undo history contains an invalid record.",
   "undo.invalidSettings": "The undo history contains invalid settings.",
   "undo.links": "This undo step would break record links. Resolve the newer references first.",
-  "undo.locations": "This undo step would remove a location that is still in use."
+  "undo.locations": "This undo step would remove a location that is still in use.",
+  "map.download": "Download knowledge map",
+  "map.downloadHint": "Explore your records and connections in 2D or 3D. The map loads only when you choose to open it.",
+  "map.downloading": "Downloading knowledge map…",
+  "sync.loadingWorkspace": "Loading workspace…",
+  "sync.partialRecord": "Load the complete record before saving changes."
 }

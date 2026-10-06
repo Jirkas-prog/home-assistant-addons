@@ -19,6 +19,7 @@ export function fail(message, status = 400) {
   });
 }
 export function validateNode(n) {
+  if (n.partial) fail("Load the complete record before saving changes.");
   if (!idPattern.test(n.id || ""))
     fail(
       "IDs may contain lowercase letters, numbers, hyphens and underscores.",
