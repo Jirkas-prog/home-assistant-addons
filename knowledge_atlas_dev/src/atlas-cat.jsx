@@ -381,6 +381,14 @@ export function AtlasCat({ enabled, motion }) {
               stroke="#b88352"
               strokeWidth="3.5"
             />
+            <g className="cat-collar">
+              <path
+                d="M53 51 Q69 58 84 50 L81 56 Q66 63 53 56Z"
+                fill="#94b6a0"
+                stroke="#587566"
+              />
+              <path d="M73 57 L84 61 L75 67Z" fill="#94b6a0" stroke="#587566" />
+            </g>
             <g className="cat-leg cat-back-leg">
               <path
                 d="M40 63 L39 74 Q35 80 29 77 Q27 72 34 70 L35 60"
@@ -456,13 +464,6 @@ export function AtlasCat({ enabled, motion }) {
                 strokeWidth="1"
               />
             </g>
-            <path
-              d="M53 51 Q69 58 84 50 L81 56 Q66 63 53 56Z"
-              fill="#94b6a0"
-              stroke="#587566"
-            />
-            <path d="M73 57 L84 61 L75 67Z" fill="#94b6a0" stroke="#587566" />
-
             <g className="cat-peek-paws" fill="#fae2c1">
               <ellipse cx="48" cy="58" rx="7" ry="5" />
               <ellipse cx="87" cy="58" rx="7" ry="5" />

@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.1-dev.30
+
+- Draw the collar behind the head and paws so it cannot cover the face while the cat sleeps or grooms.
+
 ## 5.0.1-dev.29
 
 - Let the cat gently follow nearby pointers with its eyes, respecting its facing direction and reduced-motion preference.
