@@ -325,11 +325,12 @@ export async function createApp({
   app.get(["/api/nodes", "/api/atlas", "/api/workspace"], async (req, res) => {
     const content =
       req.path === "/api/workspace"
-        ? ["records", "journal"].includes(req.query.content)
+        ? ["records", "journal", "overview"].includes(req.query.content)
           ? req.query.content
           : "tasks"
         : "map";
     const indexed = req.path !== "/api/nodes";
+    const responseProfile = indexed ? content : "legacy";
     if (indexed) {
       const server = req.socket.server;
       if (server && !backgroundServers.has(server)) {
@@ -390,13 +391,13 @@ export async function createApp({
     } catch (error) {
       undoState = { undo: 0, redo: 0, error: error.message };
     }
-    const etag = `W/"${content}-${version}-${snapshot.revision}-${config.revision}-${savedMap?.revision || ""}-${undoState.revision || "invalid"}"`;
+    const etag = `W/"${responseProfile}-${version}-${snapshot.revision}-${config.revision}-${savedMap?.revision || ""}-${undoState.revision || "invalid"}"`;
     res
       .set("Cache-Control", "private, no-cache")
       .set("ETag", etag)
       .vary("Accept-Encoding");
     if (req.get("If-None-Match") === etag) return res.status(304).end();
-    if (atlasResponses.get(content)?.etag !== etag) {
+    if (atlasResponses.get(responseProfile)?.etag !== etag) {
       for (const n of snapshot.nodes)
         for (const r of [...n.resources, ...(n.stock?.placements || [])])
           if (!config.locations.some((l) => l.id === locationId(r)))
@@ -419,7 +420,9 @@ export async function createApp({
         ...snapshot,
         // Navigation needs identities and titles, but no knowledge bodies,
         // attachments, cross-links or map coordinates on the task landing page.
-        nodes: snapshot.nodes.map((node) => workspaceNode(node, content)),
+        nodes: snapshot.nodes.map((node) =>
+          workspaceNode(node, indexed ? content : "records"),
+        ),
         content,
         settings: config,
         ...(savedMap ? { mapPositions: savedMap } : {}),
@@ -436,9 +439,9 @@ export async function createApp({
       const response = { etag, body, compressed: compress(body) };
       // Attach a handler immediately; concurrent requests can share this encoding.
       response.compressed.catch(() => {});
-      atlasResponses.set(content, response);
+      atlasResponses.set(responseProfile, response);
     }
-    const response = atlasResponses.get(content);
+    const response = atlasResponses.get(responseProfile);
     res.type("json");
     if (req.acceptsEncodings("gzip"))
       res.set("Content-Encoding", "gzip").send(await response.compressed);
@@ -576,12 +579,14 @@ export async function createApp({
   app.get("/api/nodes/:id", async (req, res) =>
     res.json(await getNode(req.params.id)),
   );
-  app.get("/api/journal/search", async (req, res) => {
+  app.get(["/api/journal/search", "/api/search"], async (req, res) => {
     const query = String(req.query.q || "").slice(0, 2000);
     const snapshot = store.snapshot || (await store.read());
     const config = await settings.read();
     const matches = filterNodes(
-      snapshot.nodes.filter((n) => n.tool?.kind === "journal"),
+      req.path === "/api/journal/search"
+        ? snapshot.nodes.filter((n) => n.tool?.kind === "journal")
+        : snapshot.nodes,
       {
         query,
         locations: config.locations,

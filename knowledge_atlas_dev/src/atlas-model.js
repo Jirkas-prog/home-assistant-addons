@@ -68,6 +68,7 @@ export function matchesQuery(node, query, type = "all", locations = []) {
         : type !== "all" && node.type !== type
   )
     return false;
+  if (!query.trim()) return true;
   const text = normalize(
     [
       node.title,
@@ -105,12 +106,14 @@ export function filterNodes(
     importance = [],
     location = "",
     locations = [],
+    searchIds = null,
   } = {},
 ) {
   const allowed = scope ? descendants(nodes, scope) : null;
   const places = location ? locationDescendants(locations, location) : null;
   return nodes.filter(
     (n) =>
+      (!searchIds || searchIds.has(n.id)) &&
       (!allowed || allowed.has(n.id)) &&
       (!importance.length || importance.includes(recordImportance(n))) &&
       (!places ||
@@ -119,6 +122,6 @@ export function filterNodes(
               (p) => p.quantity > 0 && places.has(p.locationId),
             )
           : n.resources.some((r) => places.has(resourceLocation(r))))) &&
-      matchesQuery(n, query, type, locations),
+      matchesQuery(n, searchIds ? "" : query, type, locations),
   );
 }

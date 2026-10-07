@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadJournalPreviews } from "../src/journal-previews.js";
 import { JOURNAL_PREVIEW_LIMIT as LIMIT } from "../shared/preview-limits.js";
+import { setImmediate as flush } from "node:timers/promises";
 
 const metadata = (size, extra = {}) =>
   Response.json({ size, kind: "image", mime: "image/png", ...extra });
@@ -100,13 +101,16 @@ test("oversized streamed responses are cancelled even when advertised size is sm
           ),
   });
   assert.ok(cancelled);
-  assert.deepEqual(statuses, ["loading", "manual"]);
+  assert.equal(statuses.at(-1), "manual");
+  assert.ok(statuses.slice(0, -1).every((s) => s === "loading"));
 });
 test("one inaccessible file does not block later previews and server size refusals stay manual", async () => {
   const states = [];
   await loadJournalPreviews("entry", resources(["broken", "grown", "last"]), {
     signal: new AbortController().signal,
-    onUpdate: (id, item) => states.push([id, item.status]),
+    onUpdate: (id, item) => {
+      if (item.loaded === undefined) states.push([id, item.status]);
+    },
     fetchImpl: async (url) => {
       if (url.includes("/broken?"))
         return new Response("Missing", { status: 404 });
@@ -124,4 +128,81 @@ test("one inaccessible file does not block later previews and server size refusa
     ["last", "loading"],
     ["last", "ready"],
   ]);
+});
+
+test("healthy transfers outlive the idle timeout and report byte progress", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let stream;
+  const updates = [];
+  const pending = loadJournalPreviews("entry", resources(["photo"]), {
+    signal: new AbortController().signal,
+    idleMs: 50,
+    onUpdate: (_, value) => updates.push(value),
+    fetchImpl: async (url) =>
+      url.endsWith("metadata=1")
+        ? metadata(8)
+        : new Response(
+            new ReadableStream({
+              start(c) {
+                stream = c;
+              },
+            }),
+          ),
+  });
+  await flush();
+  for (let i = 0; i < 8; i++) {
+    t.mock.timers.tick(40);
+    stream.enqueue(new Uint8Array([i]));
+    await flush();
+  }
+  stream.close();
+  await pending;
+  assert.equal(updates.at(-1).status, "ready");
+  assert.equal(updates.at(-1).blob.size, 8);
+  assert.ok(updates.some((v) => v.loaded === 0 && v.total === 8));
+});
+
+test("a stalled stream times out without blocking the following file", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const updates = [];
+  let cancelled = false;
+  const pending = loadJournalPreviews("entry", resources(["stalled", "next"]), {
+    signal: new AbortController().signal,
+    idleMs: 50,
+    onUpdate: (id, value) => updates.push([id, value.status]),
+    fetchImpl: async (url) =>
+      url.endsWith("metadata=1")
+        ? metadata(1)
+        : url.includes("/stalled/")
+          ? new Response(
+              new ReadableStream({
+                cancel() {
+                  cancelled = true;
+                },
+              }),
+            )
+          : new Response("x"),
+  });
+  await flush();
+  t.mock.timers.tick(51);
+  await pending;
+  assert.ok(cancelled);
+  assert.ok(
+    updates.some(([id, state]) => id === "stalled" && state === "failed"),
+  );
+  assert.deepEqual(updates.at(-1), ["next", "ready"]);
+});
+
+test("truncated transfers are not cached as successful previews", async () => {
+  let last;
+  await loadJournalPreviews("entry", resources(["short"]), {
+    signal: new AbortController().signal,
+    onUpdate: (_, value) => {
+      last = value;
+    },
+    fetchImpl: async (url) =>
+      url.endsWith("metadata=1") ? metadata(20) : new Response("short"),
+  });
+  assert.equal(last.status, "failed");
+  assert.equal(last.blob, undefined);
 });

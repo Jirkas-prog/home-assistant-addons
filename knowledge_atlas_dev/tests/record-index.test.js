@@ -184,7 +184,10 @@ test("cached API snapshots support compression, conditional reads and current se
 test("background indexing reports progress without blocking first load or the previous map", async (t) => {
   const { directory } = await fixture(t);
   const file = path.join(directory, "note.md");
-  await fs.writeFile(file, serialize(record("note", "Before")));
+  await fs.writeFile(
+    file,
+    serialize({ ...record("note", "Before"), summary: "Before" }),
+  );
   const { app, store } = await createApp({ directory });
   const server = app.listen(0, "127.0.0.1");
   await new Promise((resolve) => server.once("listening", resolve));
@@ -218,16 +221,19 @@ test("background indexing reports progress without blocking first load or the pr
   await store.reading;
   const first = await fetch(url);
   assert.equal(first.status, 200);
-  assert.equal((await first.json()).nodes[0].body, "Before");
+  assert.equal((await first.json()).nodes[0].summary, "Before");
   assert.equal(JSON.parse(first.headers.get("X-Atlas-Index")).phase, "ready");
   gate = Promise.withResolvers();
   entered = Promise.withResolvers();
-  await fs.writeFile(file, serialize(record("note", "After")));
+  await fs.writeFile(
+    file,
+    serialize({ ...record("note", "After"), summary: "After" }),
+  );
   store.refreshBackground();
   await entered.promise;
   const rebuilding = await fetch(url, { signal: AbortSignal.timeout(2000) });
   assert.equal(rebuilding.status, 200);
-  assert.equal((await rebuilding.json()).nodes[0].body, "Before");
+  assert.equal((await rebuilding.json()).nodes[0].summary, "Before");
   assert.equal(
     JSON.parse(rebuilding.headers.get("X-Atlas-Index")).phase,
     "building",
@@ -235,7 +241,7 @@ test("background indexing reports progress without blocking first load or the pr
   gate.resolve();
   await store.reading;
   const after = await fetch(url);
-  assert.equal((await after.json()).nodes[0].body, "After");
+  assert.equal((await after.json()).nodes[0].summary, "After");
   assert.notEqual(after.headers.get("ETag"), first.headers.get("ETag"));
 });
 

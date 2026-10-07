@@ -1,5 +1,7 @@
 # Knowledge Atlas documentation
 
+See [UX comparison and workflow decisions](docs/UX-COMPARISON.md) for the current interaction design and measured follow-up priorities.
+
 See [Task workspace](docs/TASK-WORKSPACE.md) for configurable boards, the five-tab task card, comments and activity.
 
 To add only new or updated records and documents to an existing library, use **Backup and restore > Import data package**. Review conflicts before merging; this preserves the rest of the library and its settings. See [Incremental data packages](docs/DATA-PACKAGES.md) for the workflow and package creation command.
@@ -12,7 +14,7 @@ A fresh V5 installation starts with an empty library. Use Backup and restore to 
 
 ## Opening the workspace
 
-The default opening page is **Tasks and timeline**, with **Timeline** selected. The initial request contains full tasks and lightweight record identities for the branch tree, project filters and counters. Knowledge text, attachments and saved map coordinates are not part of this initial request. Record views and settings request complete records when needed; task edits preserve their full notes and checkpoints.
+The default opening page is **Tasks and timeline**, with **Timeline** selected. The initial request contains full tasks and lightweight record identities for the branch tree, project filters and counters. Knowledge text, attachments and saved map coordinates are not part of this initial request. Library, inventory, settings and map views request overview metadata without Markdown bodies. Opening a record detail or Markdown reader retrieves only that complete record. Task edits preserve their full notes and checkpoints; specialized work tools retain their full-record profile.
 
 Open **Knowledge map**, then press the large **Download knowledge map** button in the center. Merely visiting this section does not load the map. The button downloads the map data and renderer and enables the layout worker and its existing geometry cache. The 3D renderer loads when switching to **3D space**. Returning to the map within the same open page does not require another button press; reloading or reopening the page does. Saved manual arrangements are retained.
 
@@ -45,6 +47,10 @@ Combine the topic dropdown, record-type buttons, text search and exact star rati
 
 ## Journal calendar
 
+The editor opens on **Entry**, with the title and writing area first. **Organization** contains project, status, tags, experience and next step. **Attachments**, **Links** and **Places** hold optional supporting information. Save with **Save entry**; switching tabs preserves your draft. Use arrow keys, Home and End to move among tabs.
+
+The **Filters** button reveals area, importance, project and experience controls. A dot indicates an active hidden filter. Click a day's **+ more** control to open its entries without leaving the month.
+
 Open **Journal** directly from the main navigation. It starts in **Month** view, with **Week**, **Day** and **Year** available in the view selector. Existing records appear as calendar events without migration or duplicate copies. Multi-day entries span the corresponding dates and continue across week boundaries. Use **Today**, the previous/next arrows or the date picker to navigate. A date or **+ more** opens that day; a month in the year overview opens that month. Busy dates keep additional entries accessible through **+ more**.
 
 Click an event to open its details in a dialog. Closing it returns to the same calendar period and filters. **Older entry** and **Newer entry** move between actual entries. Use **New journal entry**, a date's **+** button, a day header or an empty hourly slot to create an entry with the date already filled in. Entries are all-day by default; clear **All day** to set local start and end times. Overlapping timed entries occupy separate columns. All-day and inclusive multi-day summaries remain in the strip above the hourly grid.
@@ -57,7 +63,11 @@ The calendar initially loads navigation metadata only. No entry is opened automa
 
 While an entry's dialog is open, accessible Add-on and Server files up to **10 MB (10,000,000 bytes) each** download automatically, one at a time. Photo previews appear as they arrive. Files larger than the limit and external web links remain manual; choose **Download attachment preview** to open one. The client and server enforce the automatic limit, including a file that grows after its metadata was read. Closing the entry, opening its editor or selecting another entry cancels unfinished downloads and releases temporary previews. Other entries are never prefetched. The photo and PDF viewers reuse completed downloads; editable text and Office extraction still use their validated document endpoints. A failed automatic download does not prevent later files from loading. These are original files, not generated thumbnails. Device and physical locations describe where content can be found rather than providing server access.
 
+Attachment previews show percentage, download speed and estimated remaining time. Text previews go first; select a waiting attachment to prioritize it. **Pause automatic downloads** enables data saving in this browser until resumed. Completed previews remain available while the entry is open. Downloads time out after 60 seconds without incoming data, rather than after 60 seconds of healthy transfer. A failed file can be selected again to retry.
+
 ## Library and automatic updates
+
+The library displays 60 cards per page. Sorting and filtering apply to all records, not just the visible page. Search in library, map and inventory includes unloaded record bodies through the server index; only matching IDs return to the browser. Opening and closing a record preserves the current page.
 
 Each top-level `.md` file in `/config/knowledge` describes one record. See [FORMAT.md](FORMAT.md) and [templates](templates/README.md). Edit files externally or use the web editor. A visible browser checks for changes about every three seconds and refreshes after returning to the window. Search, counters, maps, inventory and task views are derived from the current records; no rebuild or AI is needed.
 

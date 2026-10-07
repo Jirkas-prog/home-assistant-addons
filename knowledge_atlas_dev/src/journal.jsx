@@ -150,7 +150,14 @@ export function PlaceMap({ places = [] }) {
   );
 }
 
-export function JournalFields({ form, setForm, nodes, busy, onBusy }) {
+export function JournalFields({
+  form,
+  setForm,
+  nodes,
+  busy,
+  onBusy,
+  part = "all",
+}) {
   const [uploadError, setUploadError] = useState(""),
     [linkQuery, setLinkQuery] = useState("");
   const tool = form.tool,
@@ -205,347 +212,373 @@ export function JournalFields({ form, setForm, nodes, busy, onBusy }) {
   }
   return (
     <section className="journal-fields">
-      <label className="journal-experience-filter">
-        <input
-          type="checkbox"
-          checked={tool.experience === true}
-          onChange={(e) => change({ experience: e.target.checked })}
-        />
-        {t("journal.markExperience")}
-      </label>
-      <p className="field-help">{t("journal.experienceHelp")}</p>
-      <div className="form-grid">
-        <label>
-          {t("journal.period")}
-          <select
-            value={period}
-            onChange={(e) =>
-              change({
-                period: e.target.value,
-                endDate:
-                  e.target.value === "custom"
-                    ? tool.endDate || tool.date
-                    : periodEnd(tool.date, e.target.value),
-              })
-            }
-          >
-            {["day", "week", "month", "custom"].map((p) => (
-              <option key={p} value={p}>
-                {t(`journal.period.${p}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {t("journal.start")}
-          <input
-            type="date"
-            required
-            value={tool.date}
-            onChange={(e) =>
-              change({
-                date: e.target.value,
-                ...(period !== "custom"
-                  ? { endDate: periodEnd(e.target.value, period) }
-                  : {}),
-              })
-            }
-          />
-        </label>
-        <label>
-          {t("journal.end")}
-          <input
-            type="date"
-            required
-            min={tool.date}
-            value={tool.endDate || tool.date}
-            onChange={(e) =>
-              change({ endDate: e.target.value, period: "custom" })
-            }
-          />
-        </label>
-        <label>
-          {t("tools.minutes")}
-          <input
-            type="number"
-            min="0"
-            max={Math.min(5256000, journalDays(tool) * 1440)}
-            required
-            value={tool.minutes}
-            onChange={(e) => change({ minutes: Number(e.target.value) })}
-          />
-        </label>
-      </div>
-      <p className="field-help">{t("journal.rangeHelp")}</p>
-      <label className="journal-experience-filter">
-        <input
-          type="checkbox"
-          checked={!(tool.startTime || tool.endTime)}
-          onChange={(e) =>
-            change(
-              e.target.checked
-                ? { startTime: "", endTime: "" }
-                : { startTime: "09:00", endTime: "10:00" },
-            )
-          }
-        />
-        {t("calendar.allDay")}
-      </label>
-      {(tool.startTime || tool.endTime) && (
-        <div className="form-grid">
-          <label>
-            {t("calendar.startTime")}
+      {["all", "organization"].includes(part) && (
+        <>
+          <label className="journal-experience-filter">
             <input
-              type="time"
-              required
-              value={tool.startTime}
-              onChange={(e) => change({ startTime: e.target.value })}
+              type="checkbox"
+              checked={tool.experience === true}
+              onChange={(e) => change({ experience: e.target.checked })}
             />
+            {t("journal.markExperience")}
           </label>
-          <label>
-            {t("calendar.endTime")}
-            <input
-              type="time"
-              required
-              value={tool.endTime || ""}
-              onChange={(e) => change({ endTime: e.target.value })}
-            />
-          </label>
-        </div>
+          <p className="field-help">{t("journal.experienceHelp")}</p>
+        </>
       )}
-      <h3>{t("journal.places")}</h3>
-      <datalist id="journal-known-places">
-        {knownPlaces.map((p) => (
-          <option value={p.label} key={p.label} />
-        ))}
-      </datalist>
-      {places.map((p) => (
-        <fieldset className="journal-place-editor" key={p.id}>
-          <label>
-            {t("journal.placeName")}
-            <input
-              maxLength={300}
-              list="journal-known-places"
-              value={p.label}
-              onChange={(e) => {
-                const known = knownPlaces.find(
-                  (k) => k.label === e.target.value,
-                );
-                updatePlace(
-                  p.id,
-                  known
-                    ? {
-                        label: known.label,
-                        latitude: known.latitude,
-                        longitude: known.longitude,
-                      }
-                    : { label: e.target.value },
-                );
-              }}
-            />
-          </label>
+      {["all", "entry"].includes(part) && (
+        <>
           <div className="form-grid">
             <label>
-              {t("journal.latitude")}
-              <input
-                type="number"
-                step="any"
-                min="-90"
-                max="90"
-                value={p.latitude ?? ""}
+              {t("journal.period")}
+              <select
+                value={period}
                 onChange={(e) =>
-                  updatePlace(p.id, {
-                    latitude:
-                      e.target.value === "" ? null : Number(e.target.value),
+                  change({
+                    period: e.target.value,
+                    endDate:
+                      e.target.value === "custom"
+                        ? tool.endDate || tool.date
+                        : periodEnd(tool.date, e.target.value),
+                  })
+                }
+              >
+                {["day", "week", "month", "custom"].map((p) => (
+                  <option key={p} value={p}>
+                    {t(`journal.period.${p}`)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              {t("journal.start")}
+              <input
+                type="date"
+                required
+                value={tool.date}
+                onChange={(e) =>
+                  change({
+                    date: e.target.value,
+                    ...(period !== "custom"
+                      ? { endDate: periodEnd(e.target.value, period) }
+                      : {}),
                   })
                 }
               />
             </label>
             <label>
-              {t("journal.longitude")}
+              {t("journal.end")}
+              <input
+                type="date"
+                required
+                min={tool.date}
+                value={tool.endDate || tool.date}
+                onChange={(e) =>
+                  change({ endDate: e.target.value, period: "custom" })
+                }
+              />
+            </label>
+            <label>
+              {t("tools.minutes")}
               <input
                 type="number"
-                step="any"
-                min="-180"
-                max="180"
-                value={p.longitude ?? ""}
-                onChange={(e) =>
-                  updatePlace(p.id, {
-                    longitude:
-                      e.target.value === "" ? null : Number(e.target.value),
-                  })
-                }
+                min="0"
+                max={Math.min(5256000, journalDays(tool) * 1440)}
+                required
+                value={tool.minutes}
+                onChange={(e) => change({ minutes: Number(e.target.value) })}
               />
             </label>
           </div>
-          <button
-            type="button"
-            className="text-button"
-            onClick={() =>
-              change({ places: places.filter((x) => x.id !== p.id) })
-            }
-          >
-            <Trash2 size={14} />
-            {t("journal.removePlace")}
-          </button>
-        </fieldset>
-      ))}
-      <button
-        className="secondary-button"
-        type="button"
-        disabled={places.length >= 100}
-        onClick={() =>
-          change({
-            places: [...places, { id: crypto.randomUUID(), label: "" }],
-          })
-        }
-      >
-        <Plus size={14} />
-        {t("journal.addPlace")}
-      </button>
-      <p className="field-help">{t("journal.placeHelp")}</p>
-      <h3>{t("journal.links")}</h3>
-      <p className="field-help">{t("journal.taskLinksHelp")}</p>
-      <input
-        aria-label={t("journal.findLink")}
-        placeholder={t("journal.findLink")}
-        value={linkQuery}
-        onChange={(e) => setLinkQuery(e.target.value)}
-      />
-      <div className="journal-link-choices">
-        {nodes
-          .filter(
-            (n) =>
-              n.id !== form.id &&
-              (form.related.includes(n.id) ||
-                (linkQuery &&
-                  n.title
-                    .toLocaleLowerCase()
-                    .includes(linkQuery.toLocaleLowerCase()))),
-          )
-          .slice(0, 60)
-          .map((n) => (
-            <label key={n.id}>
-              <input
-                type="checkbox"
-                checked={form.related.includes(n.id)}
-                onChange={(e) =>
-                  setForm((old) => ({
-                    ...old,
-                    related: e.target.checked
-                      ? [...old.related, n.id]
-                      : old.related.filter((id) => id !== n.id),
-                  }))
-                }
-              />
-              {n.title}
-              {n.type === "task" && <small> · {t("m079")}</small>}
-            </label>
-          ))}
-      </div>
-      <h3>{t("journal.attachments")}</h3>
-      <label className="journal-upload">
-        <Upload size={16} />
-        {t("journal.upload")}
-        <input
-          type="file"
-          multiple
-          disabled={busy}
-          onChange={(e) => {
-            const files = [...e.target.files];
-            e.target.value = "";
-            upload(files);
-          }}
-        />
-      </label>
-      <p className="field-help">{t("journal.uploadHelp")}</p>
-      {uploadError && (
-        <p className="error-banner" role="alert">
-          {uploadError}
-        </p>
-      )}
-      {form.resources.map((r) => (
-        <div key={r.id} className="journal-attachment-edit">
-          <label>
-            {t("journal.caption")}
+          <p className="field-help">{t("journal.rangeHelp")}</p>
+          <label className="journal-experience-filter">
             <input
-              value={r.label}
+              type="checkbox"
+              checked={!(tool.startTime || tool.endTime)}
               onChange={(e) =>
-                setForm((old) => ({
-                  ...old,
-                  resources: old.resources.map((x) =>
-                    x.id === r.id ? { ...x, label: e.target.value } : x,
-                  ),
-                }))
+                change(
+                  e.target.checked
+                    ? { startTime: "", endTime: "" }
+                    : { startTime: "09:00", endTime: "10:00" },
+                )
               }
             />
-            <small>{r.photo?.takenAt || r.path}</small>
+            {t("calendar.allDay")}
           </label>
+          {(tool.startTime || tool.endTime) && (
+            <div className="form-grid">
+              <label>
+                {t("calendar.startTime")}
+                <input
+                  type="time"
+                  required
+                  value={tool.startTime}
+                  onChange={(e) => change({ startTime: e.target.value })}
+                />
+              </label>
+              <label>
+                {t("calendar.endTime")}
+                <input
+                  type="time"
+                  required
+                  value={tool.endTime || ""}
+                  onChange={(e) => change({ endTime: e.target.value })}
+                />
+              </label>
+            </div>
+          )}
+        </>
+      )}
+      {["all", "places"].includes(part) && (
+        <>
+          <h3>{t("journal.places")}</h3>
+          <datalist id="journal-known-places">
+            {knownPlaces.map((p) => (
+              <option value={p.label} key={p.label} />
+            ))}
+          </datalist>
+          {places.map((p) => (
+            <fieldset className="journal-place-editor" key={p.id}>
+              <label>
+                {t("journal.placeName")}
+                <input
+                  maxLength={300}
+                  list="journal-known-places"
+                  value={p.label}
+                  onChange={(e) => {
+                    const known = knownPlaces.find(
+                      (k) => k.label === e.target.value,
+                    );
+                    updatePlace(
+                      p.id,
+                      known
+                        ? {
+                            label: known.label,
+                            latitude: known.latitude,
+                            longitude: known.longitude,
+                          }
+                        : { label: e.target.value },
+                    );
+                  }}
+                />
+              </label>
+              <div className="form-grid">
+                <label>
+                  {t("journal.latitude")}
+                  <input
+                    type="number"
+                    step="any"
+                    min="-90"
+                    max="90"
+                    value={p.latitude ?? ""}
+                    onChange={(e) =>
+                      updatePlace(p.id, {
+                        latitude:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  {t("journal.longitude")}
+                  <input
+                    type="number"
+                    step="any"
+                    min="-180"
+                    max="180"
+                    value={p.longitude ?? ""}
+                    onChange={(e) =>
+                      updatePlace(p.id, {
+                        longitude:
+                          e.target.value === "" ? null : Number(e.target.value),
+                      })
+                    }
+                  />
+                </label>
+              </div>
+              <button
+                type="button"
+                className="text-button"
+                onClick={() =>
+                  change({ places: places.filter((x) => x.id !== p.id) })
+                }
+              >
+                <Trash2 size={14} />
+                {t("journal.removePlace")}
+              </button>
+            </fieldset>
+          ))}
           <button
+            className="secondary-button"
             type="button"
-            className="icon-button"
-            aria-label={t("journal.removeAttachment")}
+            disabled={places.length >= 100}
             onClick={() =>
-              setForm((old) => ({
-                ...old,
-                resources: old.resources.filter((x) => x.id !== r.id),
-                previewResourceId:
-                  old.previewResourceId === r.id ? "" : old.previewResourceId,
-              }))
+              change({
+                places: [...places, { id: crypto.randomUUID(), label: "" }],
+              })
             }
           >
-            <Trash2 size={16} />
+            <Plus size={14} />
+            {t("journal.addPlace")}
           </button>
-        </div>
-      ))}
-      {(suggestions.start || suggestions.places.length > 0) && (
-        <div className="journal-exif">
-          <p>{t("journal.exifHelp")}</p>
-          {suggestions.start && (
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() =>
-                change({
-                  date: suggestions.start,
-                  endDate: suggestions.end,
-                  period:
-                    suggestions.start === suggestions.end ? "day" : "custom",
-                })
-              }
-            >
-              {t("journal.useDates", suggestions.start, suggestions.end)}
-            </button>
-          )}
-          {suggestions.places.length > 0 && (
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() =>
-                change({
-                  places: [
-                    ...places,
-                    ...suggestions.places.filter(
-                      (p) => !places.some((x) => x.id === p.id),
-                    ),
-                  ].slice(0, 100),
-                })
-              }
-            >
-              {t("journal.useGps", suggestions.places.length)}
-            </button>
-          )}
-        </div>
+          <p className="field-help">{t("journal.placeHelp")}</p>
+        </>
       )}
-      <label>
-        {t("tools.next")}
-        <textarea
-          rows={2}
-          maxLength={2000}
-          value={tool.next}
-          onChange={(e) => change({ next: e.target.value })}
-        />
-      </label>
+      {["all", "links"].includes(part) && (
+        <>
+          <h3>{t("journal.links")}</h3>
+          <p className="field-help">{t("journal.taskLinksHelp")}</p>
+          <input
+            aria-label={t("journal.findLink")}
+            placeholder={t("journal.findLink")}
+            value={linkQuery}
+            onChange={(e) => setLinkQuery(e.target.value)}
+          />
+          <div className="journal-link-choices">
+            {nodes
+              .filter(
+                (n) =>
+                  n.id !== form.id &&
+                  (form.related.includes(n.id) ||
+                    (linkQuery &&
+                      n.title
+                        .toLocaleLowerCase()
+                        .includes(linkQuery.toLocaleLowerCase()))),
+              )
+              .slice(0, 60)
+              .map((n) => (
+                <label key={n.id}>
+                  <input
+                    type="checkbox"
+                    checked={form.related.includes(n.id)}
+                    onChange={(e) =>
+                      setForm((old) => ({
+                        ...old,
+                        related: e.target.checked
+                          ? [...old.related, n.id]
+                          : old.related.filter((id) => id !== n.id),
+                      }))
+                    }
+                  />
+                  {n.title}
+                  {n.type === "task" && <small> · {t("m079")}</small>}
+                </label>
+              ))}
+          </div>
+        </>
+      )}
+      {["all", "attachments"].includes(part) && (
+        <>
+          <h3>{t("journal.attachments")}</h3>
+          <label className="journal-upload">
+            <Upload size={16} />
+            {t("journal.upload")}
+            <input
+              type="file"
+              multiple
+              disabled={busy}
+              onChange={(e) => {
+                const files = [...e.target.files];
+                e.target.value = "";
+                upload(files);
+              }}
+            />
+          </label>
+          <p className="field-help">{t("journal.uploadHelp")}</p>
+          {uploadError && (
+            <p className="error-banner" role="alert">
+              {uploadError}
+            </p>
+          )}
+          {form.resources.map((r) => (
+            <div key={r.id} className="journal-attachment-edit">
+              <label>
+                {t("journal.caption")}
+                <input
+                  value={r.label}
+                  onChange={(e) =>
+                    setForm((old) => ({
+                      ...old,
+                      resources: old.resources.map((x) =>
+                        x.id === r.id ? { ...x, label: e.target.value } : x,
+                      ),
+                    }))
+                  }
+                />
+                <small>{r.photo?.takenAt || r.path}</small>
+              </label>
+              <button
+                type="button"
+                className="icon-button"
+                aria-label={t("journal.removeAttachment")}
+                onClick={() =>
+                  setForm((old) => ({
+                    ...old,
+                    resources: old.resources.filter((x) => x.id !== r.id),
+                    previewResourceId:
+                      old.previewResourceId === r.id
+                        ? ""
+                        : old.previewResourceId,
+                  }))
+                }
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
+          ))}
+          {(suggestions.start || suggestions.places.length > 0) && (
+            <div className="journal-exif">
+              <p>{t("journal.exifHelp")}</p>
+              {suggestions.start && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    change({
+                      date: suggestions.start,
+                      endDate: suggestions.end,
+                      period:
+                        suggestions.start === suggestions.end
+                          ? "day"
+                          : "custom",
+                    })
+                  }
+                >
+                  {t("journal.useDates", suggestions.start, suggestions.end)}
+                </button>
+              )}
+              {suggestions.places.length > 0 && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() =>
+                    change({
+                      places: [
+                        ...places,
+                        ...suggestions.places.filter(
+                          (p) => !places.some((x) => x.id === p.id),
+                        ),
+                      ].slice(0, 100),
+                    })
+                  }
+                >
+                  {t("journal.useGps", suggestions.places.length)}
+                </button>
+              )}
+            </div>
+          )}
+        </>
+      )}
+      {["all", "organization"].includes(part) && (
+        <label>
+          {t("tools.next")}
+          <textarea
+            rows={2}
+            maxLength={2000}
+            value={tool.next}
+            onChange={(e) => change({ next: e.target.value })}
+          />
+        </label>
+      )}
     </section>
   );
 }

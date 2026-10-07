@@ -1,5 +1,15 @@
 # Changelog
 
+## 5.0.1-dev.24
+
+- Put journal writing first, with separate Entry, Organization, Attachments, Links and Places tabs, keyboard navigation, draft recovery and a specific Save entry action.
+- Transfer only overview metadata for the map, library, inventory and settings; fetch complete records on demand and retain server-side full-text search. Keep the legacy full-record API compatible.
+- Limit the library to 60 cards per page with visible counts and navigation.
+- Keep healthy attachment downloads running beyond one minute by timing out inactivity instead of total duration. Show progress, download speed and remaining time.
+- Prioritize text previews and allow selecting a queued file first, retrying a failed file and pausing automatic downloads with a browser-persisted data saver preference.
+- Collapse optional journal area/importance filters, reserve space for calendar overflow controls and open a day list without losing the month context.
+- Preserve stored records, attachments, settings, positions, backup formats and the stable channel.
+
 ## 5.0.1-dev.23
 
 - Replace journal navigation with a month calendar by default, plus week, day and year views, date navigation and multi-day event bars.

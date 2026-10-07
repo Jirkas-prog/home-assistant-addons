@@ -18,6 +18,7 @@ import React, {
 import { createRoot } from "react-dom/client";
 import { MarkdownContent as Md } from "./markdown.jsx";
 import { useMapPositions } from "./use-map-positions.js";
+import { useRecord, useRecordSearch } from "./use-record.js";
 import {
   Network,
   Search,
@@ -244,22 +245,20 @@ function App() {
     [toast, setToast] = useState(""),
     [toolProject, setToolProject] = useState(""),
     [journalCreate, setJournalCreate] = useState(false);
-  const content =
-    view === "journal" && !showSettings
+  const [libraryPage, setLibraryPage] = useState(0);
+  const [journalFilters, setJournalFilters] = useState(false);
+  const content = showSettings
+    ? "overview"
+    : view === "journal"
       ? "journal"
       : view === "map" && mapRequested
         ? "map"
-        : (view !== "map" && detail) ||
-            showSettings ||
-            ["library", "inventory", "tools"].includes(view)
-          ? "records"
-          : "tasks";
-  const snapshotReady =
-    !!snapshotContent &&
-    ((content === "tasks" && snapshotContent !== "journal") ||
-      snapshotContent === content ||
-      (content === "journal" && ["records", "map"].includes(snapshotContent)) ||
-      (content === "records" && snapshotContent === "map"));
+        : ["library", "inventory"].includes(view)
+          ? "overview"
+          : view === "tools"
+            ? "records"
+            : "tasks";
+  const snapshotReady = snapshotContent === content;
   const mapActive = view === "map" && mapRequested && snapshotContent === "map";
   const showDetail =
     view !== "journal" && detail && (view !== "map" || mapRequested);
@@ -385,7 +384,16 @@ function App() {
     document.addEventListener("keydown", fn);
     return () => document.removeEventListener("keydown", fn);
   }, []);
-  const node = nodes.find((n) => n.id === selected);
+  const recordDetail = useRecord(
+    nodes.find((n) => n.id === selected),
+    showDetail && snapshotReady,
+  );
+  const node = recordDetail.node;
+  const search = useRecordSearch(
+    query,
+    ["map", "library", "inventory"].includes(view) && snapshotReady,
+    nodes,
+  );
   const groups = structure.categories;
   const mapNodes = mapActive ? nodes : EMPTY_NODES;
   const layoutState = useMapLayout(mapNodes, mapLayout, mode, mapActive);
@@ -402,6 +410,7 @@ function App() {
         ? mapGraph(nodes, manualMap.positions, {
             scope,
             query,
+            searchIds: search.ids,
             type: filter,
             importance: importanceFilter,
             locations: settings.locations,
@@ -413,16 +422,26 @@ function App() {
       manualMap.positions,
       scope,
       query,
+      search.ids,
       filter,
       importanceFilter,
       settings.locations,
     ],
   );
-  const choose = (n) => {
+  const chooseRequest = useRef(0);
+  const choose = async (n) => {
+    const request = ++chooseRequest.current;
     const id = typeof n === "string" ? n : n.id;
     const record = nodes.find((item) => item.id === id);
     if (record?.type === "task" && view !== "map") {
-      setEditing(record);
+      try {
+        const full = record.partial
+          ? await api(`nodes/${encodeURIComponent(id)}`)
+          : record;
+        if (request === chooseRequest.current) setEditing(full);
+      } catch (e) {
+        notify(e.message);
+      }
       return;
     }
     setSelected(id);
@@ -641,17 +660,33 @@ function App() {
       filterNodes(orderedNodes, {
         scope,
         query,
+        searchIds: search.ids,
         type: filter,
         importance: importanceFilter,
         locations: settings.locations,
       }),
-    [orderedNodes, scope, query, filter, importanceFilter, settings],
+    [
+      orderedNodes,
+      scope,
+      query,
+      filter,
+      importanceFilter,
+      settings,
+      search.ids,
+    ],
   );
+  useEffect(
+    () => setLibraryPage(0),
+    [query, scope, filter, importanceFilter, listSort],
+  );
+  const pageCount = Math.max(1, Math.ceil(matched.length / 60));
+  const page = Math.min(libraryPage, pageCount - 1);
   const liveReader = reader?.nodeId
     ? nodes.find((n) => n.id === reader.nodeId)
     : null;
+  const readerRecord = useRecord(liveReader, !!reader?.nodeId);
   const readerContent = reader?.nodeId
-    ? liveReader || {
+    ? readerRecord.node || {
         title: t("m096"),
         body: t("m097"),
       }
@@ -1024,7 +1059,9 @@ function App() {
         <section
           className={`workbench ${view === "backups" ? "backup-workbench" : ""} ${view === "map" && !mapRequested ? "map-locked" : ""}`}
         >
-          <div className="toolbar">
+          <div
+            className={`toolbar ${view === "journal" ? "journal-toolbar" : ""} ${journalFilters ? "filters-open" : ""}`}
+          >
             <label className="search">
               <Search size={17} />
               <input
@@ -1036,7 +1073,18 @@ function App() {
               />
               <kbd>{t("m138")}</kbd>
             </label>
+            {view === "journal" && (
+              <button
+                className="secondary-button journal-filter-toggle"
+                aria-expanded={journalFilters}
+                onClick={() => setJournalFilters(!journalFilters)}
+              >
+                {t("workspace.filters")}
+                {scope || importanceFilter.length ? " •" : ""}
+              </button>
+            )}
             <select
+              className="area-filter"
               aria-label={t("m139")}
               value={scope}
               onChange={(e) => setScope(e.target.value)}
@@ -1133,6 +1181,19 @@ function App() {
               </button>
             )}
           </div>
+          {(search.pending || search.error) && (
+            <div
+              className="search-status"
+              role={search.error ? "alert" : "status"}
+            >
+              {search.error || t("workspace.searching")}
+              {search.error && (
+                <button className="secondary-button" onClick={search.retry}>
+                  {t("map.retrySave")}
+                </button>
+              )}
+            </div>
+          )}
           {view === "map" && (
             <p className="map-layout-description" id="map-layout-description">
               {t(`map.layoutDescription.${mapLayout}`)}
@@ -1226,6 +1287,7 @@ function App() {
                 </div>
               ) : view === "journal" ? (
                 <JournalNotebook
+                  filtersOpen={journalFilters}
                   nodes={nodes}
                   settings={settings}
                   query={query}
@@ -1272,6 +1334,7 @@ function App() {
                 </Suspense>
               ) : view === "inventory" ? (
                 <Inventory
+                  searchIds={search.ids}
                   importance={importanceFilter}
                   nodes={orderedNodes}
                   settings={settings}
@@ -1410,46 +1473,77 @@ function App() {
                   )}
                 </>
               ) : (
-                <div className="library">
-                  {matched.length ? (
-                    matched.map((n) => (
-                      <button
-                        key={n.id}
-                        className={`record-card ${selected === n.id ? "chosen" : ""}`}
-                        onClick={() => choose(n)}
-                      >
-                        <span
-                          className="record-icon"
-                          style={{
-                            color: n.color,
-                            background: `${n.color}12`,
-                          }}
+                <div className="library-page">
+                  <nav
+                    className="library-pagination"
+                    aria-label={t("workspace.pages")}
+                  >
+                    <span>
+                      {search.pending
+                        ? t("workspace.searching")
+                        : t(
+                            "workspace.page",
+                            page + 1,
+                            pageCount,
+                            matched.length,
+                          )}
+                    </span>
+                    <button
+                      className="secondary-button"
+                      disabled={!page}
+                      onClick={() => setLibraryPage(page - 1)}
+                    >
+                      {t("workspace.previous")}
+                    </button>
+                    <button
+                      className="secondary-button"
+                      disabled={page + 1 >= pageCount}
+                      onClick={() => setLibraryPage(page + 1)}
+                    >
+                      {t("workspace.next")}
+                    </button>
+                  </nav>
+                  <div className="library">
+                    {matched.length ? (
+                      matched.slice(page * 60, (page + 1) * 60).map((n) => (
+                        <button
+                          key={n.id}
+                          className={`record-card ${selected === n.id ? "chosen" : ""}`}
+                          onClick={() => choose(n)}
                         >
-                          <Glyph type={n.type} />
-                        </span>
-                        <div className="card-meta">
-                          {TYPES[n.type]}
-                          <span>{STATUS[n.status]}</span>
-                        </div>
-                        <h3 title={n.title}>{n.title}</h3>
-                        <p title={n.summary}>{n.summary || t("m155")}</p>
-                        <RecordStamp node={n} importance />
-                        <div className="card-footer">
-                          <span>
-                            {nodes.find((p) => p.id === n.parent)?.title ||
-                              t("m156")}
+                          <span
+                            className="record-icon"
+                            style={{
+                              color: n.color,
+                              background: `${n.color}12`,
+                            }}
+                          >
+                            <Glyph type={n.type} />
                           </span>
-                          <ArrowUpRight size={17} />
-                        </div>
-                      </button>
-                    ))
-                  ) : (
-                    <div className="empty">
-                      <Search />
-                      <h3>{t("m157")}</h3>
-                      <p>{t("m158")}</p>
-                    </div>
-                  )}
+                          <div className="card-meta">
+                            {TYPES[n.type]}
+                            <span>{STATUS[n.status]}</span>
+                          </div>
+                          <h3 title={n.title}>{n.title}</h3>
+                          <p title={n.summary}>{n.summary || t("m155")}</p>
+                          <RecordStamp node={n} importance />
+                          <div className="card-footer">
+                            <span>
+                              {nodes.find((p) => p.id === n.parent)?.title ||
+                                t("m156")}
+                            </span>
+                            <ArrowUpRight size={17} />
+                          </div>
+                        </button>
+                      ))
+                    ) : search.pending || search.error ? null : (
+                      <div className="empty">
+                        <Search />
+                        <h3>{t("m157")}</h3>
+                        <p>{t("m158")}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -1459,10 +1553,20 @@ function App() {
                 className="details"
                 aria-label={t("m159")}
               >
-                {!snapshotReady || node?.partial ? (
+                {recordDetail.error ? (
+                  <div className="error-banner" role="alert">
+                    {recordDetail.error}
+                    <button
+                      className="secondary-button"
+                      onClick={recordDetail.retry}
+                    >
+                      {t("map.retrySave")}
+                    </button>
+                  </div>
+                ) : !snapshotReady || node?.partial ? (
                   <div className="empty" role="status">
                     <LoaderCircle className="spin" />
-                    {t("m148")}
+                    {t("workspace.loadingRecord")}
                   </div>
                 ) : node ? (
                   <>
@@ -1789,7 +1893,7 @@ function App() {
         <Suspense
           fallback={
             <div className="modal-backdrop">
-              <p role="status">{t("m148")}</p>
+              <p role="status">{t("workspace.loadingRecord")}</p>
             </div>
           }
         >
@@ -1869,7 +1973,24 @@ function App() {
               </button>
             </header>
             <div className="reader-body">
-              <Md>{readerContent.body}</Md>
+              {readerRecord.error ? (
+                <div className="error-banner" role="alert">
+                  {readerRecord.error}
+                  <button
+                    className="secondary-button"
+                    onClick={readerRecord.retry}
+                  >
+                    {t("map.retrySave")}
+                  </button>
+                </div>
+              ) : readerContent.partial ? (
+                <div role="status">
+                  <LoaderCircle className="spin" />
+                  {t("workspace.loadingRecord")}
+                </div>
+              ) : (
+                <Md>{readerContent.body}</Md>
+              )}
             </div>
             {reader.nodeId && (
               <footer>

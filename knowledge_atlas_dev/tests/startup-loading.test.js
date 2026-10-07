@@ -149,10 +149,25 @@ test("task landing data omits knowledge contents and map positions while full re
   assert.ok(mapReads > 0);
   assert.equal(map.content, "map");
   assert.equal(map.mapPositions.views["grid:2"][0].x, 5);
-  assert.equal(
-    map.nodes.find((n) => n.id === "note-0").body,
-    record("note-0").body.trim(),
+  assert.equal(map.nodes.find((n) => n.id === "note-0").body, "");
+  assert.equal(map.nodes.find((n) => n.id === "note-0").partial, true);
+  const overview = await (
+    await fetch(base + "workspace?content=overview")
+  ).json();
+  assert.equal(overview.content, "overview");
+  assert.ok(overview.nodes.every((n) => n.partial && !n.body));
+  const note = await (await fetch(base + "nodes/note-0")).json();
+  assert.equal(note.body, record("note-0").body.trim());
+  const search = await (
+    await fetch(base + "search?q=Detailed%20example%20notes")
+  ).json();
+  assert.ok(
+    search.ids.includes("note-0"),
+    "full-text search still finds unloaded contents",
   );
+  assert.ok(!search.ids.includes("task"));
+  const legacy = await (await fetch(base + "nodes")).json();
+  assert.equal(legacy.nodes.find((n) => n.id === "note-0").body, note.body);
   await fs.writeFile(
     path.join(directory, "task.md"),
     serialize({

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import { useDialogKeys } from "./client.js";
 import { t, locale } from "../shared/i18n.js";
 import {
   calendarRange,
@@ -39,9 +40,51 @@ function EntryButton({ segment, onOpen, style, timed = false }) {
     </button>
   );
 }
+function DayEntries({ day, entries, onOpen, onClose }) {
+  useDialogKeys(React, onClose);
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="modal calendar-day-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-label={stamp(day, { dateStyle: "full" })}
+      >
+        <header>
+          <h2>{stamp(day, { dateStyle: "full" })}</h2>
+          <button
+            autoFocus
+            className="icon-button"
+            onClick={onClose}
+            aria-label={t("m188")}
+          >
+            <X />
+          </button>
+        </header>
+        <div className="calendar-day-entries">
+          {entries.map((n) => (
+            <button
+              className="secondary-button"
+              key={n.id}
+              onClick={() => {
+                onClose();
+                onOpen(n);
+              }}
+            >
+              <span style={{ color: n.color }}>●</span>
+              <strong>{n.title}</strong>
+              <small>{n.tool.startTime || t("calendar.allDay")}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
 function Month({ date, entries, onOpen, onDay, onCreate }) {
   const container = useRef();
   const [height, setHeight] = useState(500);
+  const [overflowDay, setOverflowDay] = useState(null);
   useEffect(() => {
     const measure = () =>
       setHeight(
@@ -68,86 +111,107 @@ function Month({ date, entries, onOpen, onDay, onCreate }) {
     { length: (dayDistance(range.start, range.end) + 1) / 7 },
     (_, i) => dayOffset(range.start, i * 7),
   );
-  const rowHeight = Math.max(80, Math.floor((height - 38) / weeks.length));
+  const rowHeight = Math.max(100, Math.floor((height - 38) / weeks.length));
   const visibleLanes = Math.max(
     1,
-    Math.min(6, Math.floor((rowHeight - 54) / 23)),
+    Math.min(6, Math.floor((rowHeight - 74) / 28)),
   );
   return (
-    <div
-      ref={container}
-      style={{ "--week-height": `${rowHeight}px` }}
-      className="calendar-month"
-      role="region"
-      aria-label={t("calendar.month")}
-    >
-      <div className="calendar-weekdays">
-        {Array.from({ length: 7 }, (_, i) => (
-          <span key={i}>
-            {stamp(dayOffset(range.start, i), { weekday: "short" })}
-          </span>
-        ))}
-      </div>
-      {weeks.map((start) => {
-        const segments = calendarSegments(entries, start, dayOffset(start, 6)),
-          shown = segments.filter((s) => s.lane < visibleLanes);
-        return (
-          <div className="calendar-week" key={start}>
-            <div className="calendar-days">
-              {Array.from({ length: 7 }, (_, i) => {
-                const day = dayOffset(start, i),
-                  hidden = segments.filter(
-                    (s) =>
-                      s.lane >= visibleLanes && s.start <= day && s.end >= day,
-                  ).length;
-                return (
-                  <div
-                    className={`calendar-day ${day.slice(0, 7) !== date.slice(0, 7) ? "outside" : ""}`}
-                    key={day}
-                  >
-                    <button
-                      className={`calendar-date ${day === today ? "today" : ""}`}
-                      aria-label={stamp(day, { dateStyle: "full" })}
-                      onClick={() => onDay(day)}
+    <>
+      <div
+        ref={container}
+        style={{ "--week-height": `${rowHeight}px` }}
+        className="calendar-month"
+        role="region"
+        aria-label={t("calendar.month")}
+      >
+        <div className="calendar-weekdays">
+          {Array.from({ length: 7 }, (_, i) => (
+            <span key={i}>
+              {stamp(dayOffset(range.start, i), { weekday: "short" })}
+            </span>
+          ))}
+        </div>
+        {weeks.map((start) => {
+          const segments = calendarSegments(
+              entries,
+              start,
+              dayOffset(start, 6),
+            ),
+            shown = segments.filter((s) => s.lane < visibleLanes);
+          return (
+            <div className="calendar-week" key={start}>
+              <div className="calendar-days">
+                {Array.from({ length: 7 }, (_, i) => {
+                  const day = dayOffset(start, i),
+                    hidden = segments.filter(
+                      (s) =>
+                        s.lane >= visibleLanes &&
+                        s.start <= day &&
+                        s.end >= day,
+                    ).length;
+                  return (
+                    <div
+                      className={`calendar-day ${day.slice(0, 7) !== date.slice(0, 7) ? "outside" : ""}`}
+                      key={day}
                     >
-                      {Number(day.slice(-2))}
-                    </button>
-                    <button
-                      className="calendar-add"
-                      aria-label={t("calendar.addOn", day)}
-                      onClick={() => onCreate(day)}
-                    >
-                      <Plus size={13} />
-                    </button>
-                    {hidden > 0 && (
                       <button
-                        className="calendar-more"
+                        className={`calendar-date ${day === today ? "today" : ""}`}
+                        aria-label={stamp(day, { dateStyle: "full" })}
                         onClick={() => onDay(day)}
                       >
-                        {t("calendar.more", hidden)}
+                        {Number(day.slice(-2))}
                       </button>
-                    )}
-                  </div>
-                );
-              })}
+                      <button
+                        className="calendar-add"
+                        aria-label={t("calendar.addOn", day)}
+                        onClick={() => onCreate(day)}
+                      >
+                        <Plus size={13} />
+                      </button>
+                      {hidden > 0 && (
+                        <button
+                          className="calendar-more"
+                          onClick={() => setOverflowDay(day)}
+                          aria-label={`${stamp(day, { dateStyle: "full" })}: ${t("calendar.more", hidden)}`}
+                        >
+                          {t("calendar.more", hidden)}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="calendar-bars">
+                {shown.map((s) => (
+                  <EntryButton
+                    key={s.entry.id}
+                    segment={s}
+                    onOpen={onOpen}
+                    style={{
+                      gridColumn: `${s.column + 1} / span ${s.span}`,
+                      gridRow: s.lane + 1,
+                    }}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="calendar-bars">
-              {shown.map((s) => (
-                <EntryButton
-                  key={s.entry.id}
-                  segment={s}
-                  onOpen={onOpen}
-                  style={{
-                    gridColumn: `${s.column + 1} / span ${s.span}`,
-                    gridRow: s.lane + 1,
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {overflowDay && (
+        <DayEntries
+          day={overflowDay}
+          entries={entries.filter(
+            (n) =>
+              n.tool.date <= overflowDay &&
+              (n.tool.endDate || n.tool.date) >= overflowDay,
+          )}
+          onOpen={onOpen}
+          onClose={() => setOverflowDay(null)}
+        />
+      )}
+    </>
   );
 }
 function TimeGrid({ date, mode, entries, onOpen, onCreate }) {

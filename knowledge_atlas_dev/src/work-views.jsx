@@ -18,6 +18,7 @@ import { useToday } from "./use-today.js";
 import { TASK_STATUS, projectFor } from "./work-model.js";
 const TaskBoard = lazy(() => import("./task-board.jsx"));
 export function Inventory({
+  searchIds,
   importance = [],
   nodes,
   settings,
@@ -28,6 +29,7 @@ export function Inventory({
 }) {
   const [place, setPlace] = useState("");
   const items = filterNodes(nodes, {
+    searchIds,
     query,
     scope,
     type: "item",

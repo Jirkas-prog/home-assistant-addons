@@ -110,7 +110,7 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-auto-rows: 21px;
+  grid-auto-rows: 26px;
   gap: 2px 3px;
   pointer-events: none;
   padding: 0 3px;
@@ -504,4 +504,190 @@
 }
 .calendar-toolbar {
   padding-bottom: 10px;
+}
+
+.attachment-queue-controls,
+.library-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.attachment-queue-controls > span {
+  color: #ccc;
+  font-size: 12px;
+}
+.attachment-transfer {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: #eee;
+}
+.attachment-transfer progress {
+  width: 100%;
+  height: 6px;
+  accent-color: #c986f4;
+}
+.journal-auto-file:disabled {
+  opacity: 1;
+  cursor: progress;
+}
+.journal-editor {
+  background: #171717;
+  color: #eee;
+}
+.journal-editor .editor-body {
+  padding: 20px 28px;
+}
+.journal-editor .editor-body > [role="tabpanel"] {
+  display: grid;
+  gap: 18px;
+}
+.journal-editor .editor-body label {
+  color: #ccc;
+}
+.journal-editor input,
+.journal-editor select,
+.journal-editor textarea {
+  background: #1d1d1d;
+  border-color: #555;
+  color: #eee;
+}
+.journal-editor textarea {
+  line-height: 1.65;
+}
+.journal-editor .journal-entry-text textarea {
+  min-height: 190px;
+  font-family: inherit;
+}
+.journal-editor .primary-button {
+  background: #c986f4;
+  color: #21102c;
+}
+.journal-editor .importance-field {
+  margin-bottom: 18px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.journal-editor > header {
+  padding: 20px 28px;
+}
+.journal-editor :is(input, select, textarea):focus {
+  border-color: #c986f4;
+  outline-color: #c986f4;
+}
+.calendar-day-dialog {
+  width: min(560px, 95vw);
+  background: #171717;
+}
+.calendar-day-dialog h2 {
+  font-size: 20px;
+}
+.calendar-day-entries {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  overflow: auto;
+}
+.calendar-day-entries button {
+  text-align: left;
+  white-space: normal;
+  min-height: 44px;
+}
+.calendar-day-entries strong {
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+.calendar-day-entries small {
+  flex: none;
+}
+.calendar-more {
+  min-height: 28px;
+  white-space: normal;
+  line-height: 1.1;
+}
+.journal-toolbar:not(.filters-open) > .area-filter,
+.journal-toolbar:not(.filters-open) > .importance-filter {
+  display: none;
+}
+.journal-toolbar .search {
+  flex: 1;
+}
+.library-page {
+  overflow: auto;
+  min-width: 0;
+  flex: 1;
+}
+.library-page .library {
+  overflow: visible;
+}
+.library-pagination {
+  padding: 14px 22px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--bg, #11151c);
+}
+.library-pagination > span {
+  flex: 1;
+  color: #b9c1ce;
+  font-size: 12px;
+}
+.search-status {
+  padding: 10px 20px;
+  color: #ccc;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+@media (max-width: 600px) {
+  .journal-toolbar {
+    padding: 10px;
+    gap: 8px;
+  }
+  .journal-toolbar .search {
+    min-width: 160px;
+    width: auto;
+  }
+  .journal-toolbar .search kbd {
+    display: none;
+  }
+  .journal-calendar-view .collection-toolbar {
+    gap: 8px;
+  }
+  .journal-calendar-view .collection-toolbar > label:first-child {
+    flex: 1;
+    min-width: 140px;
+  }
+  .journal-calendar-view .collection-toolbar > span {
+    margin-left: auto;
+  }
+  .calendar-toolbar h2 {
+    font-size: 19px;
+    margin-bottom: 2px;
+    flex: 1;
+    min-width: 160px;
+    order: -2;
+  }
+  .calendar-toolbar select {
+    order: -1;
+  }
+  .calendar-toolbar {
+    gap: 5px;
+  }
+  .journal-editor .editor-body {
+    padding: 16px;
+  }
+  .journal-editor-tabs {
+    padding: 0 8px;
+  }
+  .journal-editor-tabs button {
+    font-size: 10px;
+    overflow-wrap: anywhere;
+  }
+  .library-pagination {
+    padding: 10px;
+  }
 }

@@ -22,6 +22,7 @@ export function JournalNotebook({
   focusId,
   createRequested,
   onCreated,
+  filtersOpen = false,
 }) {
   const [mode, setMode] = useState("month"),
     [date, setDate] = useState(localDate),
@@ -177,30 +178,35 @@ export function JournalNotebook({
   };
   return (
     <section className="collection-view journal-calendar-view">
-      <div className="collection-toolbar">
-        <label>
-          {t("tools.project")}
-          <select value={project} onChange={(e) => setProject(e.target.value)}>
-            <option value="">{t("tools.allProjects")}</option>
-            {nodes
-              .filter((n) => n.type === "project")
-              .map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.title}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label className="journal-experience-filter">
-          <input
-            type="checkbox"
-            checked={experienceOnly}
-            onChange={(e) => setExperienceOnly(e.target.checked)}
-          />
-          {t("journal.experiencesOnly")}
-        </label>
-        <span>{t("tools.entries", entries.length)}</span>
-      </div>
+      {(filtersOpen || project || experienceOnly) && (
+        <div className="collection-toolbar">
+          <label>
+            {t("tools.project")}
+            <select
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+            >
+              <option value="">{t("tools.allProjects")}</option>
+              {nodes
+                .filter((n) => n.type === "project")
+                .map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.title}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="journal-experience-filter">
+            <input
+              type="checkbox"
+              checked={experienceOnly}
+              onChange={(e) => setExperienceOnly(e.target.checked)}
+            />
+            {t("journal.experiencesOnly")}
+          </label>
+          <span>{t("tools.entries", entries.length)}</span>
+        </div>
+      )}
       {searchError && (
         <p className="error-banner" role="alert">
           {searchError}
