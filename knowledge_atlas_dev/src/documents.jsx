@@ -92,6 +92,7 @@ export function DocumentViewer({ resource, onClose, navigation, preloaded }) {
     return () => window.removeEventListener("beforeunload", handler);
   }, [dirty]);
   async function save() {
+    if (busy || draft.available) return;
     setBusy(true);
     setError("");
     setMessage("");
@@ -241,62 +242,67 @@ export function DocumentViewer({ resource, onClose, navigation, preloaded }) {
                 }}
               />
             )}
-            <div className="document-toolbar">
-              <div
-                className="document-view-modes"
-                role="group"
-                aria-label={t("documents.display")}
-              >
-                <button
-                  type="button"
-                  aria-pressed={!editing}
-                  onClick={() => setEditing(false)}
+            <fieldset
+              className="draft-fields"
+              disabled={busy || !!draft.available}
+            >
+              <div className="document-toolbar">
+                <div
+                  className="document-view-modes"
+                  role="group"
+                  aria-label={t("documents.display")}
                 >
-                  {t("documents.preview")}
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={editing}
-                  onClick={() => setEditing(true)}
+                  <button
+                    type="button"
+                    aria-pressed={!editing}
+                    onClick={() => setEditing(false)}
+                  >
+                    {t("documents.preview")}
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={editing}
+                    onClick={() => setEditing(true)}
+                  >
+                    {doc.editable ? t("documents.edit") : t("documents.source")}
+                  </button>
+                </div>
+                <span>
+                  {doc.editable
+                    ? dirty
+                      ? t("m010")
+                      : t("m011")
+                    : asText || doc.office
+                      ? t("journal.readOnly")
+                      : t("m012")}
+                </span>
+                <span>
+                  {body.length.toLocaleString(locale())}
+                  {" " + t("m013")}
+                </span>
+              </div>
+              {editing ? (
+                <textarea
+                  aria-label={t("m014")}
+                  value={body}
+                  readOnly={!doc.editable}
+                  spellCheck={false}
+                  onChange={(e) => setBody(e.target.value)}
+                />
+              ) : (
+                <div
+                  className="document-preview"
+                  tabIndex={0}
+                  aria-label={t("documents.preview")}
                 >
-                  {doc.editable ? t("documents.edit") : t("documents.source")}
-                </button>
-              </div>
-              <span>
-                {doc.editable
-                  ? dirty
-                    ? t("m010")
-                    : t("m011")
-                  : asText || doc.office
-                    ? t("journal.readOnly")
-                    : t("m012")}
-              </span>
-              <span>
-                {body.length.toLocaleString(locale())}
-                {" " + t("m013")}
-              </span>
-            </div>
-            {editing ? (
-              <textarea
-                aria-label={t("m014")}
-                value={body}
-                readOnly={!doc.editable}
-                spellCheck={false}
-                onChange={(e) => setBody(e.target.value)}
-              />
-            ) : (
-              <div
-                className="document-preview"
-                tabIndex={0}
-                aria-label={t("documents.preview")}
-              >
-                {markdown ? (
-                  <MarkdownContent>{body}</MarkdownContent>
-                ) : (
-                  <pre>{body}</pre>
-                )}
-              </div>
-            )}
+                  {markdown ? (
+                    <MarkdownContent>{body}</MarkdownContent>
+                  ) : (
+                    <pre>{body}</pre>
+                  )}
+                </div>
+              )}
+            </fieldset>
           </div>
         )}
         {doc && ["folder", "place", "download", "web"].includes(doc.kind) && (
@@ -373,7 +379,7 @@ export function DocumentViewer({ resource, onClose, navigation, preloaded }) {
           )}
           {doc?.editable && (
             <button
-              disabled={busy || !dirty}
+              disabled={busy || !dirty || !!draft.available}
               className="primary-button"
               onClick={save}
             >

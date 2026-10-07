@@ -14,7 +14,7 @@ export function validateCheckpoints(task, fail) {
   if (!Array.isArray(task.checkpoints) || task.checkpoints.length > 200)
     fail("Checkpoints must be a list of at most 200 entries.");
   const ids = new Set();
-  for (const point of task.checkpoints) {
+  for (const [index, point] of task.checkpoints.entries()) {
     if (
       !point ||
       typeof point !== "object" ||
@@ -25,20 +25,33 @@ export function validateCheckpoints(task, fail) {
     )
       fail("Checkpoints must have unique stable IDs.");
     ids.add(point.id);
-    if (!validDate(point.due)) fail("Each checkpoint needs a valid due date.");
+    if (!validDate(point.due))
+      fail(
+        "Each checkpoint needs a valid due date.",
+        400,
+        `task.checkpoints.${index}.due`,
+      );
     if (
       typeof point.description !== "string" ||
       !point.description.trim() ||
       point.description.length > 2000
     )
-      fail("A checkpoint description must contain 1–2000 characters.");
+      fail(
+        "A checkpoint description must contain 1–2000 characters.",
+        400,
+        `task.checkpoints.${index}.description`,
+      );
     if (typeof point.done !== "boolean")
       fail("Checkpoint completion must be true or false.");
     if (
       (task.start && point.due < task.start) ||
       (task.due && point.due > task.due)
     )
-      fail("Checkpoint dates must fall within the task dates.");
+      fail(
+        "Checkpoint dates must fall within the task dates.",
+        400,
+        `task.checkpoints.${index}.due`,
+      );
     if (
       point.completedAt != null &&
       (typeof point.completedAt !== "string" ||

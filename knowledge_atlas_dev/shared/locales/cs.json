@@ -1206,5 +1206,16 @@
   "workspace.next": "Další",
   "workspace.loadingRecord": "Načítám záznam…",
   "workspace.recordTimeout": "Načítání záznamu trvalo příliš dlouho. Zkuste to znovu.",
-  "workspace.searchTimeout": "Hledání trvalo příliš dlouho. Zkuste to znovu."
+  "workspace.searchTimeout": "Hledání trvalo příliš dlouho. Zkuste to znovu.",
+  "draft.chooseFirst": "Nejdříve koncept obnovte, nebo zahoďte. Zavřením editoru zůstane bezpečně uložený.",
+  "workspace.newItem": "Nová věc",
+  "workspace.retryRead": "Zkusit znovu",
+  "task.notSaved": "Dosud neuloženo",
+  "validation.journalStart": "Zadejte platné počáteční datum.",
+  "validation.journalEnd": "Konec musí být ve stejný den jako začátek nebo později.",
+  "validation.journalTime": "Vyplňte čas začátku i čas konce.",
+  "validation.journalTimeRange": "Konec musí být později než začátek. U zápisu přes noc změňte také koncové datum.",
+  "validation.journalMinutes": "Zadejte celý počet minut od nuly po délku zvoleného období.",
+  "validation.placeLabel": "Zadejte název místa nebo jeho souřadnice.",
+  "validation.coordinates": "Vyplňte obě souřadnice: zeměpisnou šířku od −90 do 90 a délku od −180 do 180."
 }

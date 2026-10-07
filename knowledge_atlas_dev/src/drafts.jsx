@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { t } from "../shared/i18n.js";
+import { t, locale } from "../shared/i18n.js";
 import { compareChanges } from "../shared/merge.js";
 
 let draftLibrary = "uninitialized";
@@ -19,7 +19,8 @@ export function useDraft(id, value, original, dirty) {
   });
   const [state, setState] = useState("");
   useEffect(() => {
-    if (!dirty) return;
+    // A pending recovery choice owns this storage slot until it is resolved.
+    if (!dirty || available) return;
     try {
       localStorage.setItem(
         key,
@@ -29,7 +30,7 @@ export function useDraft(id, value, original, dirty) {
     } catch {
       setState("failed");
     }
-  }, [key, value, original, dirty]);
+  }, [key, value, original, dirty, available]);
   const clear = () => {
     try {
       localStorage.removeItem(key);
@@ -43,11 +44,19 @@ export function DraftNotice({ draft, onRecover }) {
   return (
     <>
       {draft.available && (
-        <div className="conflict-panel">
+        <div className="conflict-panel draft-recovery" role="status">
           <p>{t("draft.available")}</p>
+          {draft.available.value.title && (
+            <strong>{draft.available.value.title}</strong>
+          )}
+          {draft.available.savedAt && (
+            <p>{new Date(draft.available.savedAt).toLocaleString(locale())}</p>
+          )}
+          <p>{t("draft.chooseFirst")}</p>
           <div className="data-actions">
             <button
               type="button"
+              autoFocus
               className="secondary-button"
               onClick={() => {
                 onRecover(draft.available);

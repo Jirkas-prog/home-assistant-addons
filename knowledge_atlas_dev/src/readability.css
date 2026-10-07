@@ -74,6 +74,7 @@
   font-size: 12px;
 }
 .editor-body > label,
+.editor-body > .draft-fields > label,
 .form-grid > label,
 .editor-label,
 .related-picker label,

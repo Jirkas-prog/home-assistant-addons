@@ -156,6 +156,15 @@ test("task landing data omits knowledge contents and map positions while full re
   ).json();
   assert.equal(overview.content, "overview");
   assert.ok(overview.nodes.every((n) => n.partial && !n.body));
+  const toolsResponse = await fetch(base + "workspace?content=tools", {
+    headers: { "If-None-Match": fullResponse.headers.get("ETag") },
+  });
+  assert.equal(toolsResponse.status, 200);
+  const tools = await toolsResponse.json();
+  assert.equal(tools.content, "tools");
+  assert.equal(tools.mapPositions, undefined);
+  assert.ok(tools.nodes.every((n) => n.partial && !n.body));
+  assert.deepEqual(tools.nodes.find((n) => n.id === "task").task, task.task);
   const note = await (await fetch(base + "nodes/note-0")).json();
   assert.equal(note.body, record("note-0").body.trim());
   const search = await (

@@ -1064,6 +1064,7 @@ button:hover {
   overflow: auto;
 }
 .editor-body > label,
+.editor-body > .draft-fields > label,
 .form-grid > label {
   display: flex;
   flex-direction: column;
@@ -1636,4 +1637,12 @@ button:hover {
   .spin {
     animation: none;
   }
+}
+/* A saved draft must be recovered or discarded before its editor can change it. */
+.draft-fields {
+  display: contents;
+}
+.draft-recovery strong {
+  display: block;
+  overflow-wrap: anywhere;
 }

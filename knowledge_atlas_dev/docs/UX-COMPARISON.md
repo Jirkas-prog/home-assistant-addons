@@ -14,7 +14,7 @@ This review compares documented interaction patterns with Knowledge Atlas, rathe
 | View photos on a slow connection | [Immich's preview derivatives](https://docs.immich.app/FAQ/#why-are-there-so-many-thumbnail-generation-jobs) distinguish previews from originals. | This release retains original files and adds visible transfer progress, text-first sequencing, priority selection and a persistent data saver toggle. Server-generated thumbnails are a separate follow-up requiring cache limits and image decoder validation on supported add-on architectures. |
 | Locate physical belongings | [HomeBox](https://github.com/sysadminsmedia/homebox) focuses on home inventory and organization. | Keep physical location, quantity and document attachments together. The immediate improvement is a metadata-only inventory overview. Next candidate: clearer location breadcrumbs and one action for moving quantities, retaining the stock movement history. |
 | Back up selected data | [restic selection rules](https://restic.readthedocs.io/en/stable/040_backup.html) make backup scope explicit. | Retain the existing section checkboxes, merge preview and resumable transfers. Next candidate: compute bytes for the selected scope, distinguish referenced managed files from external paths and show that scope throughout export and import. |
-| Use project tools | Deck's card details and Obsidian's content/properties separation provide consistent placement for secondary controls. | Keep specialized BOM, procedure and review-card editors. Measure their full-record workspace separately before changing their search and review calculations. A shared shell must not hide tool-specific operations or download the map. |
+| Use project tools | Deck's card details and Obsidian's content/properties separation provide consistent placement for secondary controls. | Keep specialized BOM, procedure and review-card editors. The tools workspace includes full tool records and compact metadata for unrelated records; saved-view full-text queries run against the server index. A shared shell must not hide tool-specific operations or download the map. |
 
 ## Implemented in 5.0.1-dev.24
 
@@ -43,6 +43,17 @@ Overview profiles retain record metadata and attachment descriptors, but never a
 - Write a journal entry, switch tabs, link a task, mark it as an experience and save. Reopen it and verify all fields.
 - Use a narrow viewport: calendar overflow controls must not cover event bars; editor tabs and close/save actions must stay reachable.
 - Repeat the key actions in English and Czech. Switching language must not translate IDs, code or stored user content.
+
+## Follow-up usability pass: 5.0.1-dev.25
+
+- **Protect unfinished writing:** a pending local draft blocks editing and saving until it is recovered or discarded. Its title and saved time identify it; closing the editor keeps it. The same protection applies to record, task, tool, comment and text-document editors.
+- **Make validation actionable:** task and journal errors select the relevant tab and focus the affected title, date or checkpoint control. Journal date, time, duration and coordinate errors explain how to correct the input. Field routing uses stable identifiers, independent of interface language.
+- **Make primary actions predictable:** the task page says New task, inventory says New item, and journal says New journal entry. Tools use their own specific creation action; backup pages do not offer unrelated record creation. New tasks focus the title and show Not saved yet.
+- **Reduce unnecessary data:** opening a complete task reuses its loaded record. Tools retain the metadata needed by materials, procedures and saved views, without unrelated Markdown bodies. Both global and saved-view full-text queries search the complete server index.
+
+On a generic 1,563-record fixture, the tools workspace changed from 98,821,447 to 611,557 decoded bytes, and from 668,015 to 82,382 gzip bytes (about 88% less transferred data). This is a fixture measurement, not a guaranteed reduction for every library. Tool bodies are still included; a library made predominantly of large tool records will benefit less. Attachments and map positions are not part of this workspace payload.
+
+Verification includes draft recovery after closing and reloading, disabled edits before a recovery choice, errors from inactive tabs, checkpoint completion text, English and Czech, full-text saved views, and a 1 Mbit/s connection. Storage formats, record IDs and existing content are unchanged.
 
 ## Next improvements, not included in this release
 

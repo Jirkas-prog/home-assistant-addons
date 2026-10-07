@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.0.1-dev.25
+
+- Protect pending local drafts from being overwritten by a new edit. Show the saved title and timestamp and require recovery or discard before editing or saving.
+- Move task and journal validation to the correct tab and focus the title, date or checkpoint field that needs attention. Preserve all entered values.
+- Label primary actions for their current page, focus new tasks on the title and distinguish an unsaved new task from a saved record.
+- Load work-tool records with compact metadata for unrelated records, retaining full-text search for both global queries and saved views. Do not load map positions or unrelated Markdown bodies.
+- Reuse complete task data already loaded by the workspace instead of requesting it again when opening a card.
+- Preserve existing records, settings, storage formats and the stable channel.
+
 ## 5.0.1-dev.24
 
 - Put journal writing first, with separate Entry, Organization, Attachments, Links and Places tabs, keyboard navigation, draft recovery and a specific Save entry action.

@@ -1,8 +1,12 @@
 // Summaries are navigation data, never writable records.
 export function workspaceNode(node, content) {
-  if (content === "records" || (content === "tasks" && node.type === "task"))
+  if (
+    content === "records" ||
+    (content === "tasks" && node.type === "task") ||
+    (content === "tools" && node.tool)
+  )
     return node;
-  if (["overview", "map"].includes(content))
+  if (["overview", "map", "tools"].includes(content))
     return { ...node, body: "", partial: true };
   const journal = content === "journal" && node.tool?.kind === "journal";
   return {

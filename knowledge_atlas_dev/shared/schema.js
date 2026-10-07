@@ -14,9 +14,10 @@ export const TYPES = [
 ];
 export const STATUSES = ["draft", "learning", "active", "done"];
 const idPattern = /^[a-z0-9][a-z0-9_-]{0,119}$/;
-export function fail(message, status = 400) {
+export function fail(message, status = 400, field) {
   throw Object.assign(new Error(message), {
     status,
+    ...(field ? { field } : {}),
   });
 }
 export function validateNode(n) {
@@ -31,7 +32,7 @@ export function validateNode(n) {
   if (![1, 2].includes(n.schema))
     fail("Supported schema versions are 1 and 2.");
   if (typeof n.title !== "string" || !n.title.trim() || n.title.length > 180)
-    fail("The title must contain 1–180 characters.");
+    fail("The title must contain 1–180 characters.", 400, "title");
   if (!TYPES.includes(n.type)) fail("Invalid record type.");
   if (!STATUSES.includes(n.status)) fail("Invalid status.");
   if (n.importance != null && !validImportance(n.importance))
@@ -43,7 +44,7 @@ export function validateNode(n) {
   if (typeof n.body !== "string" || n.body.length > 1_000_000)
     fail("Text must not exceed 1 MB.");
   if (typeof n.summary !== "string" || n.summary.length > 2000)
-    fail("Invalid short description.");
+    fail("Invalid short description.", 400, "summary");
   if (typeof n.color !== "string" || !/^#[0-9a-f]{6}$/i.test(n.color))
     fail("Invalid color.");
   for (const field of ["tags", "related"]) {
@@ -51,7 +52,7 @@ export function validateNode(n) {
       !Array.isArray(n[field]) ||
       n[field].some((x) => typeof x !== "string" || x.length > 120)
     )
-      fail(`Invalid ${field} field.`);
+      fail(`Invalid ${field} field.`, 400, field);
   }
   if (
     !Array.isArray(n.resources) ||
@@ -65,13 +66,17 @@ export function validateNode(n) {
         (!r.path && !r.url),
     )
   )
-    fail("A resource needs a label and a path or HTTP(S) link.");
+    fail(
+      "A resource needs a label and a path or HTTP(S) link.",
+      400,
+      "resources",
+    );
   if (
     n.resources.some(
       (r) => r.locationId != null && !idPattern.test(r.locationId),
     )
   )
-    fail("Invalid location ID.");
+    fail("Invalid location ID.", 400, "resources");
   const resourceIds = new Set();
   for (const resource of n.resources) {
     if (resource.photo != null) {
@@ -110,7 +115,11 @@ export function validateNode(n) {
     (typeof n.previewResourceId !== "string" ||
       !resourceIds.has(n.previewResourceId))
   )
-    fail("The double-click document must reference an existing attachment ID.");
+    fail(
+      "The double-click document must reference an existing attachment ID.",
+      400,
+      "resources",
+    );
   if (
     n.quantity != null &&
     (!Number.isSafeInteger(n.quantity) ||
@@ -130,7 +139,9 @@ export function validateNode(n) {
   if (n.task != null) {
     if (typeof n.task !== "object" || Array.isArray(n.task))
       fail("Invalid task data.");
-    validateCheckpoints(n.task, fail);
+    validateCheckpoints(n.task, (message, status, field) =>
+      fail(message, 400, field || "task.checkpoints"),
+    );
     for (const key of ["start", "due"])
       if (
         n.task[key] &&
@@ -139,9 +150,9 @@ export function validateNode(n) {
           !Number.isFinite(Date.parse(n.task[key])) ||
           new Date(n.task[key]).toISOString().slice(0, 10) !== n.task[key])
       )
-        fail("Invalid task date.");
+        fail("Invalid task date.", 400, `task.${key}`);
     if (n.task.start && n.task.due && n.task.start > n.task.due)
-      fail("The due date cannot be before the start date.");
+      fail("The due date cannot be before the start date.", 400, "task.due");
     if (n.task.priority && !["low", "normal", "high"].includes(n.task.priority))
       fail("Invalid task priority.");
     if (

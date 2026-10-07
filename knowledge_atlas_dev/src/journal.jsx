@@ -254,6 +254,7 @@ export function JournalFields({
               <input
                 type="date"
                 required
+                data-field="tool.date"
                 value={tool.date}
                 onChange={(e) =>
                   change({
@@ -271,6 +272,7 @@ export function JournalFields({
                 type="date"
                 required
                 min={tool.date}
+                data-field="tool.endDate"
                 value={tool.endDate || tool.date}
                 onChange={(e) =>
                   change({ endDate: e.target.value, period: "custom" })
@@ -284,6 +286,7 @@ export function JournalFields({
                 min="0"
                 max={Math.min(5256000, journalDays(tool) * 1440)}
                 required
+                data-field="tool.minutes"
                 value={tool.minutes}
                 onChange={(e) => change({ minutes: Number(e.target.value) })}
               />
@@ -311,6 +314,7 @@ export function JournalFields({
                 <input
                   type="time"
                   required
+                  data-field="tool.startTime"
                   value={tool.startTime}
                   onChange={(e) => change({ startTime: e.target.value })}
                 />
@@ -320,6 +324,7 @@ export function JournalFields({
                 <input
                   type="time"
                   required
+                  data-field="tool.endTime"
                   value={tool.endTime || ""}
                   onChange={(e) => change({ endTime: e.target.value })}
                 />
@@ -337,7 +342,11 @@ export function JournalFields({
             ))}
           </datalist>
           {places.map((p) => (
-            <fieldset className="journal-place-editor" key={p.id}>
+            <fieldset
+              className="journal-place-editor"
+              data-field="tool.places"
+              key={p.id}
+            >
               <label>
                 {t("journal.placeName")}
                 <input

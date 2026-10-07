@@ -434,3 +434,17 @@
     min-width: 110px;
   }
 }
+
+/* Keep the explanation visible while focusing a field farther down the form. */
+.task-dialog-body > .error-banner,
+.tool-editor .editor-body > .error-banner {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #352522;
+  margin-top: 0;
+}
+.task-dialog [data-field],
+.tool-editor [data-field] {
+  scroll-margin-top: 100px;
+}

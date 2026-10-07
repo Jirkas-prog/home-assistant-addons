@@ -539,7 +539,7 @@
 .journal-editor .editor-body {
   padding: 20px 28px;
 }
-.journal-editor .editor-body > [role="tabpanel"] {
+.journal-editor .editor-body [role="tabpanel"] {
   display: grid;
   gap: 18px;
 }

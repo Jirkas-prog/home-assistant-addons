@@ -92,6 +92,7 @@ export function CheckpointEditor({ node, onChange }) {
                 type="date"
                 required
                 value={point.due}
+                data-field={`task.checkpoints.${index}.due`}
                 min={node.task?.start || undefined}
                 max={node.task?.due || undefined}
                 onChange={(e) => update(point.id, { due: e.target.value })}
@@ -128,6 +129,7 @@ export function CheckpointEditor({ node, onChange }) {
               maxLength={2000}
               placeholder={t("checkpoint.descriptionHint")}
               value={point.description}
+              data-field={`task.checkpoints.${index}.description`}
               onChange={(e) =>
                 update(point.id, { description: e.target.value })
               }

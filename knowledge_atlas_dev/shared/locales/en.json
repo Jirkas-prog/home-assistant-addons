@@ -1206,5 +1206,16 @@
   "workspace.next": "Next",
   "workspace.loadingRecord": "Loading record…",
   "workspace.recordTimeout": "Loading this record took too long. Try again.",
-  "workspace.searchTimeout": "Search took too long. Try again."
+  "workspace.searchTimeout": "Search took too long. Try again.",
+  "draft.chooseFirst": "Recover or discard this draft before editing. Closing the editor keeps it safely saved.",
+  "workspace.newItem": "New item",
+  "workspace.retryRead": "Try again",
+  "task.notSaved": "Not saved yet",
+  "validation.journalStart": "Enter a valid start date.",
+  "validation.journalEnd": "The end date must be the same day as the start date or later.",
+  "validation.journalTime": "Enter both a start time and an end time.",
+  "validation.journalTimeRange": "The end time must be after the start time. For an overnight entry, also change the end date.",
+  "validation.journalMinutes": "Enter a whole number of minutes, from zero up to the duration of this date range.",
+  "validation.placeLabel": "Enter a place name or its coordinates.",
+  "validation.coordinates": "Enter both coordinates: latitude from −90 to 90 and longitude from −180 to 180."
 }

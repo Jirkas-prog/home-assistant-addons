@@ -11,7 +11,7 @@ import {
   Link2,
   MapPin,
 } from "lucide-react";
-import { t, localizeMessage } from "../shared/i18n.js";
+import { t } from "../shared/i18n.js";
 import { validateNode } from "../shared/schema.js";
 import { VIEW_RULES } from "../shared/tools.js";
 import { api, useDialogKeys } from "./client.js";
@@ -20,6 +20,7 @@ import { localDate } from "./work-model.js";
 import { ImportanceStars } from "./importance.jsx";
 import { recordImportance } from "../shared/importance.js";
 import { JournalFields } from "./journal.jsx";
+import { useValidationFocus, validationMessage } from "./validation-focus.js";
 import "./task-workspace.css";
 
 const uid = () => crypto.randomUUID();
@@ -82,9 +83,6 @@ export function newTool(kind, projectId, parent) {
 }
 export function ToolEditor({ initial, nodes, onClose, onSaved }) {
   const titleInput = useRef();
-  useEffect(() => {
-    titleInput.current?.focus();
-  }, []);
   const [form, setForm] = useState(() => structuredClone(initial)),
     [base, setBase] = useState(initial),
     [busy, setBusy] = useState(false),
@@ -119,10 +117,14 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
       form.tool[field].filter((row) => row.id !== id),
     );
   const kind = form.tool.kind;
+  const focusError = useValidationFocus(kind, setJournalTab);
+  useEffect(() => {
+    if (!draft.available) titleInput.current?.focus();
+  }, [!!draft.available]);
   const Panel = kind === "journal" ? "div" : React.Fragment;
   async function save(event) {
     event.preventDefault();
-    if (busy) return;
+    if (busy || draft.available) return;
     setBusy(true);
     setError("");
     try {
@@ -136,7 +138,8 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
       await onSaved(result);
       onClose();
     } catch (e) {
-      setError(localizeMessage(e.message));
+      setError(validationMessage(e));
+      focusError(e);
       if (e.status === 409 && base.revision) {
         try {
           setConflict(await api(`nodes/${base.id}`));
@@ -248,65 +251,506 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
               }}
             />
           )}
-          <div className="importance-field">
-            <span>{t("importance.label")}</span>
-            <ImportanceStars
-              value={recordImportance(form)}
-              onChange={(value) => set("importance", value)}
-            />
-          </div>
-          <Panel
-            {...(kind === "journal"
-              ? {
-                  role: "tabpanel",
-                  id: `journal-panel-${journalTab}`,
-                  "aria-labelledby": `journal-tab-${journalTab}`,
-                }
-              : {})}
+          {error && (
+            <div className="error-banner" role="alert" tabIndex={-1}>
+              {error}
+            </div>
+          )}
+          <fieldset
+            className="draft-fields"
+            disabled={!!draft.available || busy}
           >
-            {(kind !== "journal" || journalTab === "entry") && (
-              <label>
-                {t("m189")}
-                <input
-                  required
-                  ref={titleInput}
-                  maxLength={180}
-                  value={form.title}
-                  onChange={(e) => set("title", e.target.value)}
-                />
-              </label>
-            )}
-            {kind === "journal" && journalTab === "entry" && (
-              <label className="tool-notes journal-entry-text">
-                {t("journal.entryText")}
-                <textarea
-                  rows={7}
-                  value={form.body}
-                  maxLength={1_000_000}
-                  placeholder={t("journal.writePlaceholder")}
-                  onChange={(e) => set("body", e.target.value)}
-                />
-              </label>
-            )}
-            {(kind !== "journal" || journalTab === "organization") && (
-              <>
-                <div className="form-grid">
+            <div className="importance-field">
+              <span>{t("importance.label")}</span>
+              <ImportanceStars
+                value={recordImportance(form)}
+                onChange={(value) => set("importance", value)}
+              />
+            </div>
+            <Panel
+              {...(kind === "journal"
+                ? {
+                    role: "tabpanel",
+                    id: `journal-panel-${journalTab}`,
+                    "aria-labelledby": `journal-tab-${journalTab}`,
+                    "data-field":
+                      journalTab === "attachments"
+                        ? "resources"
+                        : journalTab === "links"
+                          ? "related"
+                          : undefined,
+                  }
+                : {})}
+            >
+              {(kind !== "journal" || journalTab === "entry") && (
+                <label>
+                  {t("m189")}
+                  <input
+                    required
+                    ref={titleInput}
+                    data-field="title"
+                    maxLength={180}
+                    value={form.title}
+                    onChange={(e) => set("title", e.target.value)}
+                  />
+                </label>
+              )}
+              {kind === "journal" && journalTab === "entry" && (
+                <label className="tool-notes journal-entry-text">
+                  {t("journal.entryText")}
+                  <textarea
+                    rows={7}
+                    value={form.body}
+                    maxLength={1_000_000}
+                    placeholder={t("journal.writePlaceholder")}
+                    onChange={(e) => set("body", e.target.value)}
+                  />
+                </label>
+              )}
+              {(kind !== "journal" || journalTab === "organization") && (
+                <>
+                  <div className="form-grid">
+                    <label>
+                      {t("tools.project")}
+                      <select
+                        value={form.projectId || ""}
+                        onChange={(e) => {
+                          const projectId = e.target.value;
+                          setForm((old) => ({
+                            ...old,
+                            projectId,
+                            parent:
+                              projectId ||
+                              (old.parent === old.projectId
+                                ? null
+                                : old.parent),
+                          }));
+                        }}
+                      >
+                        <option value="">{t("tools.noProject")}</option>
+                        {projects.map((n) => (
+                          <option key={n.id} value={n.id}>
+                            {n.title}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {t("tools.status")}
+                      <select
+                        value={form.status}
+                        onChange={(e) => set("status", e.target.value)}
+                      >
+                        {["draft", "active", "learning", "done"].map(
+                          (status) => (
+                            <option key={status} value={status}>
+                              {t("tools.status." + status)}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                  </div>
                   <label>
-                    {t("tools.project")}
+                    {t("tools.summary")}
+                    <input
+                      maxLength={2000}
+                      data-field="summary"
+                      value={form.summary}
+                      onChange={(e) => set("summary", e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    {t("tools.tags")}
+                    <input
+                      data-field="tags"
+                      value={form.tags.join(", ")}
+                      onChange={(e) =>
+                        set(
+                          "tags",
+                          e.target.value.split(",").map((x) => x.trim()),
+                        )
+                      }
+                    />
+                  </label>
+                </>
+              )}
+              {kind === "journal" && (
+                <JournalFields
+                  part={journalTab}
+                  form={form}
+                  setForm={setForm}
+                  nodes={nodes}
+                  busy={busy}
+                  onBusy={setBusy}
+                />
+              )}
+              {kind === "bom" && (
+                <>
+                  <label className="tool-check">
+                    <input
+                      type="checkbox"
+                      checked={form.tool.reserve}
+                      onChange={(e) => toolSet("reserve", e.target.checked)}
+                    />
+                    {t("tools.reserve")}
+                  </label>
+                  <p className="field-help">{t("tools.reserveHelp")}</p>
+                  {form.tool.lines.map((line, index) => (
+                    <fieldset className="tool-row-editor" key={line.id}>
+                      <legend>{t("tools.line", index + 1)}</legend>
+                      <div className="form-grid">
+                        <label>
+                          {t("tools.inventoryItem")}
+                          <select
+                            value={line.itemId}
+                            onChange={(e) => {
+                              const item = items.find(
+                                (n) => n.id === e.target.value,
+                              );
+                              toolSet(
+                                "lines",
+                                form.tool.lines.map((row) =>
+                                  row.id === line.id
+                                    ? {
+                                        ...row,
+                                        itemId: e.target.value,
+                                        label: item?.title || row.label,
+                                      }
+                                    : row,
+                                ),
+                              );
+                            }}
+                          >
+                            <option value="">{t("tools.unlinkedItem")}</option>
+                            {items.map((n) => (
+                              <option key={n.id} value={n.id}>
+                                {n.title}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <label>
+                          {t("tools.required")}
+                          <input
+                            type="number"
+                            min="1"
+                            max="1000000000"
+                            required
+                            value={line.quantity}
+                            onChange={(e) =>
+                              updateRow(
+                                "lines",
+                                line.id,
+                                "quantity",
+                                Number(e.target.value),
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      <label>
+                        {t("tools.label")}
+                        <input
+                          required
+                          maxLength={180}
+                          value={line.label}
+                          onChange={(e) =>
+                            updateRow("lines", line.id, "label", e.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        {t("tools.lineNote")}
+                        <input
+                          maxLength={2000}
+                          value={line.note}
+                          onChange={(e) =>
+                            updateRow("lines", line.id, "note", e.target.value)
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => remove("lines", line.id)}
+                      >
+                        <Trash2 size={15} />
+                        {t("tools.removeRow")}
+                      </button>
+                    </fieldset>
+                  ))}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      toolSet("lines", [
+                        ...form.tool.lines,
+                        {
+                          id: uid(),
+                          itemId: "",
+                          label: "",
+                          quantity: 1,
+                          note: "",
+                        },
+                      ])
+                    }
+                  >
+                    <Plus size={15} />
+                    {t("tools.addLine")}
+                  </button>
+                </>
+              )}
+              {kind === "procedure" && (
+                <>
+                  <p className="field-help">{t("tools.templateHelp")}</p>
+                  {form.tool.steps.map((step, index) => (
+                    <fieldset className="tool-row-editor" key={step.id}>
+                      <legend>{t("tools.step", index + 1)}</legend>
+                      <label>
+                        {t("tools.instructions")}
+                        <textarea
+                          rows={2}
+                          required
+                          maxLength={2000}
+                          value={step.label}
+                          onChange={(e) =>
+                            updateRow("steps", step.id, "label", e.target.value)
+                          }
+                        />
+                      </label>
+                      <div className="data-actions">
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={!index}
+                          onClick={() => {
+                            const rows = [...form.tool.steps];
+                            [rows[index - 1], rows[index]] = [
+                              rows[index],
+                              rows[index - 1],
+                            ];
+                            toolSet("steps", rows);
+                          }}
+                        >
+                          {t("tools.moveUp")}
+                        </button>
+                        <button
+                          type="button"
+                          className="text-button"
+                          onClick={() => remove("steps", step.id)}
+                        >
+                          {t("tools.removeRow")}
+                        </button>
+                      </div>
+                    </fieldset>
+                  ))}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      toolSet("steps", [
+                        ...form.tool.steps,
+                        { id: uid(), label: "" },
+                      ])
+                    }
+                  >
+                    <Plus size={15} />
+                    {t("tools.addStep")}
+                  </button>
+                </>
+              )}
+              {kind === "cards" && (
+                <>
+                  {form.tool.cards.map((card, index) => (
+                    <fieldset className="tool-row-editor" key={card.id}>
+                      <legend>{t("tools.card", index + 1)}</legend>
+                      <label>
+                        {t("tools.question")}
+                        <textarea
+                          rows={2}
+                          required
+                          maxLength={5000}
+                          value={card.question}
+                          onChange={(e) =>
+                            updateRow(
+                              "cards",
+                              card.id,
+                              "question",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                      <label>
+                        {t("tools.answer")}
+                        <textarea
+                          rows={3}
+                          required
+                          maxLength={10000}
+                          value={card.answer}
+                          onChange={(e) =>
+                            updateRow(
+                              "cards",
+                              card.id,
+                              "answer",
+                              e.target.value,
+                            )
+                          }
+                        />
+                      </label>
+                      <div className="form-grid">
+                        <label>
+                          {t("tools.source")}
+                          <select
+                            value={card.sourceId}
+                            onChange={(e) =>
+                              updateRow(
+                                "cards",
+                                card.id,
+                                "sourceId",
+                                e.target.value,
+                              )
+                            }
+                          >
+                            <option value="">{t("tools.noSource")}</option>
+                            {nodes
+                              .filter((n) => n.id !== form.id)
+                              .map((n) => (
+                                <option key={n.id} value={n.id}>
+                                  {n.title}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        <label>
+                          {t("tools.sourcePage")}
+                          <input
+                            maxLength={80}
+                            value={card.sourcePage}
+                            onChange={(e) =>
+                              updateRow(
+                                "cards",
+                                card.id,
+                                "sourcePage",
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </label>
+                      </div>
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={() => remove("cards", card.id)}
+                      >
+                        {t("tools.removeRow")}
+                      </button>
+                    </fieldset>
+                  ))}
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    onClick={() =>
+                      toolSet("cards", [
+                        ...form.tool.cards,
+                        {
+                          id: uid(),
+                          question: "",
+                          answer: "",
+                          sourceId: "",
+                          sourcePage: "",
+                        },
+                      ])
+                    }
+                  >
+                    <Plus size={15} />
+                    {t("tools.addCard")}
+                  </button>
+                </>
+              )}
+              {kind === "view" && (
+                <div className="tool-filter-editor">
+                  <h3>{t("tools.viewFilters")}</h3>
+                  <label>
+                    {t("tools.rule")}
                     <select
-                      value={form.projectId || ""}
-                      onChange={(e) => {
-                        const projectId = e.target.value;
-                        setForm((old) => ({
-                          ...old,
-                          projectId,
-                          parent:
-                            projectId ||
-                            (old.parent === old.projectId ? null : old.parent),
-                        }));
-                      }}
+                      value={form.tool.filter.rule}
+                      onChange={(e) =>
+                        toolSet("filter", {
+                          ...form.tool.filter,
+                          rule: e.target.value,
+                        })
+                      }
                     >
-                      <option value="">{t("tools.noProject")}</option>
+                      {VIEW_RULES.map((rule) => (
+                        <option key={rule} value={rule}>
+                          {t("tools.rule." + rule)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="form-grid">
+                    <label>
+                      {t("tools.recordType")}
+                      <select
+                        value={form.tool.filter.type}
+                        onChange={(e) =>
+                          toolSet("filter", {
+                            ...form.tool.filter,
+                            type: e.target.value,
+                          })
+                        }
+                      >
+                        {[
+                          "all",
+                          "category",
+                          "project",
+                          "knowledge",
+                          "skill",
+                          "code",
+                          "item",
+                          "task",
+                        ].map((type) => (
+                          <option key={type} value={type}>
+                            {t("tools.type." + type)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label>
+                      {t("tools.status")}
+                      <select
+                        value={form.tool.filter.status}
+                        onChange={(e) =>
+                          toolSet("filter", {
+                            ...form.tool.filter,
+                            status: e.target.value,
+                          })
+                        }
+                      >
+                        {["all", "draft", "active", "learning", "done"].map(
+                          (status) => (
+                            <option key={status} value={status}>
+                              {t("tools.status." + status)}
+                            </option>
+                          ),
+                        )}
+                      </select>
+                    </label>
+                  </div>
+                  <label>
+                    {t("tools.filterProject")}
+                    <select
+                      value={form.tool.filter.projectId}
+                      onChange={(e) =>
+                        toolSet("filter", {
+                          ...form.tool.filter,
+                          projectId: e.target.value,
+                        })
+                      }
+                    >
+                      <option value="">{t("tools.allProjects")}</option>
                       {projects.map((n) => (
                         <option key={n.id} value={n.id}>
                           {n.title}
@@ -315,465 +759,47 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                     </select>
                   </label>
                   <label>
-                    {t("tools.status")}
-                    <select
-                      value={form.status}
-                      onChange={(e) => set("status", e.target.value)}
-                    >
-                      {["draft", "active", "learning", "done"].map((status) => (
-                        <option key={status} value={status}>
-                          {t("tools.status." + status)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-                <label>
-                  {t("tools.summary")}
-                  <input
-                    maxLength={2000}
-                    value={form.summary}
-                    onChange={(e) => set("summary", e.target.value)}
-                  />
-                </label>
-                <label>
-                  {t("tools.tags")}
-                  <input
-                    value={form.tags.join(", ")}
-                    onChange={(e) =>
-                      set(
-                        "tags",
-                        e.target.value.split(",").map((x) => x.trim()),
-                      )
-                    }
-                  />
-                </label>
-              </>
-            )}
-            {kind === "journal" && (
-              <JournalFields
-                part={journalTab}
-                form={form}
-                setForm={setForm}
-                nodes={nodes}
-                busy={busy}
-                onBusy={setBusy}
-              />
-            )}
-            {kind === "bom" && (
-              <>
-                <label className="tool-check">
-                  <input
-                    type="checkbox"
-                    checked={form.tool.reserve}
-                    onChange={(e) => toolSet("reserve", e.target.checked)}
-                  />
-                  {t("tools.reserve")}
-                </label>
-                <p className="field-help">{t("tools.reserveHelp")}</p>
-                {form.tool.lines.map((line, index) => (
-                  <fieldset className="tool-row-editor" key={line.id}>
-                    <legend>{t("tools.line", index + 1)}</legend>
-                    <div className="form-grid">
-                      <label>
-                        {t("tools.inventoryItem")}
-                        <select
-                          value={line.itemId}
-                          onChange={(e) => {
-                            const item = items.find(
-                              (n) => n.id === e.target.value,
-                            );
-                            toolSet(
-                              "lines",
-                              form.tool.lines.map((row) =>
-                                row.id === line.id
-                                  ? {
-                                      ...row,
-                                      itemId: e.target.value,
-                                      label: item?.title || row.label,
-                                    }
-                                  : row,
-                              ),
-                            );
-                          }}
-                        >
-                          <option value="">{t("tools.unlinkedItem")}</option>
-                          {items.map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {n.title}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label>
-                        {t("tools.required")}
-                        <input
-                          type="number"
-                          min="1"
-                          max="1000000000"
-                          required
-                          value={line.quantity}
-                          onChange={(e) =>
-                            updateRow(
-                              "lines",
-                              line.id,
-                              "quantity",
-                              Number(e.target.value),
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    <label>
-                      {t("tools.label")}
-                      <input
-                        required
-                        maxLength={180}
-                        value={line.label}
-                        onChange={(e) =>
-                          updateRow("lines", line.id, "label", e.target.value)
-                        }
-                      />
-                    </label>
-                    <label>
-                      {t("tools.lineNote")}
-                      <input
-                        maxLength={2000}
-                        value={line.note}
-                        onChange={(e) =>
-                          updateRow("lines", line.id, "note", e.target.value)
-                        }
-                      />
-                    </label>
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => remove("lines", line.id)}
-                    >
-                      <Trash2 size={15} />
-                      {t("tools.removeRow")}
-                    </button>
-                  </fieldset>
-                ))}
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    toolSet("lines", [
-                      ...form.tool.lines,
-                      {
-                        id: uid(),
-                        itemId: "",
-                        label: "",
-                        quantity: 1,
-                        note: "",
-                      },
-                    ])
-                  }
-                >
-                  <Plus size={15} />
-                  {t("tools.addLine")}
-                </button>
-              </>
-            )}
-            {kind === "procedure" && (
-              <>
-                <p className="field-help">{t("tools.templateHelp")}</p>
-                {form.tool.steps.map((step, index) => (
-                  <fieldset className="tool-row-editor" key={step.id}>
-                    <legend>{t("tools.step", index + 1)}</legend>
-                    <label>
-                      {t("tools.instructions")}
-                      <textarea
-                        rows={2}
-                        required
-                        maxLength={2000}
-                        value={step.label}
-                        onChange={(e) =>
-                          updateRow("steps", step.id, "label", e.target.value)
-                        }
-                      />
-                    </label>
-                    <div className="data-actions">
-                      <button
-                        type="button"
-                        className="text-button"
-                        disabled={!index}
-                        onClick={() => {
-                          const rows = [...form.tool.steps];
-                          [rows[index - 1], rows[index]] = [
-                            rows[index],
-                            rows[index - 1],
-                          ];
-                          toolSet("steps", rows);
-                        }}
-                      >
-                        {t("tools.moveUp")}
-                      </button>
-                      <button
-                        type="button"
-                        className="text-button"
-                        onClick={() => remove("steps", step.id)}
-                      >
-                        {t("tools.removeRow")}
-                      </button>
-                    </div>
-                  </fieldset>
-                ))}
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    toolSet("steps", [
-                      ...form.tool.steps,
-                      { id: uid(), label: "" },
-                    ])
-                  }
-                >
-                  <Plus size={15} />
-                  {t("tools.addStep")}
-                </button>
-              </>
-            )}
-            {kind === "cards" && (
-              <>
-                {form.tool.cards.map((card, index) => (
-                  <fieldset className="tool-row-editor" key={card.id}>
-                    <legend>{t("tools.card", index + 1)}</legend>
-                    <label>
-                      {t("tools.question")}
-                      <textarea
-                        rows={2}
-                        required
-                        maxLength={5000}
-                        value={card.question}
-                        onChange={(e) =>
-                          updateRow(
-                            "cards",
-                            card.id,
-                            "question",
-                            e.target.value,
-                          )
-                        }
-                      />
-                    </label>
-                    <label>
-                      {t("tools.answer")}
-                      <textarea
-                        rows={3}
-                        required
-                        maxLength={10000}
-                        value={card.answer}
-                        onChange={(e) =>
-                          updateRow("cards", card.id, "answer", e.target.value)
-                        }
-                      />
-                    </label>
-                    <div className="form-grid">
-                      <label>
-                        {t("tools.source")}
-                        <select
-                          value={card.sourceId}
-                          onChange={(e) =>
-                            updateRow(
-                              "cards",
-                              card.id,
-                              "sourceId",
-                              e.target.value,
-                            )
-                          }
-                        >
-                          <option value="">{t("tools.noSource")}</option>
-                          {nodes
-                            .filter((n) => n.id !== form.id)
-                            .map((n) => (
-                              <option key={n.id} value={n.id}>
-                                {n.title}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      <label>
-                        {t("tools.sourcePage")}
-                        <input
-                          maxLength={80}
-                          value={card.sourcePage}
-                          onChange={(e) =>
-                            updateRow(
-                              "cards",
-                              card.id,
-                              "sourcePage",
-                              e.target.value,
-                            )
-                          }
-                        />
-                      </label>
-                    </div>
-                    <button
-                      type="button"
-                      className="text-button"
-                      onClick={() => remove("cards", card.id)}
-                    >
-                      {t("tools.removeRow")}
-                    </button>
-                  </fieldset>
-                ))}
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() =>
-                    toolSet("cards", [
-                      ...form.tool.cards,
-                      {
-                        id: uid(),
-                        question: "",
-                        answer: "",
-                        sourceId: "",
-                        sourcePage: "",
-                      },
-                    ])
-                  }
-                >
-                  <Plus size={15} />
-                  {t("tools.addCard")}
-                </button>
-              </>
-            )}
-            {kind === "view" && (
-              <div className="tool-filter-editor">
-                <h3>{t("tools.viewFilters")}</h3>
-                <label>
-                  {t("tools.rule")}
-                  <select
-                    value={form.tool.filter.rule}
-                    onChange={(e) =>
-                      toolSet("filter", {
-                        ...form.tool.filter,
-                        rule: e.target.value,
-                      })
-                    }
-                  >
-                    {VIEW_RULES.map((rule) => (
-                      <option key={rule} value={rule}>
-                        {t("tools.rule." + rule)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="form-grid">
-                  <label>
-                    {t("tools.recordType")}
-                    <select
-                      value={form.tool.filter.type}
+                    {t("tools.searchWords")}
+                    <input
+                      maxLength={500}
+                      value={form.tool.filter.query}
                       onChange={(e) =>
                         toolSet("filter", {
                           ...form.tool.filter,
-                          type: e.target.value,
+                          query: e.target.value,
                         })
                       }
-                    >
-                      {[
-                        "all",
-                        "category",
-                        "project",
-                        "knowledge",
-                        "skill",
-                        "code",
-                        "item",
-                        "task",
-                      ].map((type) => (
-                        <option key={type} value={type}>
-                          {t("tools.type." + type)}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </label>
                   <label>
-                    {t("tools.status")}
-                    <select
-                      value={form.tool.filter.status}
+                    {t("tools.exactTag")}
+                    <input
+                      maxLength={120}
+                      value={form.tool.filter.tag}
                       onChange={(e) =>
                         toolSet("filter", {
                           ...form.tool.filter,
-                          status: e.target.value,
+                          tag: e.target.value,
                         })
                       }
-                    >
-                      {["all", "draft", "active", "learning", "done"].map(
-                        (status) => (
-                          <option key={status} value={status}>
-                            {t("tools.status." + status)}
-                          </option>
-                        ),
-                      )}
-                    </select>
+                    />
                   </label>
                 </div>
-                <label>
-                  {t("tools.filterProject")}
-                  <select
-                    value={form.tool.filter.projectId}
-                    onChange={(e) =>
-                      toolSet("filter", {
-                        ...form.tool.filter,
-                        projectId: e.target.value,
-                      })
-                    }
-                  >
-                    <option value="">{t("tools.allProjects")}</option>
-                    {projects.map((n) => (
-                      <option key={n.id} value={n.id}>
-                        {n.title}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  {t("tools.searchWords")}
-                  <input
-                    maxLength={500}
-                    value={form.tool.filter.query}
-                    onChange={(e) =>
-                      toolSet("filter", {
-                        ...form.tool.filter,
-                        query: e.target.value,
-                      })
-                    }
+              )}
+              {kind !== "journal" && (
+                <label className="tool-notes">
+                  {t("tools.notes")}
+                  <textarea
+                    className="code-input"
+                    rows={7}
+                    value={form.body}
+                    maxLength={1_000_000}
+                    onChange={(e) => set("body", e.target.value)}
                   />
                 </label>
-                <label>
-                  {t("tools.exactTag")}
-                  <input
-                    maxLength={120}
-                    value={form.tool.filter.tag}
-                    onChange={(e) =>
-                      toolSet("filter", {
-                        ...form.tool.filter,
-                        tag: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-              </div>
-            )}
-            {kind !== "journal" && (
-              <label className="tool-notes">
-                {t("tools.notes")}
-                <textarea
-                  className="code-input"
-                  rows={7}
-                  value={form.body}
-                  maxLength={1_000_000}
-                  onChange={(e) => set("body", e.target.value)}
-                />
-              </label>
-            )}
-          </Panel>
-          {error && (
-            <div className="error-banner" role="alert">
-              {error}
-            </div>
-          )}
+              )}
+            </Panel>
+          </fieldset>
         </div>
         <footer>
           <span>{t("tools.markdownStorage")}</span>
@@ -785,7 +811,10 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
           >
             {t("tools.cancel")}
           </button>
-          <button className="primary-button" disabled={busy || !!conflict}>
+          <button
+            className="primary-button"
+            disabled={busy || !!conflict || !!draft.available}
+          >
             {busy ? (
               <LoaderCircle size={16} className="spin" />
             ) : (

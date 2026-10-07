@@ -256,7 +256,7 @@ function App() {
         : ["library", "inventory"].includes(view)
           ? "overview"
           : view === "tools"
-            ? "records"
+            ? "tools"
             : "tasks";
   const snapshotReady = snapshotContent === content;
   const mapActive = view === "map" && mapRequested && snapshotContent === "map";
@@ -391,7 +391,7 @@ function App() {
   const node = recordDetail.node;
   const search = useRecordSearch(
     query,
-    ["map", "library", "inventory"].includes(view) && snapshotReady,
+    ["map", "library", "inventory", "tools"].includes(view) && snapshotReady,
     nodes,
   );
   const groups = structure.categories;
@@ -976,24 +976,32 @@ function App() {
             >
               <RefreshCw size={17} />
             </button>
-            <button
-              className="primary-button"
-              onClick={() =>
-                view === "journal"
-                  ? setJournalCreate(true)
-                  : newNode(
-                      selected || homeId,
-                      view === "tasks"
-                        ? "task"
-                        : view === "inventory"
-                          ? "item"
-                          : "knowledge",
-                    )
-              }
-            >
-              <Plus size={17} />
-              {view === "journal" ? t("tools.new.journal") : t("m120")}
-            </button>
+            {!["tools", "backups"].includes(view) && (
+              <button
+                className="primary-button"
+                onClick={() =>
+                  view === "journal"
+                    ? setJournalCreate(true)
+                    : newNode(
+                        selected || homeId,
+                        view === "tasks"
+                          ? "task"
+                          : view === "inventory"
+                            ? "item"
+                            : "knowledge",
+                      )
+                }
+              >
+                <Plus size={17} />
+                {view === "journal"
+                  ? t("tools.new.journal")
+                  : view === "tasks"
+                    ? t("m255")
+                    : view === "inventory"
+                      ? t("workspace.newItem")
+                      : t("m120")}
+              </button>
+            )}
           </div>
         </header>
         <section className="page-heading">
@@ -1189,7 +1197,7 @@ function App() {
               {search.error || t("workspace.searching")}
               {search.error && (
                 <button className="secondary-button" onClick={search.retry}>
-                  {t("map.retrySave")}
+                  {t("workspace.retryRead")}
                 </button>
               )}
             </div>
@@ -1313,6 +1321,8 @@ function App() {
                   }
                 >
                   <WorkTools
+                    searchIds={search.ids}
+                    searchPending={search.pending || !!search.error}
                     importance={importanceFilter}
                     nodes={nodes}
                     settings={settings}
@@ -2109,6 +2119,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
         aria-label={initial.id ? t("m160") : t("m120")}
         onSubmit={async (e) => {
           e.preventDefault();
+          if (busy || draft.available) return;
           setBusy(true);
           setError("");
           try {
@@ -2184,317 +2195,323 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
               }}
             />
           )}
-          <label>
-            {t("m189")}
-            <input
-              autoFocus
-              required
-              maxLength={180}
-              value={form.title}
-              onChange={(e) => set("title", e.target.value)}
-              placeholder={t("m190")}
-            />
-          </label>
-          <div className="form-grid">
+          <fieldset
+            className="draft-fields"
+            disabled={busy || !!draft.available}
+          >
             <label>
-              {t("m191")}
-              <select
-                value={form.type}
-                onChange={(e) => set("type", e.target.value)}
-              >
-                {Object.entries(TYPES).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              {t("m192")}
-              <select
-                value={form.status}
-                onChange={(e) => set("status", e.target.value)}
-              >
-                {Object.entries(
-                  form.type === "task" ? TASK_STATUS : STATUS,
-                ).map(([k, v]) => (
-                  <option key={k} value={k}>
-                    {v}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label>
-            {t("list.recordDate")}
-            <input
-              type="date"
-              value={form.date || ""}
-              onInput={(event) => set("date", event.currentTarget.value)}
-            />
-            <span className="field-help">{t("list.dateHelp")}</span>
-          </label>
-          <div className="importance-field">
-            <span>{t("importance.label")}</span>
-            <ImportanceStars
-              value={recordImportance(form)}
-              onChange={(importance) => set("importance", importance)}
-            />
-            <p className="field-help">
-              {t(
-                form.type === "task"
-                  ? "importance.taskHelp"
-                  : "importance.help",
-              )}
-            </p>
-          </div>
-          {form.type === "item" && (
-            <InventoryEditor
-              node={form}
-              settings={settings}
-              onManage={onManage}
-              onChange={(next) => {
-                setForm(next);
-                setDirty(true);
-              }}
-            />
-          )}
-          {form.type === "task" && (
-            <>
-              <div className="form-grid">
-                <label>
-                  {t("m194")}
-                  <input
-                    type="date"
-                    value={form.task?.start || ""}
-                    onInput={(e) =>
-                      set("task", {
-                        ...form.task,
-                        start: e.currentTarget.value,
-                      })
-                    }
-                    onChange={(e) =>
-                      set("task", {
-                        ...form.task,
-                        start: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  {t("m195")}
-                  <input
-                    type="date"
-                    min={form.task?.start || undefined}
-                    value={form.task?.due || ""}
-                    onInput={(e) =>
-                      set("task", {
-                        ...form.task,
-                        due: e.currentTarget.value,
-                      })
-                    }
-                    onChange={(e) =>
-                      set("task", {
-                        ...form.task,
-                        due: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-                <label>
-                  {t("m197")}
-                  <input
-                    maxLength={120}
-                    placeholder={t("m198")}
-                    value={form.task?.assignee || ""}
-                    onChange={(e) =>
-                      set("task", {
-                        ...form.task,
-                        assignee: e.target.value,
-                      })
-                    }
-                  />
-                </label>
-              </div>
-              <CheckpointEditor
-                node={form}
-                onChange={(checkpoints) =>
-                  set("task", { ...form.task, checkpoints })
-                }
+              {t("m189")}
+              <input
+                autoFocus
+                required
+                maxLength={180}
+                value={form.title}
+                onChange={(e) => set("title", e.target.value)}
+                placeholder={t("m190")}
               />
+            </label>
+            <div className="form-grid">
               <label>
-                {t("m199")}
+                {t("m191")}
                 <select
-                  value={form.projectId || ""}
-                  onChange={(e) => set("projectId", e.target.value)}
+                  value={form.type}
+                  onChange={(e) => set("type", e.target.value)}
                 >
-                  <option value="">{t("m200")}</option>
-                  {nodes
-                    .filter((n) => n.type === "project")
-                    .map((n) => (
-                      <option value={n.id} key={n.id}>
-                        {n.title}
-                      </option>
-                    ))}
+                  {Object.entries(TYPES).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
                 </select>
               </label>
-            </>
-          )}
-          <label>
-            {t("m201")}
-            <select
-              value={form.parent || ""}
-              onChange={(e) => set("parent", e.target.value || null)}
-            >
-              <option value="">{t("m202")}</option>
-              {nodes
-                .filter((n) => !excluded.has(n.id))
-                .map((n) => (
-                  <option key={n.id} value={n.id}>
-                    {n.title} · {TYPES[n.type]}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <label>
-            {t("m203")}
-            <textarea
-              rows={2}
-              maxLength={2000}
-              value={form.summary}
-              onChange={(e) => set("summary", e.target.value)}
-              placeholder={t("m204")}
-            />
-          </label>
-          <div className="form-grid">
-            <label>
-              {t("m205")}
-              <input
-                value={form.tags.join(", ")}
-                onChange={(e) =>
-                  set(
-                    "tags",
-                    e.target.value.split(",").map((x) => x.trim()),
-                  )
-                }
-                placeholder={t("m206")}
-              />
-            </label>
-            <label>
-              {t("m207")}
-              <div className="colors">
-                {COLORS.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    aria-label={t("m401", c)}
-                    className={form.color === c ? "chosen" : ""}
-                    style={{
-                      background: c,
-                    }}
-                    onClick={() => set("color", c)}
-                  >
-                    {form.color === c && <Check size={15} />}
-                  </button>
-                ))}
-                <input
-                  type="color"
-                  aria-label={t("m208")}
-                  value={form.color}
-                  onChange={(e) => set("color", e.target.value)}
-                />
-              </div>
-            </label>
-          </div>
-          <div className="editor-label">
-            <span>{t("m209")}</span>
-            <button type="button" onClick={() => setPreview(!preview)}>
-              {preview ? t("m400") : t("m210")}
-            </button>
-          </div>
-          {preview ? (
-            <div className="edit-preview">
-              <Md>{form.body}</Md>
+              <label>
+                {t("m192")}
+                <select
+                  value={form.status}
+                  onChange={(e) => set("status", e.target.value)}
+                >
+                  {Object.entries(
+                    form.type === "task" ? TASK_STATUS : STATUS,
+                  ).map(([k, v]) => (
+                    <option key={k} value={k}>
+                      {v}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-          ) : (
-            <textarea
-              className="code-input"
-              rows={12}
-              value={form.body}
-              onChange={(e) => set("body", e.target.value)}
-              aria-label={t("m211")}
-              spellCheck={false}
-            />
-          )}
-          <details className="editor-extra">
-            <summary>
-              <Link2 size={16} />
-              {t("m212") + " "}
-              <span>{form.related.length}</span>
-            </summary>
-            <div className="related-picker">
-              {nodes
-                .filter((n) => n.id !== form.id)
-                .map((n) => (
-                  <label key={n.id}>
+            <label>
+              {t("list.recordDate")}
+              <input
+                type="date"
+                value={form.date || ""}
+                onInput={(event) => set("date", event.currentTarget.value)}
+              />
+              <span className="field-help">{t("list.dateHelp")}</span>
+            </label>
+            <div className="importance-field">
+              <span>{t("importance.label")}</span>
+              <ImportanceStars
+                value={recordImportance(form)}
+                onChange={(importance) => set("importance", importance)}
+              />
+              <p className="field-help">
+                {t(
+                  form.type === "task"
+                    ? "importance.taskHelp"
+                    : "importance.help",
+                )}
+              </p>
+            </div>
+            {form.type === "item" && (
+              <InventoryEditor
+                node={form}
+                settings={settings}
+                onManage={onManage}
+                onChange={(next) => {
+                  setForm(next);
+                  setDirty(true);
+                }}
+              />
+            )}
+            {form.type === "task" && (
+              <>
+                <div className="form-grid">
+                  <label>
+                    {t("m194")}
                     <input
-                      type="checkbox"
-                      checked={form.related.includes(n.id)}
+                      type="date"
+                      value={form.task?.start || ""}
+                      onInput={(e) =>
+                        set("task", {
+                          ...form.task,
+                          start: e.currentTarget.value,
+                        })
+                      }
                       onChange={(e) =>
-                        set(
-                          "related",
-                          e.target.checked
-                            ? [...form.related, n.id]
-                            : form.related.filter((id) => id !== n.id),
-                        )
+                        set("task", {
+                          ...form.task,
+                          start: e.target.value,
+                        })
                       }
                     />
-                    {n.title}
                   </label>
-                ))}
+                  <label>
+                    {t("m195")}
+                    <input
+                      type="date"
+                      min={form.task?.start || undefined}
+                      value={form.task?.due || ""}
+                      onInput={(e) =>
+                        set("task", {
+                          ...form.task,
+                          due: e.currentTarget.value,
+                        })
+                      }
+                      onChange={(e) =>
+                        set("task", {
+                          ...form.task,
+                          due: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                  <label>
+                    {t("m197")}
+                    <input
+                      maxLength={120}
+                      placeholder={t("m198")}
+                      value={form.task?.assignee || ""}
+                      onChange={(e) =>
+                        set("task", {
+                          ...form.task,
+                          assignee: e.target.value,
+                        })
+                      }
+                    />
+                  </label>
+                </div>
+                <CheckpointEditor
+                  node={form}
+                  onChange={(checkpoints) =>
+                    set("task", { ...form.task, checkpoints })
+                  }
+                />
+                <label>
+                  {t("m199")}
+                  <select
+                    value={form.projectId || ""}
+                    onChange={(e) => set("projectId", e.target.value)}
+                  >
+                    <option value="">{t("m200")}</option>
+                    {nodes
+                      .filter((n) => n.type === "project")
+                      .map((n) => (
+                        <option value={n.id} key={n.id}>
+                          {n.title}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </>
+            )}
+            <label>
+              {t("m201")}
+              <select
+                value={form.parent || ""}
+                onChange={(e) => set("parent", e.target.value || null)}
+              >
+                <option value="">{t("m202")}</option>
+                {nodes
+                  .filter((n) => !excluded.has(n.id))
+                  .map((n) => (
+                    <option key={n.id} value={n.id}>
+                      {n.title} · {TYPES[n.type]}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <label>
+              {t("m203")}
+              <textarea
+                rows={2}
+                maxLength={2000}
+                value={form.summary}
+                onChange={(e) => set("summary", e.target.value)}
+                placeholder={t("m204")}
+              />
+            </label>
+            <div className="form-grid">
+              <label>
+                {t("m205")}
+                <input
+                  value={form.tags.join(", ")}
+                  onChange={(e) =>
+                    set(
+                      "tags",
+                      e.target.value.split(",").map((x) => x.trim()),
+                    )
+                  }
+                  placeholder={t("m206")}
+                />
+              </label>
+              <label>
+                {t("m207")}
+                <div className="colors">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      aria-label={t("m401", c)}
+                      className={form.color === c ? "chosen" : ""}
+                      style={{
+                        background: c,
+                      }}
+                      onClick={() => set("color", c)}
+                    >
+                      {form.color === c && <Check size={15} />}
+                    </button>
+                  ))}
+                  <input
+                    type="color"
+                    aria-label={t("m208")}
+                    value={form.color}
+                    onChange={(e) => set("color", e.target.value)}
+                  />
+                </div>
+              </label>
             </div>
-          </details>
-          <ResourceEditor
-            resources={form.resources}
-            onChange={(resources) => {
-              setDirty(true);
-              setForm((f) => ({
-                ...f,
-                resources,
-                previewResourceId: resources.some(
-                  (r) => r.id === f.previewResourceId,
-                )
-                  ? f.previewResourceId
-                  : "",
-              }));
-            }}
-            settings={settings}
-            onManage={onManage}
-          />
-          <label className="preview-choice">
-            {t("documents.doubleClick")}
-            <select
-              value={form.previewResourceId || ""}
-              onChange={(e) => set("previewResourceId", e.target.value)}
-            >
-              <option value="">{t("documents.recordMarkdown")}</option>
-              {form.resources
-                .filter(
-                  (r) =>
-                    r.id &&
-                    settings.locations?.find(
-                      (l) =>
-                        l.id === (r.locationId || (r.url ? "internet" : "pc")),
-                    )?.kind !== "physical",
-                )
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label || r.path || r.url}
-                  </option>
-                ))}
-            </select>
-            <small>{t("documents.doubleClickHelp")}</small>
-          </label>
+            <div className="editor-label">
+              <span>{t("m209")}</span>
+              <button type="button" onClick={() => setPreview(!preview)}>
+                {preview ? t("m400") : t("m210")}
+              </button>
+            </div>
+            {preview ? (
+              <div className="edit-preview">
+                <Md>{form.body}</Md>
+              </div>
+            ) : (
+              <textarea
+                className="code-input"
+                rows={12}
+                value={form.body}
+                onChange={(e) => set("body", e.target.value)}
+                aria-label={t("m211")}
+                spellCheck={false}
+              />
+            )}
+            <details className="editor-extra">
+              <summary>
+                <Link2 size={16} />
+                {t("m212") + " "}
+                <span>{form.related.length}</span>
+              </summary>
+              <div className="related-picker">
+                {nodes
+                  .filter((n) => n.id !== form.id)
+                  .map((n) => (
+                    <label key={n.id}>
+                      <input
+                        type="checkbox"
+                        checked={form.related.includes(n.id)}
+                        onChange={(e) =>
+                          set(
+                            "related",
+                            e.target.checked
+                              ? [...form.related, n.id]
+                              : form.related.filter((id) => id !== n.id),
+                          )
+                        }
+                      />
+                      {n.title}
+                    </label>
+                  ))}
+              </div>
+            </details>
+            <ResourceEditor
+              resources={form.resources}
+              onChange={(resources) => {
+                setDirty(true);
+                setForm((f) => ({
+                  ...f,
+                  resources,
+                  previewResourceId: resources.some(
+                    (r) => r.id === f.previewResourceId,
+                  )
+                    ? f.previewResourceId
+                    : "",
+                }));
+              }}
+              settings={settings}
+              onManage={onManage}
+            />
+            <label className="preview-choice">
+              {t("documents.doubleClick")}
+              <select
+                value={form.previewResourceId || ""}
+                onChange={(e) => set("previewResourceId", e.target.value)}
+              >
+                <option value="">{t("documents.recordMarkdown")}</option>
+                {form.resources
+                  .filter(
+                    (r) =>
+                      r.id &&
+                      settings.locations?.find(
+                        (l) =>
+                          l.id ===
+                          (r.locationId || (r.url ? "internet" : "pc")),
+                      )?.kind !== "physical",
+                  )
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label || r.path || r.url}
+                    </option>
+                  ))}
+              </select>
+              <small>{t("documents.doubleClickHelp")}</small>
+            </label>
+          </fieldset>
           {error && (
             <div className="error-banner" role="alert">
               {error}
@@ -2509,7 +2526,11 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
           <button type="button" className="secondary-button" onClick={close}>
             {t("m047")}
           </button>
-          <button className="primary-button" type="submit" disabled={busy}>
+          <button
+            className="primary-button"
+            type="submit"
+            disabled={busy || !!draft.available}
+          >
             {busy ? (
               <LoaderCircle size={16} className="spin" />
             ) : (

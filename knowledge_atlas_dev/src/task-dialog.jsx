@@ -28,6 +28,7 @@ import { projectFor } from "./work-model.js";
 import { validateNode } from "../shared/schema.js";
 import { descendants } from "./atlas-model.js";
 import { RecordOrder } from "./record-list.jsx";
+import { useValidationFocus } from "./validation-focus.js";
 import "./task-workspace.css";
 
 const TABS = [
@@ -130,6 +131,7 @@ function Comments({ nodeId, onChanged }) {
     load().catch((e) => setError(e.message));
   }, [nodeId]);
   async function save(patch) {
+    if (busy || draft.available) return;
     setBusy(true);
     setError("");
     try {
@@ -160,88 +162,90 @@ function Comments({ nodeId, onChanged }) {
           setEditing(saved.value.editing);
         }}
       />
-      <MarkdownEditor
-        value={text}
-        onChange={setText}
-        label={t("task.comment")}
-      />
-      <div className="data-actions">
-        <button
-          type="button"
-          className="primary-button"
-          disabled={busy || !data || !text.trim()}
-          onClick={() => save({ id: editing, body: text })}
-        >
-          {t(editing ? "task.saveComment" : "task.addComment")}
-        </button>
-        {editing && (
+      <fieldset className="draft-fields" disabled={!!draft.available || busy}>
+        <MarkdownEditor
+          value={text}
+          onChange={setText}
+          label={t("task.comment")}
+        />
+        <div className="data-actions">
           <button
             type="button"
-            className="secondary-button"
-            onClick={() => {
-              setEditing(null);
-              setText("");
-              draft.clear();
-            }}
+            className="primary-button"
+            disabled={busy || !data || !text.trim()}
+            onClick={() => save({ id: editing, body: text })}
           >
-            {t("conflict.cancel")}
+            {t(editing ? "task.saveComment" : "task.addComment")}
           </button>
-        )}
-      </div>
-      {error && (
-        <p role="alert" className="error-banner">
-          {error}
-        </p>
-      )}
-      {data?.entries.map((c) => (
-        <article className="task-comment" key={c.id}>
-          <small>
-            {dateTime(c.created)}
-            {c.updated !== c.created &&
-              ` · ${t("task.edited")} ${dateTime(c.updated)}`}
-          </small>
-          {c.deleted ? (
-            <p>{t("task.deletedComment")}</p>
-          ) : (
-            <MarkdownContent>{c.body}</MarkdownContent>
+          {editing && (
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                setEditing(null);
+                setText("");
+                draft.clear();
+              }}
+            >
+              {t("conflict.cancel")}
+            </button>
           )}
-          <div className="data-actions">
-            {!c.deleted && (
+        </div>
+        {error && (
+          <p role="alert" className="error-banner">
+            {error}
+          </p>
+        )}
+        {data?.entries.map((c) => (
+          <article className="task-comment" key={c.id}>
+            <small>
+              {dateTime(c.created)}
+              {c.updated !== c.created &&
+                ` · ${t("task.edited")} ${dateTime(c.updated)}`}
+            </small>
+            {c.deleted ? (
+              <p>{t("task.deletedComment")}</p>
+            ) : (
+              <MarkdownContent>{c.body}</MarkdownContent>
+            )}
+            <div className="data-actions">
+              {!c.deleted && (
+                <button
+                  type="button"
+                  className="secondary-button"
+                  disabled={busy}
+                  onClick={() => {
+                    setEditing(c.id);
+                    setText(c.body);
+                  }}
+                >
+                  {t("task.edit")}
+                </button>
+              )}
               <button
                 type="button"
                 className="secondary-button"
                 disabled={busy}
-                onClick={() => {
-                  setEditing(c.id);
-                  setText(c.body);
-                }}
+                onClick={() => save({ id: c.id, deleted: !c.deleted })}
               >
-                {t("task.edit")}
+                {t(c.deleted ? "task.restoreComment" : "task.deleteComment")}
               </button>
-            )}
-            <button
-              type="button"
-              className="secondary-button"
-              disabled={busy}
-              onClick={() => save({ id: c.id, deleted: !c.deleted })}
-            >
-              {t(c.deleted ? "task.restoreComment" : "task.deleteComment")}
-            </button>
-          </div>
-        </article>
-      ))}
-      {data?.next != null && (
-        <button
-          type="button"
-          className="secondary-button"
-          onClick={() => load(data.next).catch((e) => setError(e.message))}
-        >
-          {t("task.more")}
-        </button>
-      )}
-      {data && !data.total && (
-        <p className="task-empty">{t("task.noComments")}</p>
-      )}
+            </div>
+          </article>
+        ))}
+        {data?.next != null && (
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => load(data.next).catch((e) => setError(e.message))}
+          >
+            {t("task.more")}
+          </button>
+        )}
+        {data && !data.total && (
+          <p className="task-empty">{t("task.noComments")}</p>
+        )}
+      </fieldset>
     </section>
   );
 }
@@ -312,7 +316,9 @@ export default function TaskDialog({
   const [form, setForm] = useState(initialValue),
     [original, setOriginal] = useState(initialValue),
     [tab, setTab] = useState(_tab || "details");
-  const [loading, setLoading] = useState(!!initial.id),
+  const titleInput = useRef();
+  const focusError = useValidationFocus("task", setTab);
+  const [loading, setLoading] = useState(!!initial.partial),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const [dirty, setDirty] = useState(false),
@@ -328,12 +334,16 @@ export default function TaskDialog({
     dirty,
   );
   const close = () => {
+    if (busy) return;
     if (dirty) setLeaving(true);
     else onClose();
   };
   useDialogKeys(React, close);
   useEffect(() => {
-    if (!initial.id) return;
+    if (!loading && !draft.available && !_tab) titleInput.current?.focus();
+  }, [loading, !!draft.available]);
+  useEffect(() => {
+    if (!initial.partial) return;
     const abort = new AbortController();
     api(`nodes/${initial.id}`, { signal: abort.signal })
       .then((n) => {
@@ -386,6 +396,7 @@ export default function TaskDialog({
   ).get(form.id);
   const excluded = descendants(nodes, form.id);
   async function save() {
+    if (busy || loading || draft.available) return;
     setBusy(true);
     setError("");
     try {
@@ -416,6 +427,7 @@ export default function TaskDialog({
       draft.clear();
     } catch (e) {
       setError(localizeMessage(e.message));
+      focusError(e);
       if (e.status === 409 && form.id)
         setConflict(await api(`nodes/${form.id}`).catch(() => null));
     } finally {
@@ -433,18 +445,20 @@ export default function TaskDialog({
         <header>
           <div>
             <h2>{form.title || t("m255")}</h2>
-            <small>
-              {t("task.created")} {dateTime(form.created)}
-              {form.updated &&
-                ` · ${t("task.updated")} ${dateTime(form.updated)}`}
-            </small>
+            {form.created && (
+              <small>
+                {t("task.created")} {dateTime(form.created)}
+                {form.updated &&
+                  ` · ${t("task.updated")} ${dateTime(form.updated)}`}
+              </small>
+            )}
           </div>
           <button
             type="button"
-            autoFocus
             className="icon-button"
             aria-label={t("m188")}
             onClick={close}
+            disabled={busy}
           >
             <X />
           </button>
@@ -454,7 +468,7 @@ export default function TaskDialog({
             <span>{t("importance.label")}</span>
             <ImportanceStars
               value={recordImportance(form)}
-              disabled={busy || loading}
+              disabled={busy || loading || !!draft.available}
               onChange={(v) => set("importance", v)}
             />
           </div>
@@ -545,14 +559,23 @@ export default function TaskDialog({
             />
           )}
           {error && (
-            <p role="alert" className="error-banner">
+            <p role="alert" className="error-banner" tabIndex={-1}>
               {error}
             </p>
           )}
           {loading ? (
             <p role="status">{t("m148")}</p>
           ) : (
-            <div
+            <fieldset
+              className="draft-fields"
+              disabled={busy || !!draft.available}
+              data-field={
+                tab === "checkpoints"
+                  ? "task.checkpoints"
+                  : tab === "attachments"
+                    ? "resources"
+                    : undefined
+              }
               role="tabpanel"
               id={`task-panel-${tab}`}
               aria-labelledby={`task-tab-${tab}`}
@@ -562,6 +585,8 @@ export default function TaskDialog({
                   <label>
                     {t("m189")}
                     <input
+                      ref={titleInput}
+                      data-field="title"
                       value={form.title}
                       maxLength={180}
                       onChange={(e) => set("title", e.target.value)}
@@ -616,6 +641,7 @@ export default function TaskDialog({
                   <label>
                     {t("m205")}
                     <input
+                      data-field="tags"
                       value={form.tags.join(", ")}
                       onChange={(e) =>
                         set(
@@ -631,6 +657,7 @@ export default function TaskDialog({
                         {t(i ? "m195" : "m194")}
                         <input
                           type="date"
+                          data-field={`task.${field}`}
                           value={form.task?.[field] || ""}
                           onChange={(e) =>
                             set("task", {
@@ -656,6 +683,7 @@ export default function TaskDialog({
                     {t("m203")}
                     <textarea
                       rows={2}
+                      data-field="summary"
                       value={form.summary}
                       maxLength={2000}
                       onChange={(e) => set("summary", e.target.value)}
@@ -806,7 +834,7 @@ export default function TaskDialog({
                 ) : (
                   <p>{t("task.saveFirst")}</p>
                 ))}
-            </div>
+            </fieldset>
           )}
         </div>
         <footer>
@@ -823,12 +851,16 @@ export default function TaskDialog({
               </label>
             )}
           <span role="status">
-            {dirty ? t("task.unsaved") : t("task.saved")}
+            {dirty
+              ? t("task.unsaved")
+              : t(form.id ? "task.saved" : "task.notSaved")}
           </span>
           <button
             className="primary-button"
             type="button"
-            disabled={loading || busy || (!dirty && !!form.id)}
+            disabled={
+              loading || busy || !!draft.available || (!dirty && !!form.id)
+            }
             onClick={save}
           >
             <Save size={16} />

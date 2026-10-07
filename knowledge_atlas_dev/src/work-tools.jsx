@@ -21,7 +21,8 @@ import {
   projectIdFor,
   toolStats,
 } from "../shared/tools.js";
-import { filterNodes, matchesQuery } from "./atlas-model.js";
+import { filterNodes } from "./atlas-model.js";
+import { useRecordSearch } from "./use-record.js";
 import { localDate } from "./work-model.js";
 import { api } from "./client.js";
 import { ToolEditor, newTool } from "./tool-editor.jsx";
@@ -204,6 +205,8 @@ function Study({ deck, nodes, today, onRefresh, onSelect }) {
   );
 }
 export function WorkTools({
+  searchIds,
+  searchPending,
   importance = [],
   nodes,
   settings,
@@ -253,6 +256,7 @@ export function WorkTools({
     history.replaceState(null, "", url.pathname + url.search + url.hash);
   }, [tab, activeId]);
   const scoped = filterNodes(nodes, {
+    searchIds,
     query,
     importance,
     scope: tab === "journal" ? "" : scope,
@@ -313,16 +317,16 @@ export function WorkTools({
     });
   }
   const Icon = icons[tab];
+  const viewSearch = useRecordSearch(
+    active?.tool.filter?.query || "",
+    active?.tool.kind === "view",
+    nodes,
+  );
   const viewResults =
     active?.tool.kind === "view"
       ? nodes.filter((n) =>
-          matchesToolFilter(
-            n,
-            active.tool.filter,
-            nodes,
-            today,
-            (node, words) =>
-              matchesQuery(node, words, "all", settings.locations),
+          matchesToolFilter(n, active.tool.filter, nodes, today, (node) =>
+            viewSearch.ids?.has(node.id),
           ),
         )
       : [];
@@ -430,7 +434,9 @@ export function WorkTools({
           <small>{t("journal.browseHelp")}</small>
         </div>
       )}
-      {!entries.length ? (
+      {searchPending ? (
+        <p role="status">{t("workspace.searching")}</p>
+      ) : !entries.length ? (
         <div className="tool-empty">
           <Icon size={34} />
           <h2>{t("tools.empty." + tab)}</h2>
@@ -695,6 +701,20 @@ export function WorkTools({
             )}
             {active.tool.kind === "view" && (
               <>
+                {(viewSearch.pending || viewSearch.error) && (
+                  <p role={viewSearch.error ? "alert" : "status"}>
+                    {viewSearch.error || t("workspace.searching")}
+                    {viewSearch.error && (
+                      <button
+                        type="button"
+                        className="text-button"
+                        onClick={viewSearch.retry}
+                      >
+                        {t("workspace.retryRead")}
+                      </button>
+                    )}
+                  </p>
+                )}
                 <p className="field-help">{t("tools.viewHelp")}</p>
                 <div className="tool-meta">
                   <span>{t("tools.rule." + active.tool.filter.rule)}</span>
@@ -713,9 +733,11 @@ export function WorkTools({
                     <small>{t("tools.type." + node.type)}</small>
                   </button>
                 ))}
-                {!viewResults.length && (
-                  <p className="tool-empty">{t("tools.noMatches")}</p>
-                )}
+                {!viewResults.length &&
+                  !viewSearch.pending &&
+                  !viewSearch.error && (
+                    <p className="tool-empty">{t("tools.noMatches")}</p>
+                  )}
                 <Notes text={active.body} />
               </>
             )}

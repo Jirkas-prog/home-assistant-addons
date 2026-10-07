@@ -21,7 +21,7 @@ const object = (value) =>
   value && typeof value === "object" && !Array.isArray(value);
 export function validateTool(tool, fail) {
   const check = (value, field) => {
-    if (!value) fail(`Invalid tool field: ${field}.`);
+    if (!value) fail(`Invalid tool field: ${field}.`, 400, `tool.${field}`);
   };
   const text = (value, field, max = 2000, required = false) =>
     check(
