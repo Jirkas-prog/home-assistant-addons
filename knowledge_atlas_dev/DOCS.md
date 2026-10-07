@@ -1,5 +1,21 @@
 # Knowledge Atlas documentation
 
+## Atlas spaces
+
+Use **Atlas space** at the very top to switch between independent libraries. The existing library is preserved in place as **General**. **New space** creates an empty library; Work and Personal are suggested names, and you can enter any name. New spaces inherit the interface language chosen when creating them. Each space keeps its own language and cat preference afterwards.
+
+**Manage spaces** renames the current space and sets the default space. Launching the add-on at its base address opens that default on the task timeline. A bookmarked space address always opens that space. Changing the default does not switch other open tabs. You can use the management dialog to open another space in a new tab, including during a long transfer. Finish or cancel a transfer before navigating its existing tab to another space.
+
+Records, journals, tasks, attachments, settings, undo/redo, map positions, indexes and upload sessions are separate. The same record ID may safely exist in more than one space. Search and statistics operate only on the space you are viewing. New spaces are initialized on demand; their creation does not parse the existing atlas or copy its attachments.
+
+In-app backups and package imports always target the currently open space. A full in-app backup contains that space, not the entire installation. Export each space you want to keep; Home Assistant's add-on backup includes the whole mapped `/config` directory and therefore all spaces and their registry. To import a second atlas without replacing the first, create an empty space, then use **Backup and restore** there. Restoring a space does not overwrite the registry or another space. External server locations are explicit references to files, not duplicated attachments; intentionally pointing two spaces at the same external directory shares those external files.
+
+The original `DATA_DIR` and existing document root are unchanged. The registry is `.<data-directory-name>-spaces/spaces.json` alongside `DATA_DIR`; additional libraries live under that sibling directory in `<space-id>/library`. Their default document root is inside their own library, independent of `DOCUMENT_ROOT`. On Home Assistant this is `/config/.knowledge-spaces`, kept on the persistent configuration volume. Never put this runtime directory in a source repository. Existing base `/api/` integrations remain pinned to General; use `/spaces/<space-id>/api/` for another library. Spaces organize one owner's data; they are not separate user accounts or access-control boundaries.
+
+## Cat companion
+
+The **Atlas cat** control in the top bar wakes or rests the cat; the same option is in **Settings and locations**. It is saved separately for each space and included in that space's backup. The cat is drawn with local SVG and CSS, with no downloads, audio, analytics or external service. It wanders along panel edges, peeks out, looks around and naps. It ignores clicks, moves aside near the pointer and stays hidden while a text field is focused. Motion pauses when the tab is hidden. With the system's reduced-motion preference it stays still.
+
 See [UX comparison and workflow decisions](docs/UX-COMPARISON.md) for the current interaction design and measured follow-up priorities.
 
 See [Task workspace](docs/TASK-WORKSPACE.md) for configurable boards, the five-tab task card, comments and activity.

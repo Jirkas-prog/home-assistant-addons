@@ -5,7 +5,11 @@ const memory = new Map();
 const preferenceKey = () => `atlas-map-layout:${location.pathname}`;
 export function readMapLayout() {
   try {
-    const saved = localStorage.getItem(preferenceKey());
+    const saved =
+      localStorage.getItem(preferenceKey()) ||
+      localStorage.getItem(
+        `atlas-map-layout:${location.pathname.replace(/spaces\/general\/$/, "")}`,
+      );
     if (MAP_LAYOUTS.includes(saved)) return saved;
   } catch {}
   return "classic";
@@ -44,7 +48,7 @@ export function useMapLayout(nodes, layout, mode, enabled = true) {
     () => (enabled ? layoutKey(nodes, layout, dimensions) : ""),
     [nodes, layout, dimensions, enabled],
   );
-  const slot = `${layout}:${dimensions}`;
+  const slot = `${location.pathname}:${layout}:${dimensions}`;
   const [state, setState] = useState({ key: "", positions: [], error: "" });
   useEffect(() => {
     if (!enabled) return;

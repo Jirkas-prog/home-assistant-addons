@@ -10,3 +10,5 @@ backups/
 *.zip
 *.zip.sha256
 *.zip.partial
+
+.*-spaces/

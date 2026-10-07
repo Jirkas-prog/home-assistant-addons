@@ -1,3 +1,5 @@
+import { SpaceBar } from "./spaces.jsx";
+import { AtlasCat } from "./atlas-cat.jsx";
 import { release } from "../shared/release.js";
 import {
   t,
@@ -935,6 +937,13 @@ function App() {
         </div>
       </aside>
       <main className="main">
+        <SpaceBar
+          settings={settings}
+          onSettings={(saved) => {
+            setSettings(saved);
+            load();
+          }}
+        />
         <header className="topbar">
           <div className="topbar-left">
             <button
@@ -1868,6 +1877,9 @@ function App() {
           </ResizableWorkspace>
         </section>
       </main>
+      <AtlasCat
+        enabled={!!settings.revision && settings.catEnabled !== false}
+      />
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
       <UploadRecovery
         onContinue={() => {

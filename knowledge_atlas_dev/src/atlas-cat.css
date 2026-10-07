@@ -1,0 +1,152 @@
+.atlas-cat {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 94px;
+  height: 72px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 19;
+  transition-property: transform;
+  transition-timing-function: linear;
+}
+.atlas-cat * {
+  pointer-events: none;
+}
+.cat-stage {
+  width: 100%;
+  height: 100%;
+  transition:
+    opacity 0.35s,
+    clip-path 0.7s,
+    translate 0.7s;
+}
+.cat-stage svg {
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px #0005);
+  transform: scaleX(var(--cat-direction));
+}
+.cat-hide .cat-stage {
+  opacity: 0;
+  clip-path: inset(0 0 100% 0);
+  translate: 0 22px;
+}
+.cat-peek .cat-stage {
+  clip-path: inset(0 0 26% 0);
+  translate: 0 19px;
+}
+.cat-peek .cat-peek-paws {
+  opacity: 1;
+}
+.cat-peek-paws,
+.cat-closed-eyes {
+  opacity: 0;
+}
+.cat-tail {
+  transform-origin: 35px 66px;
+  animation: cat-tail 4.8s ease-in-out infinite;
+}
+.cat-eyes {
+  transform-origin: 69px 35px;
+  animation: cat-blink 6s infinite;
+}
+.cat-head {
+  transform-origin: 69px 48px;
+  animation: cat-look 9s ease-in-out infinite;
+}
+.cat-walk .cat-head {
+  animation: none;
+}
+.cat-walk .cat-shape {
+  animation: cat-bob 0.55s ease-in-out infinite;
+}
+.cat-walk .cat-leg {
+  transform-origin: 55px 62px;
+  animation: cat-step 0.55s ease-in-out infinite alternate;
+}
+.cat-walk .cat-back-leg {
+  animation-delay: -0.55s;
+}
+.cat-sleep .cat-eyes {
+  opacity: 0;
+}
+.cat-sleep .cat-closed-eyes {
+  opacity: 1;
+}
+.cat-sleep .cat-shape {
+  transform-origin: 55px 77px;
+  animation: cat-breathe 3.5s ease-in-out infinite;
+}
+.cat-sleep .cat-head {
+  animation: none;
+  rotate: 8deg;
+}
+@keyframes cat-tail {
+  0%,
+  100% {
+    rotate: -7deg;
+  }
+  50% {
+    rotate: 12deg;
+  }
+}
+@keyframes cat-blink {
+  0%,
+  43%,
+  47%,
+  100% {
+    scale: 1 1;
+  }
+  45% {
+    scale: 1 0.1;
+  }
+}
+@keyframes cat-look {
+  0%,
+  30%,
+  65%,
+  100% {
+    rotate: 0deg;
+  }
+  40%,
+  55% {
+    rotate: -9deg;
+  }
+}
+@keyframes cat-step {
+  from {
+    translate: -4px -1px;
+  }
+  to {
+    translate: 4px 1px;
+  }
+}
+@keyframes cat-bob {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+  50% {
+    translate: 0 -2px;
+  }
+}
+@keyframes cat-breathe {
+  0%,
+  100% {
+    scale: 1 0.91;
+  }
+  50% {
+    scale: 1 0.95;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .atlas-cat,
+  .atlas-cat * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+.cat-hide * {
+  animation-play-state: paused;
+}

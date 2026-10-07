@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.26
+
+- Add independent atlas spaces with a persistent top selector, empty-space creation, renaming and a configurable default. Keep the original library in place as General.
+- Give every space separate records, attachments, settings, search/index state, map arrangements, edit history and resumable transfer sessions. Keep space URLs stable across tabs and defaults.
+- Keep backups and package imports scoped to the current space. Restore into a new empty space without replacing another atlas.
+- Add an offline animated SVG cat that walks, peeks behind panel edges and rests. Include per-space controls, reduced-motion support and automatic retreat during typing or nearby pointer movement.
+- Preserve existing General-space drafts and map layout preferences when opening the new space URL.
+
 ## 5.0.1-dev.25
 
 - Protect pending local drafts from being overwritten by a new edit. Show the saved title and timestamp and require recovery or discard before editing or saving.
@@ -72,7 +80,6 @@
 - Add a Fixed position checkbox for every record type and a lock marker beside its list number.
 - Keep reserved numbers unchanged when records are added, imported, moved or archived; automatically renumber other records around them.
 - Persist fixed positions with the library order, including full backups, and prevent conflicting reservations or stale updates.
-
 
 ## 5.0.1-dev.16
 

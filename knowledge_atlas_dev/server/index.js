@@ -1,3 +1,4 @@
+import { accessGuard } from "./access.js";
 import { compressedAssets } from "./assets.js";
 import { release } from "../shared/release.js";
 import express from "express";
@@ -35,13 +36,16 @@ const compress = promisify(gzip);
 export async function createApp({
   directory = process.env.DATA_DIR || path.join(root, "data"),
   ingress = process.env.HA_INGRESS === "1",
+  documentRoot,
+  registerSpaceRoutes,
+  sharedAssets = false,
   allowOpen = process.platform === "win32" && !ingress,
 } = {}) {
   await recoverRestore(directory);
   await recoverPackage(directory);
   const store = new Store(directory, { persistentIndex: true });
   await store.init();
-  const settings = new Settings(directory, ingress);
+  const settings = new Settings(directory, ingress, documentRoot);
   const mapPositions = new MapPositions(directory);
   await settings.init();
   const backups = new Backups(directory, settings);
@@ -239,46 +243,14 @@ export async function createApp({
   );
   const app = express();
   app.disable("x-powered-by");
-  app.use((req, res, next) => {
-    const ip = req.socket.remoteAddress?.replace(/^::ffff:/, "");
-    if (ingress && ip !== "172.30.32.2")
-      return res.status(403).json({
-        error: "Access is only allowed through Home Assistant Ingress.",
-      });
-    if (!ingress && !["127.0.0.1", "localhost", "[::1]"].includes(req.hostname))
-      return res.status(403).json({
-        error: "Host is not allowed.",
-      });
-    if (
-      !["GET", "HEAD"].includes(req.method) &&
-      req.get("X-Knowledge-Client") !== "atlas"
-    )
-      return res.status(403).json({
-        error: "The protection header is missing.",
-      });
-    if (
-      !ingress &&
-      req.get("Origin") &&
-      ![
-        "http://127.0.0.1:8099",
-        "http://localhost:8099",
-        "http://127.0.0.1:5173",
-        "http://localhost:5173",
-        `http://${req.get("host")}`,
-      ].includes(req.get("Origin"))
-    )
-      return res.status(403).json({
-        error: "Request origin is not allowed.",
-      });
-    res.set("X-Content-Type-Options", "nosniff");
-    next();
-  });
+  app.use(accessGuard(ingress));
   app.use("/api/map-positions", express.json({ limit: "16mb" }));
   app.use(
     express.json({
       limit: "2mb",
     }),
   );
+  registerSpaceRoutes?.(app);
   app.use(async (req, res, next) => {
     if (
       !/^\/api\/packages\/[^/]+\/status$/.test(req.path) &&
@@ -325,7 +297,9 @@ export async function createApp({
   app.get(["/api/nodes", "/api/atlas", "/api/workspace"], async (req, res) => {
     const content =
       req.path === "/api/workspace"
-        ? ["records", "journal", "overview", "tools"].includes(req.query.content)
+        ? ["records", "journal", "overview", "tools"].includes(
+            req.query.content,
+          )
           ? req.query.content
           : "tasks"
         : "map";
@@ -1024,9 +998,19 @@ export async function createApp({
       index: false,
     }),
   );
-  app.get("/", (req, res) =>
-    res.sendFile(path.join(root, "dist", "index.html")),
-  );
+  let indexPage;
+  app.get("/", async (req, res) => {
+    if (!sharedAssets)
+      return res.sendFile(path.join(root, "dist", "index.html"));
+    // One common asset URL lets the browser reuse the bundle across spaces.
+    indexPage ||= fs
+      .readFile(path.join(root, "dist", "index.html"), "utf8")
+      .then((html) => html.replaceAll('"./assets/', '"../../assets/'));
+    res
+      .type("html")
+      .set("Cache-Control", "no-cache")
+      .send(await indexPage);
+  });
   app.use((err, req, res, next) => {
     console.error(err.message);
     if (res.headersSent) return next(err);

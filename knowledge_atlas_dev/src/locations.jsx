@@ -113,6 +113,15 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
             </select>
           </label>
           <p className="field-help">{t("settings.languageHelp")}</p>
+          <label className="check-label">
+            <input
+              type="checkbox"
+              checked={form.catEnabled !== false}
+              onChange={(e) => change("catEnabled", e.target.checked)}
+            />
+            {t("cat.setting")}
+          </label>
+          <p className="field-help">{t("cat.help")}</p>
           <label>
             {t("m032")}
             <input

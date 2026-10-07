@@ -15,14 +15,16 @@ export function locationId(resource) {
   );
 }
 export class Settings {
-  constructor(directory, ingress) {
+  constructor(directory, ingress, documentRoot) {
     this.file = path.join(directory, "settings.json");
     this.defaults = {
       schema: 1,
       libraryId: randomUUID(),
       language: "en",
       languageSelectionCompleted: true,
+      catEnabled: true,
       documentRoot:
+        documentRoot ||
         process.env.DOCUMENT_ROOT ||
         (ingress ? "/config/documents" : path.join(directory, "documents")),
       locations: [
@@ -110,6 +112,8 @@ export class Settings {
     }
   }
   validate(value) {
+    if (value.catEnabled != null && typeof value.catEnabled !== "boolean")
+      fail("Invalid cat companion preference.");
     if (
       value.libraryId != null &&
       (typeof value.libraryId !== "string" ||

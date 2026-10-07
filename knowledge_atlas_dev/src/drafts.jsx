@@ -9,9 +9,12 @@ export function setDraftLibrary(id) {
 
 export function useDraft(id, value, original, dirty) {
   const key = `atlas-draft-v5:${draftLibrary}:${location.pathname}:${id}`;
+  const legacyKey = `atlas-draft-v5:${draftLibrary}:${location.pathname.replace(/spaces\/general\/$/, "")}:${id}`;
   const [available, setAvailable] = useState(() => {
     try {
-      const saved = JSON.parse(localStorage.getItem(key));
+      const saved = JSON.parse(
+        localStorage.getItem(key) || localStorage.getItem(legacyKey),
+      );
       return saved?.value && saved?.original ? saved : null;
     } catch {
       return null;
@@ -26,14 +29,16 @@ export function useDraft(id, value, original, dirty) {
         key,
         JSON.stringify({ value, original, savedAt: new Date().toISOString() }),
       );
+      if (legacyKey !== key) localStorage.removeItem(legacyKey);
       setState("saved");
     } catch {
       setState("failed");
     }
-  }, [key, value, original, dirty, available]);
+  }, [key, legacyKey, value, original, dirty, available]);
   const clear = () => {
     try {
       localStorage.removeItem(key);
+      if (legacyKey !== key) localStorage.removeItem(legacyKey);
     } catch {}
     setAvailable(null);
     setState("");
