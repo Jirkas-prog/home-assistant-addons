@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.27
+
+- Replace disappearing and resetting cat motion with continuous walking and curved jumps between visible panel edges. Approach newly opened dialogs and focused editors within three seconds.
+- Add short walks, paw grooming, peeking over edges, longer naps, waking stretches and coordinated tail, head and paw animations.
+- Let the cat stalk a nearby cursor, miss if it escapes, or cling and follow for three seconds before returning to an edge. The decoration never intercepts input.
+- Preserve motion through scrolling, resizing and editing. Pause in hidden tabs, respect reduced motion, and use no network requests or additional dependencies.
+- Add deterministic behavior tests covering movement continuity, dialog arrival, cursor play, reduced motion and layout changes.
+
 ## 5.0.1-dev.26
 
 - Add independent atlas spaces with a persistent top selector, empty-space creation, renaming and a configurable default. Keep the original library in place as General.

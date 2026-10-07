@@ -6,66 +6,162 @@
   height: 72px;
   pointer-events: none;
   user-select: none;
-  z-index: 19;
-  transition-property: transform;
-  transition-timing-function: linear;
+  z-index: 60;
+  contain: layout style;
 }
 .atlas-cat * {
   pointer-events: none;
+}
+.atlas-cat[data-visible="false"] {
+  visibility: hidden;
 }
 .cat-stage {
   width: 100%;
   height: 100%;
   transition:
-    opacity 0.35s,
-    clip-path 0.7s,
-    translate 0.7s;
+    clip-path 0.55s ease,
+    translate 0.55s ease;
+  clip-path: inset(-10px -10px -10px -10px);
 }
 .cat-stage svg {
   overflow: visible;
   filter: drop-shadow(0 2px 2px #0005);
-  transform: scaleX(var(--cat-direction));
+  transform: scaleX(var(--cat-direction, 1));
 }
-.cat-hide .cat-stage {
-  opacity: 0;
-  clip-path: inset(0 0 100% 0);
-  translate: 0 22px;
-}
-.cat-peek .cat-stage {
-  clip-path: inset(0 0 26% 0);
-  translate: 0 19px;
-}
-.cat-peek .cat-peek-paws {
-  opacity: 1;
-}
-.cat-peek-paws,
-.cat-closed-eyes {
-  opacity: 0;
-}
-.cat-tail {
-  transform-origin: 35px 66px;
-  animation: cat-tail 4.8s ease-in-out infinite;
-}
-.cat-eyes {
-  transform-origin: 69px 35px;
-  animation: cat-blink 6s infinite;
+.cat-shape {
+  transform-origin: 55px 78px;
+  transition:
+    scale 0.45s ease,
+    translate 0.45s ease,
+    rotate 0.45s ease;
 }
 .cat-head {
   transform-origin: 69px 48px;
-  animation: cat-look 9s ease-in-out infinite;
+  transition:
+    rotate 0.45s ease,
+    translate 0.45s ease;
 }
-.cat-walk .cat-head {
-  animation: none;
+.cat-tail {
+  transform-origin: 35px 66px;
+  animation: cat-tail 5.6s ease-in-out infinite;
+}
+.cat-eyes {
+  transform-origin: 69px 35px;
+  animation: cat-blink 6.7s infinite;
+  transition: opacity 0.25s;
+}
+.cat-peek-paws,
+.cat-closed-eyes,
+.cat-tongue,
+.cat-reaching-paws {
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.cat-leg {
+  transition:
+    rotate 0.4s ease,
+    translate 0.4s ease;
+  transform-origin: 69px 61px;
+}
+.cat-back-leg {
+  transform-origin: 37px 61px;
+}
+.cat-shadow {
+  transition: opacity 0.3s;
+}
+.cat-sit .cat-head {
+  animation: cat-look 11s ease-in-out infinite;
+}
+.cat-rise .cat-shape {
+  scale: 1.04 1.04;
 }
 .cat-walk .cat-shape {
-  animation: cat-bob 0.55s ease-in-out infinite;
+  scale: 1.08 0.94;
+  animation: cat-bob 0.64s ease-in-out infinite;
 }
 .cat-walk .cat-leg {
-  transform-origin: 55px 62px;
-  animation: cat-step 0.55s ease-in-out infinite alternate;
+  animation: cat-step 0.64s ease-in-out infinite;
 }
 .cat-walk .cat-back-leg {
-  animation-delay: -0.55s;
+  animation-delay: -0.32s;
+}
+.cat-walk .cat-head {
+  rotate: -5deg;
+}
+.cat-crouch .cat-shape,
+.cat-hunt .cat-shape {
+  scale: 1.08 0.8;
+}
+.cat-hunt .cat-tail {
+  animation-duration: 0.65s;
+}
+.cat-hunt .cat-head {
+  rotate: -12deg;
+}
+.cat-jump .cat-shape {
+  scale: 1.07 0.94;
+  rotate: -8deg;
+}
+.cat-jump .cat-front-leg {
+  translate: 4px -7px;
+  rotate: -30deg;
+}
+.cat-jump .cat-back-leg {
+  translate: -5px -3px;
+  rotate: 25deg;
+}
+.cat-jump .cat-shadow,
+.cat-pounce .cat-shadow,
+.cat-cling .cat-shadow {
+  opacity: 0;
+}
+.cat-land .cat-shape {
+  scale: 1.08 0.87;
+}
+.cat-pounce .cat-reaching-paws,
+.cat-cling .cat-reaching-paws {
+  opacity: 1;
+}
+.cat-pounce .cat-front-leg,
+.cat-cling .cat-front-leg {
+  opacity: 0;
+}
+.cat-pounce .cat-head,
+.cat-cling .cat-head {
+  translate: 0 7px;
+  rotate: -6deg;
+}
+.cat-cling .cat-shape {
+  transform-origin: 64px 12px;
+  animation: cat-dangle 1.3s ease-in-out infinite;
+}
+.cat-cling .cat-back-leg {
+  rotate: -10deg;
+  translate: 0 2px;
+}
+.cat-groom .cat-front-leg {
+  translate: -7px -20px;
+  rotate: -28deg;
+}
+.cat-groom .cat-head {
+  animation: cat-lick 0.9s ease-in-out infinite;
+}
+.cat-groom .cat-tongue {
+  animation: cat-tongue 0.9s ease-in-out infinite;
+}
+.cat-groom .cat-eyes {
+  scale: 1 0.5;
+}
+.cat-sleep .cat-shape {
+  scale: 1.09 0.76;
+  animation: cat-breathe 4s ease-in-out infinite;
+}
+.cat-sleep .cat-head {
+  rotate: 15deg;
+  translate: 0 8px;
+}
+.cat-sleep .cat-tail {
+  animation-duration: 12s;
 }
 .cat-sleep .cat-eyes {
   opacity: 0;
@@ -73,21 +169,33 @@
 .cat-sleep .cat-closed-eyes {
   opacity: 1;
 }
-.cat-sleep .cat-shape {
-  transform-origin: 55px 77px;
-  animation: cat-breathe 3.5s ease-in-out infinite;
+.cat-sleep .cat-front-leg {
+  translate: 4px 0;
+  rotate: -12deg;
 }
-.cat-sleep .cat-head {
-  animation: none;
-  rotate: 8deg;
+.cat-wake .cat-shape {
+  animation: cat-stretch 1.8s ease-in-out both;
+}
+.cat-wake .cat-head {
+  rotate: -12deg;
+}
+.cat-wake .cat-front-leg {
+  rotate: -20deg;
 }
 @keyframes cat-tail {
   0%,
+  60%,
   100% {
-    rotate: -7deg;
+    rotate: -5deg;
   }
-  50% {
-    rotate: 12deg;
+  70% {
+    rotate: 16deg;
+  }
+  80% {
+    rotate: -10deg;
+  }
+  90% {
+    rotate: 10deg;
   }
 }
 @keyframes cat-blink {
@@ -95,10 +203,10 @@
   43%,
   47%,
   100% {
-    scale: 1 1;
+    transform: scaleY(1);
   }
   45% {
-    scale: 1 0.1;
+    transform: scaleY(0.08);
   }
 }
 @keyframes cat-look {
@@ -110,15 +218,16 @@
   }
   40%,
   55% {
-    rotate: -9deg;
+    rotate: -8deg;
   }
 }
 @keyframes cat-step {
-  from {
-    translate: -4px -1px;
+  0%,
+  100% {
+    transform: translate(-3px, 0) rotate(-8deg);
   }
-  to {
-    translate: 4px 1px;
+  50% {
+    transform: translate(4px, -3px) rotate(10deg);
   }
 }
 @keyframes cat-bob {
@@ -127,17 +236,62 @@
     translate: 0 0;
   }
   50% {
-    translate: 0 -2px;
+    translate: 0 -1.5px;
   }
 }
 @keyframes cat-breathe {
   0%,
   100% {
-    scale: 1 0.91;
+    transform: scaleY(1);
   }
   50% {
-    scale: 1 0.95;
+    transform: scaleY(1.035);
   }
+}
+@keyframes cat-lick {
+  0%,
+  100% {
+    rotate: 12deg;
+    translate: -3px 4px;
+  }
+  50% {
+    rotate: 23deg;
+    translate: -6px 8px;
+  }
+}
+@keyframes cat-tongue {
+  0%,
+  30%,
+  100% {
+    opacity: 0;
+  }
+  40%,
+  70% {
+    opacity: 1;
+  }
+}
+@keyframes cat-dangle {
+  0%,
+  100% {
+    rotate: -4deg;
+  }
+  50% {
+    rotate: 4deg;
+  }
+}
+@keyframes cat-stretch {
+  0% {
+    scale: 1.09 0.76;
+  }
+  55% {
+    scale: 0.94 1.08;
+  }
+  100% {
+    scale: 1 1;
+  }
+}
+.atlas-cat[data-paused="true"] * {
+  animation-play-state: paused !important;
 }
 @media (prefers-reduced-motion: reduce) {
   .atlas-cat,
@@ -147,6 +301,10 @@
   }
 }
 
-.cat-hide * {
-  animation-play-state: paused;
+.cat-peek .cat-stage {
+  clip-path: inset(-10px -10px 17px -10px);
+  translate: 0 12px;
+}
+.cat-peek .cat-peek-paws {
+  opacity: 1;
 }

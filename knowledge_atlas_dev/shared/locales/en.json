@@ -1248,7 +1248,7 @@
   "cat.roaming": "Exploring your space",
   "cat.sleeping": "Resting",
   "cat.setting": "Show the roaming cat in this space",
-  "cat.help": "An offline companion that walks along panel edges and peeks out from behind tabs. It moves aside while you type and respects reduced motion.",
+  "cat.help": "An offline companion that walks along edges, visits editors, grooms, peeks and naps. Hold the pointer just above it to invite a playful jump and a three-second catch. It never blocks input and respects reduced motion.",
   "spaces.errorName": "Enter a space name (up to 80 characters).",
   "spaces.errorDuplicate": "An atlas space with this name already exists.",
   "spaces.errorMissing": "Atlas space not found.",

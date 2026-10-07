@@ -1,214 +1,322 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
+import { CatBehavior, catFreeIntervals } from "./cat-behavior.js";
 import "./atlas-cat.css";
 
-// Decorative only: the companion never captures clicks or keyboard focus.
+// The decoration never captures clicks, keyboard focus or the actual cursor.
 export function AtlasCat({ enabled }) {
   const element = useRef();
-  const [scene, setScene] = useState({
-    x: -120,
-    y: 0,
-    pose: "hide",
-    direction: 1,
-    duration: 0,
-  });
   useEffect(() => {
     if (!enabled) return;
+    const cat = new CatBehavior();
     const reduced = matchMedia("(prefers-reduced-motion: reduce)");
-    let timer,
-      previous,
-      step = 0,
-      stopped = false;
-    const schedule = (delay) => {
-      clearTimeout(timer);
-      if (!stopped) timer = setTimeout(visit, delay);
+    const ids = new WeakMap();
+    let nextId = 0,
+      frame,
+      timer,
+      measureTimer,
+      dialog,
+      focusedField,
+      disposed = false;
+    const observed = new Set();
+    let pausedAt = document.hidden ? performance.now() : null,
+      pausedTime = 0;
+    const now = () => (pausedAt ?? performance.now()) - pausedTime;
+    const id = (item) => {
+      if (!ids.has(item)) ids.set(item, ++nextId);
+      return ids.get(item);
     };
-    const hide = () => setScene((s) => ({ ...s, pose: "hide", duration: 0 }));
-    const rails = () => {
-      const modal = [...document.querySelectorAll('[role="dialog"]')].at(-1);
-      const elements = modal
-        ? [modal]
+    const paint = () => {
+      const s = cat.scene,
+        node = element.current;
+      node.style.transform = `translate3d(${s.x.toFixed(2)}px,${s.y.toFixed(2)}px,0)`;
+      node.style.setProperty("--cat-direction", s.direction);
+      const name = `atlas-cat cat-${s.pose}`;
+      if (node.className !== name) node.className = name;
+      node.dataset.visible = String(s.visible);
+      node.dataset.paused = String(pausedAt !== null);
+    };
+    function run() {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      if (disposed || pausedAt !== null) return;
+      const time = now();
+      cat.tick(time);
+      paint();
+      if (cat.animated) frame = requestAnimationFrame(run);
+      else if (!cat.reduced && Number.isFinite(cat.deadline))
+        timer = setTimeout(run, Math.max(16, cat.deadline - time));
+    }
+    function measure() {
+      clearTimeout(measureTimer);
+      if (disposed || pausedAt !== null) return;
+      const clips = new Map();
+      const bounds = (element, rect = element.getBoundingClientRect()) => {
+        let { left, right, top, bottom } = rect;
+        for (
+          let parent = element.parentElement;
+          parent;
+          parent = parent.parentElement
+        ) {
+          if (!clips.has(parent)) {
+            const style = getComputedStyle(parent);
+            clips.set(parent, {
+              rect: parent.getBoundingClientRect(),
+              x: /auto|scroll|hidden|clip/.test(style.overflowX),
+              y: /auto|scroll|hidden|clip/.test(style.overflowY),
+            });
+          }
+          const clip = clips.get(parent);
+          if (clip.x) {
+            left = Math.max(left, clip.rect.left);
+            right = Math.min(right, clip.rect.right);
+          }
+          if (clip.y) {
+            top = Math.max(top, clip.rect.top);
+            bottom = Math.min(bottom, clip.rect.bottom);
+          }
+        }
+        return {
+          left,
+          right,
+          top,
+          bottom,
+          width: bottom > top ? Math.max(0, right - left) : 0,
+        };
+      };
+      const nextDialog = [...document.querySelectorAll('[role="dialog"]')]
+        .filter((d) => d.getClientRects().length)
+        .at(-1);
+      let priority = nextDialog !== dialog;
+      dialog = nextDialog;
+      const activeField =
+        dialog?.contains(document.activeElement) &&
+        document.activeElement.matches('textarea, [contenteditable="true"]')
+          ? document.activeElement
+          : null;
+      if (activeField && focusedField !== activeField) priority = true;
+      focusedField = activeField;
+      // Text fields are preferred perches. Only their visible upper edge qualifies.
+      const panels = dialog
+        ? [
+            ...dialog.querySelectorAll('textarea, [contenteditable="true"]'),
+            dialog,
+            dialog.querySelector("header"),
+          ].filter(Boolean)
         : [
             ...document.querySelectorAll(
-              ".workbench, .collection-toolbar .segmented, .calendar-month, .space-bar",
+              ".workbench, .calendar-month, .collection-toolbar .segmented",
             ),
           ];
+      if (activeField)
+        panels.sort(
+          (a, b) => (b === activeField ? 1 : 0) - (a === activeField ? 1 : 0),
+        );
+      for (const item of observed)
+        if (!panels.includes(item)) {
+          sizes.unobserve(item);
+          observed.delete(item);
+        }
+      for (const item of panels)
+        if (!observed.has(item)) {
+          observed.add(item);
+          sizes.observe(item);
+        }
       const obstacles = [
-        ...document.querySelectorAll(
-          ".page-heading > div, .toolbar, .collection-toolbar, .topbar, .space-picker, .cat-toggle",
+        ...(dialog || document).querySelectorAll(
+          dialog
+            ? 'button, input, select, h2, h3, [role="tablist"], .markdown-toolbar'
+            : ".page-heading > div, .toolbar, .collection-toolbar, .topbar, .space-bar",
         ),
       ];
-      return elements.flatMap((item) => {
-        const rect = item.getBoundingClientRect();
+      const blocks = obstacles.map((o) => ({
+        element: o,
+        rect: bounds(o),
+      }));
+      // A label's text, not its full-width box, must remain readable.
+      if (dialog)
+        for (const label of dialog.querySelectorAll("label")) {
+          for (const child of label.childNodes)
+            if (child.nodeType === 3 && child.textContent.trim()) {
+              const range = document.createRange();
+              range.selectNode(child);
+              blocks.push({
+                element: label,
+                rect: bounds(label, range.getBoundingClientRect()),
+              });
+            }
+        }
+      const rails = panels.flatMap((item) => {
+        const r = item.getBoundingClientRect();
         if (
-          rect.width < 130 ||
-          rect.top < 65 ||
-          rect.top >= innerHeight - 50 ||
-          rect.right < 100 ||
-          rect.left >= innerWidth - 100
+          !item.getClientRects().length ||
+          r.width < 110 ||
+          r.top < 70 ||
+          r.top > innerHeight - 30
         )
           return [];
-        const y = rect.top - 65;
-        let intervals = [
-          [
-            Math.max(8, rect.left + 16),
-            Math.min(innerWidth - 98, rect.right - 104),
-          ],
-        ];
-        // Keep the whole walking path away from headings, counters and controls.
-        for (const obstacle of obstacles) {
-          if (obstacle.contains(item)) continue;
-          const r = obstacle.getBoundingClientRect();
-          if (!r.width || r.bottom <= y || r.top >= y + 65) continue;
-          const from = r.left - 100,
-            to = r.right + 6;
-          intervals = intervals.flatMap(([left, right]) => {
-            if (to <= left || from >= right) return [[left, right]];
-            return [
-              [left, Math.min(right, from)],
-              [Math.max(left, to), right],
-            ].filter(([a, b]) => b >= a);
-          });
-        }
-        return intervals
-          .filter(([left, right]) => right >= left)
-          .map(([left, right]) => ({ left, right, y }));
-      });
-    };
-    const typing = () =>
-      document.activeElement?.matches(
-        'input, textarea, select, [contenteditable="true"]',
-      );
-    function visit() {
-      if (document.hidden) {
-        hide();
-        return;
-      }
-      if (typing()) {
-        hide();
-        schedule(1800);
-        return;
-      }
-      const choices = rails();
-      if (!choices.length) {
-        hide();
-        schedule(2400);
-        return;
-      }
-      const rail = choices[Math.floor(Math.random() * choices.length)];
-      const side = Math.random() > 0.5;
-      const x = side ? rail.right : rail.left;
-      if (reduced.matches) {
-        setScene({
-          x: rail.right,
-          y: rail.y,
-          pose: "sit",
-          direction: 1,
-          duration: 0,
-        });
-        return;
-      }
-      if (step % 4 === 0 || !previous) {
-        previous = { x, y: rail.y, rail };
-        setScene({
-          x,
-          y: rail.y,
-          pose: "peek",
-          direction: side ? -1 : 1,
-          duration: 0,
-        });
-        schedule(3800);
-      } else if (step % 4 === 1) {
-        const target =
-          previous.x < (previous.rail.left + previous.rail.right) / 2
-            ? previous.rail.right
-            : previous.rail.left;
-        const duration = Math.max(
-          1800,
-          Math.min(6500, Math.abs(target - previous.x) * 14),
+        const scroller = item.closest(
+          ".task-dialog-body, .editor-body, .tool-editor-body",
         );
-        setScene({
-          x: target,
-          y: previous.y,
-          pose: "walk",
-          direction: target > previous.x ? 1 : -1,
-          duration,
-        });
-        previous.x = target;
-        schedule(duration);
-      } else if (step % 4 === 2) {
-        setScene((s) => ({
-          ...s,
-          pose: Math.random() > 0.5 ? "sit" : "sleep",
-          duration: 0,
-        }));
-        schedule(6500);
-      } else {
-        hide();
-        schedule(2800);
+        if (scroller) {
+          const clip = scroller.getBoundingClientRect();
+          if (r.top < clip.top + 68 || r.top > clip.bottom - 8) return [];
+        }
+        const y = r.top - 67;
+        const intervals = catFreeIntervals(
+          Math.max(8, r.left + 8),
+          Math.min(innerWidth - 102, r.right - 102),
+          y,
+          blocks
+            .filter(
+              ({ element: obstacle }) =>
+                obstacle !== item &&
+                !(obstacle.contains(item) && obstacle.tagName !== "LABEL"),
+            )
+            .map(({ rect }) => rect),
+        );
+        return intervals
+          .filter(([a, z]) => z >= a)
+          .map(([left, right], index) => ({
+            id: `${id(item)}:${index}`,
+            left,
+            right,
+            y,
+          }));
+      });
+      // On a compact dialog there may be no 72px headroom above the frame.
+      // Use the free right-hand part of its header before falling back to the viewport edge.
+      if (!rails.length && dialog) {
+        const r = dialog.getBoundingClientRect();
+        const header = dialog.querySelector("header");
+        const h = header?.getBoundingClientRect();
+        if (h && h.width > 380) {
+          const title = header.querySelector("h2");
+          const range = document.createRange();
+          if (title) range.selectNodeContents(title);
+          const left = Math.max(
+            r.left + 12,
+            title ? range.getBoundingClientRect().right + 12 : r.left + 12,
+          );
+          const right = Math.min(innerWidth - 102, r.right - 150);
+          if (right >= left)
+            rails.push({
+              id: `${id(dialog)}:header`,
+              left,
+              right,
+              y: Math.max(4, h.bottom - 67),
+            });
+        }
       }
-      step++;
+      if (!rails.length) {
+        const y = Math.max(0, innerHeight - 76);
+        const controls = [
+          ...(dialog || document).querySelectorAll(
+            "button, input, select, textarea",
+          ),
+        ].map((e) => bounds(e));
+        for (const status of (dialog || document).querySelectorAll(
+          'footer [role="status"]',
+        )) {
+          const range = document.createRange();
+          range.selectNodeContents(status);
+          controls.push(range.getBoundingClientRect());
+        }
+        const free = catFreeIntervals(
+          8,
+          Math.max(8, innerWidth - 102),
+          y,
+          controls,
+        );
+        for (const [index, [left, right]] of free.entries())
+          rails.push({ id: `viewport:${index}`, left, right, y });
+        if (!rails.length) rails.push({ id: "viewport", left: 8, right: 8, y });
+      }
+      cat.setRails(rails, now(), {
+        width: innerWidth,
+        height: innerHeight,
+        priority,
+      });
+      run();
     }
-    const returnLater = () => {
-      hide();
-      step = 0;
-      previous = null;
-      schedule(reduced.matches ? 200 : 1900);
-    };
-    const onVisibility = () => {
-      clearTimeout(timer);
-      if (document.hidden) hide();
-      else returnLater();
-    };
-    const onFocus = () => {
-      if (typing()) returnLater();
+    const requestMeasure = () => {
+      clearTimeout(measureTimer);
+      measureTimer = setTimeout(measure, 80);
     };
     const onPointer = (event) => {
-      const rect = element.current?.getBoundingClientRect();
-      if (
-        rect &&
-        event.clientX > rect.left - 20 &&
-        event.clientX < rect.right + 20 &&
-        event.clientY > rect.top - 15 &&
-        event.clientY < rect.bottom + 15
-      )
-        returnLater();
+      if (event.pointerType === "touch" || event.buttons) return;
+      cat.point({ x: event.clientX, y: event.clientY }, now());
+      if (cat.scene.pose === "hunt" || cat.scene.pose === "cling") run();
     };
-    const observer = new ResizeObserver(returnLater);
-    for (const panel of document.querySelectorAll(".main, .workbench"))
-      observer.observe(panel);
-    schedule(650);
-    document.addEventListener("visibilitychange", onVisibility);
-    document.addEventListener("focusin", onFocus);
+    const onLeave = (event) => {
+      if (!event.relatedTarget) {
+        cat.point(null, now());
+        run();
+      }
+    };
+    const onVisibility = () => {
+      if (document.hidden) {
+        pausedAt = performance.now();
+        cancelAnimationFrame(frame);
+        clearTimeout(timer);
+        clearTimeout(measureTimer);
+        paint();
+      } else {
+        if (pausedAt !== null) pausedTime += performance.now() - pausedAt;
+        pausedAt = null;
+        cat.point(null, now());
+        measure();
+      }
+    };
+    const onReduced = () => {
+      cat.setReduced(reduced.matches, now());
+      run();
+    };
+    const changes = new MutationObserver(requestMeasure);
+    changes.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["open"],
+    });
+    const sizes = new ResizeObserver(requestMeasure);
+    sizes.observe(document.body);
+    if (document.querySelector(".main"))
+      sizes.observe(document.querySelector(".main"));
+    cat.setReduced(reduced.matches, now());
+    measure();
     document.addEventListener("pointermove", onPointer, { passive: true });
-    window.addEventListener("resize", returnLater);
-    window.addEventListener("scroll", returnLater, {
+    document.addEventListener("pointerout", onLeave, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    document.addEventListener("focusin", requestMeasure);
+    window.addEventListener("scroll", requestMeasure, {
       passive: true,
       capture: true,
     });
-    reduced.addEventListener("change", returnLater);
+    window.addEventListener("resize", requestMeasure);
+    reduced.addEventListener("change", onReduced);
     return () => {
-      observer.disconnect();
-      stopped = true;
+      disposed = true;
+      cancelAnimationFrame(frame);
       clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibility);
-      document.removeEventListener("focusin", onFocus);
+      clearTimeout(measureTimer);
+      changes.disconnect();
+      sizes.disconnect();
       document.removeEventListener("pointermove", onPointer);
-      window.removeEventListener("resize", returnLater);
-      window.removeEventListener("scroll", returnLater, true);
-      reduced.removeEventListener("change", returnLater);
+      document.removeEventListener("pointerout", onLeave);
+      document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("focusin", requestMeasure);
+      window.removeEventListener("scroll", requestMeasure, true);
+      window.removeEventListener("resize", requestMeasure);
+      reduced.removeEventListener("change", onReduced);
     };
   }, [enabled]);
   if (!enabled) return null;
   return (
     <div
       ref={element}
-      className={`atlas-cat cat-${scene.pose}`}
+      className="atlas-cat"
       aria-hidden="true"
-      style={{
-        transform: `translate3d(${scene.x}px,${scene.y}px,0)`,
-        transitionDuration: `${scene.duration}ms`,
-        "--cat-direction": scene.direction,
-      }}
+      data-visible="false"
     >
       <div className="cat-stage">
         <svg viewBox="0 0 110 84" width="94" height="72" focusable="false">
@@ -262,6 +370,12 @@ export function AtlasCat({ enabled }) {
                 fill="#f8d9ae"
               />
             </g>
+            <g className="cat-reaching-paws" fill="#fae2c1">
+              <path d="M49 62 Q40 37 52 13 L59 15 Q51 39 60 59Z" />
+              <path d="M72 62 Q82 38 74 13 L66 15 Q72 40 64 60Z" />
+              <ellipse cx="55" cy="12" rx="6" ry="5" />
+              <ellipse cx="70" cy="12" rx="6" ry="5" />
+            </g>
             <g className="cat-head">
               <path
                 d="M44 37 L41 11 Q41 6 46 9 L59 19 Q68 16 78 20 L91 10 Q95 7 95 13 L92 38 Q88 54 69 54 Q48 54 44 37Z"
@@ -306,6 +420,12 @@ export function AtlasCat({ enabled }) {
                 stroke="none"
               />
               <path
+                className="cat-tongue"
+                d="M67 46 Q69 57 73 47"
+                fill="#dd9497"
+                stroke="none"
+              />
+              <path
                 d="M69 43 V45 M64 45 Q67 48 69 45 Q72 48 75 45 M50 40 L38 38 M50 44 L37 45 M88 40 L101 38 M88 44 L101 45"
                 fill="none"
                 strokeWidth="1"
@@ -317,6 +437,7 @@ export function AtlasCat({ enabled }) {
               stroke="#587566"
             />
             <path d="M73 57 L84 61 L75 67Z" fill="#94b6a0" stroke="#587566" />
+
             <g className="cat-peek-paws" fill="#fae2c1">
               <ellipse cx="48" cy="58" rx="7" ry="5" />
               <ellipse cx="87" cy="58" rx="7" ry="5" />

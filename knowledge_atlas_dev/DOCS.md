@@ -14,7 +14,13 @@ The original `DATA_DIR` and existing document root are unchanged. The registry i
 
 ## Cat companion
 
-The **Atlas cat** control in the top bar wakes or rests the cat; the same option is in **Settings and locations**. It is saved separately for each space and included in that space's backup. The cat is drawn with local SVG and CSS, with no downloads, audio, analytics or external service. It wanders along panel edges, peeks out, looks around and naps. It ignores clicks, moves aside near the pointer and stays hidden while a text field is focused. Motion pauses when the tab is hidden. With the system's reduced-motion preference it stays still.
+The **Atlas cat** control in the top bar wakes or rests the cat; the same option is in **Settings and locations**. It is saved separately for each space and included in that space's backup. The cat is drawn with local SVG and CSS, with no downloads, audio, analytics or external service.
+
+It rests for around five seconds, takes short walks along edges, grooms a paw, peeks over an edge and takes longer naps before stretching awake. Opening a dialog or focusing a visible text editor gives it a new perch to approach within three seconds. It travels continuously instead of disappearing when you scroll, type or move the pointer. On narrow layouts it uses the available panel or viewport edge.
+
+Hold the pointer a little above a nearby, awake cat to invite a jump. Moving away before it reaches the pointer makes it miss. On a successful catch it hangs on and follows for approximately three seconds, then returns to an edge. This is only a visual interaction: clicking, selecting text and moving the real cursor continue normally. Touch input does not start this game.
+
+Hidden tabs pause the companion's clock and animations. The system's **reduced motion** preference keeps it sitting still and disables cursor chasing. Turn the cat off in the top bar whenever you prefer an unobstructed workspace.
 
 See [UX comparison and workflow decisions](docs/UX-COMPARISON.md) for the current interaction design and measured follow-up priorities.
 
