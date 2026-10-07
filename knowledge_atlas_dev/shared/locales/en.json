@@ -1261,5 +1261,7 @@
   "cat.motion.full": "Full animation (default)",
   "cat.motion.system": "Follow system motion preference",
   "cat.motion.still": "Still companion",
-  "cat.stillStatus": "Animations paused in settings"
+  "cat.stillStatus": "Animations paused in settings",
+  "workspace.clearFilters": "Clear filters",
+  "timeline.help": "Help"
 }

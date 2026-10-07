@@ -693,6 +693,67 @@ function App() {
         body: t("m097"),
       }
     : reader;
+  const searchControl = (
+    <label className="search">
+      <Search size={17} />
+      <input
+        ref={searchRef}
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={t("m136")}
+        aria-label={t("m137")}
+      />
+      <kbd>{t("m138")}</kbd>
+    </label>
+  );
+  const atlasFilters = (
+    <>
+      <select
+        className="area-filter"
+        aria-label={t("m139")}
+        value={scope}
+        onChange={(e) => setScope(e.target.value)}
+      >
+        <option value="">{t("m140")}</option>
+        {groups.map((n) => (
+          <option key={n.id} value={n.id}>
+            {n.title}
+          </option>
+        ))}
+      </select>
+      {view !== "backups" && (
+        <fieldset className="importance-filter">
+          <legend>{t("importance.label")}</legend>
+          {[1, 2, 3, 4, 5].map((value) => (
+            <button
+              key={value}
+              type="button"
+              aria-label={t("map.importanceExact", value)}
+              aria-pressed={importanceFilter.includes(value)}
+              className={importanceFilter.includes(value) ? "selected" : ""}
+              onClick={() =>
+                setImportanceFilter((old) =>
+                  old.includes(value)
+                    ? old.filter((n) => n !== value)
+                    : [...old, value],
+                )
+              }
+            >
+              {value}
+              <span aria-hidden="true">★</span>
+            </button>
+          ))}
+          <button
+            type="button"
+            aria-pressed={!importanceFilter.length}
+            onClick={() => setImportanceFilter([])}
+          >
+            {t("m144")}
+          </button>
+        </fieldset>
+      )}
+    </>
+  );
   if (
     !loading &&
     settings.languageSelectionCompleted === false &&
@@ -985,7 +1046,7 @@ function App() {
             >
               <RefreshCw size={17} />
             </button>
-            {!["tools", "backups"].includes(view) && (
+            {!["tasks", "tools", "backups"].includes(view) && (
               <button
                 className="primary-button"
                 onClick={() =>
@@ -1013,7 +1074,9 @@ function App() {
             )}
           </div>
         </header>
-        <section className="page-heading">
+        <section
+          className={`page-heading ${view === "tasks" ? "tasks-heading" : ""}`}
+        >
           <div>
             <h1>
               {
@@ -1076,128 +1139,75 @@ function App() {
         <section
           className={`workbench ${view === "backups" ? "backup-workbench" : ""} ${view === "map" && !mapRequested ? "map-locked" : ""}`}
         >
-          <div
-            className={`toolbar ${view === "journal" ? "journal-toolbar" : ""} ${journalFilters ? "filters-open" : ""}`}
-          >
-            <label className="search">
-              <Search size={17} />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t("m136")}
-                aria-label={t("m137")}
-              />
-              <kbd>{t("m138")}</kbd>
-            </label>
-            {view === "journal" && (
-              <button
-                className="secondary-button journal-filter-toggle"
-                aria-expanded={journalFilters}
-                onClick={() => setJournalFilters(!journalFilters)}
-              >
-                {t("workspace.filters")}
-                {scope || importanceFilter.length ? " •" : ""}
-              </button>
-            )}
-            <select
-              className="area-filter"
-              aria-label={t("m139")}
-              value={scope}
-              onChange={(e) => setScope(e.target.value)}
+          {view !== "tasks" && (
+            <div
+              className={`toolbar ${view === "journal" ? "journal-toolbar" : ""} ${journalFilters ? "filters-open" : ""}`}
             >
-              <option value="">{t("m140")}</option>
-              {groups.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.title}
-                </option>
-              ))}
-            </select>
-            {view !== "backups" && (
-              <fieldset className="importance-filter">
-                <legend>{t("importance.label")}</legend>
-                {[1, 2, 3, 4, 5].map((value) => (
+              {searchControl}
+              {view === "journal" && (
+                <button
+                  className="secondary-button journal-filter-toggle"
+                  aria-expanded={journalFilters}
+                  onClick={() => setJournalFilters(!journalFilters)}
+                >
+                  {t("workspace.filters")}
+                  {scope || importanceFilter.length ? " •" : ""}
+                </button>
+              )}
+              {atlasFilters}
+              {["library", "inventory"].includes(view) && (
+                <ListSort value={listSort} onChange={changeListSort} />
+              )}
+              <div className="toolbar-spacer" />
+              {view === "map" && (
+                <select
+                  aria-label={t("map.layout")}
+                  aria-describedby="map-layout-description"
+                  className="map-layout-select"
+                  title={t("map.layoutHelp")}
+                  value={mapLayout}
+                  onChange={(e) => {
+                    setMapLayout(e.target.value);
+                    saveMapLayout(e.target.value);
+                  }}
+                >
+                  {MAP_LAYOUTS.map((name, index) => (
+                    <option key={name} value={name}>
+                      {index + 1}. {t(`map.layout.${name}`)}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {view === "map" && (
+                <div className="segmented">
                   <button
-                    key={value}
-                    type="button"
-                    aria-label={t("map.importanceExact", value)}
-                    aria-pressed={importanceFilter.includes(value)}
-                    className={
-                      importanceFilter.includes(value) ? "selected" : ""
-                    }
-                    onClick={() =>
-                      setImportanceFilter((old) =>
-                        old.includes(value)
-                          ? old.filter((n) => n !== value)
-                          : [...old, value],
-                      )
-                    }
+                    className={mode === "2d" ? "active" : ""}
+                    onClick={() => setMode("2d")}
                   >
-                    {value}
-                    <span aria-hidden="true">★</span>
+                    <Network size={15} />
+                    {t("m141")}
                   </button>
-                ))}
+                  <button
+                    className={mode === "3d" ? "active" : ""}
+                    onClick={() => setMode("3d")}
+                  >
+                    <Box size={15} />
+                    {t("m142")}
+                  </button>
+                </div>
+              )}
+              {view !== "journal" && (
                 <button
-                  type="button"
-                  aria-pressed={!importanceFilter.length}
-                  onClick={() => setImportanceFilter([])}
+                  className="icon-button"
+                  disabled={view === "map" && !mapRequested}
+                  aria-label={detail ? t("m143") : t("m398")}
+                  onClick={() => setDetail(!detail)}
                 >
-                  {t("m144")}
+                  <PanelLeftClose size={18} />
                 </button>
-              </fieldset>
-            )}
-            {["library", "tasks", "inventory"].includes(view) && (
-              <ListSort value={listSort} onChange={changeListSort} />
-            )}
-            <div className="toolbar-spacer" />
-            {view === "map" && (
-              <select
-                aria-label={t("map.layout")}
-                aria-describedby="map-layout-description"
-                className="map-layout-select"
-                title={t("map.layoutHelp")}
-                value={mapLayout}
-                onChange={(e) => {
-                  setMapLayout(e.target.value);
-                  saveMapLayout(e.target.value);
-                }}
-              >
-                {MAP_LAYOUTS.map((name, index) => (
-                  <option key={name} value={name}>
-                    {index + 1}. {t(`map.layout.${name}`)}
-                  </option>
-                ))}
-              </select>
-            )}
-            {view === "map" && (
-              <div className="segmented">
-                <button
-                  className={mode === "2d" ? "active" : ""}
-                  onClick={() => setMode("2d")}
-                >
-                  <Network size={15} />
-                  {t("m141")}
-                </button>
-                <button
-                  className={mode === "3d" ? "active" : ""}
-                  onClick={() => setMode("3d")}
-                >
-                  <Box size={15} />
-                  {t("m142")}
-                </button>
-              </div>
-            )}
-            {view !== "journal" && (
-              <button
-                className="icon-button"
-                disabled={view === "map" && !mapRequested}
-                aria-label={detail ? t("m143") : t("m398")}
-                onClick={() => setDetail(!detail)}
-              >
-                <PanelLeftClose size={18} />
-              </button>
-            )}
-          </div>
+              )}
+            </div>
+          )}
           {(search.pending || search.error) && (
             <div
               className="search-status"
@@ -1364,6 +1374,26 @@ function App() {
                 />
               ) : view === "tasks" ? (
                 <Tasks
+                  searchControl={searchControl}
+                  filterControls={atlasFilters}
+                  sortControl={
+                    <ListSort value={listSort} onChange={changeListSort} />
+                  }
+                  onClearFilters={() => {
+                    setQuery("");
+                    setScope("");
+                    setImportanceFilter([]);
+                  }}
+                  detailControl={
+                    <button
+                      className="icon-button"
+                      aria-label={detail ? t("m143") : t("m398")}
+                      title={detail ? t("m143") : t("m398")}
+                      onClick={() => setDetail(!detail)}
+                    >
+                      <PanelLeftClose size={18} />
+                    </button>
+                  }
                   importance={importanceFilter}
                   onRefresh={load}
                   nodes={orderedNodes}

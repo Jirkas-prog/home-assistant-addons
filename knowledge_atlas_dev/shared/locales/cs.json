@@ -1261,5 +1261,7 @@
   "cat.motion.full": "Plné animace (výchozí)",
   "cat.motion.system": "Podle nastavení pohybu v systému",
   "cat.motion.still": "Klidná společnice",
-  "cat.stillStatus": "Animace pozastavené v nastavení"
+  "cat.stillStatus": "Animace pozastavené v nastavení",
+  "workspace.clearFilters": "Zrušit filtry",
+  "timeline.help": "Nápověda"
 }

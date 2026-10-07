@@ -7,6 +7,8 @@ import {
   ClipboardList,
   CalendarRange,
   ArrowUpRight,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { filterNodes } from "./atlas-model.js";
 import { itemQuantity, itemPlaces } from "../shared/inventory.js";
@@ -128,6 +130,11 @@ export function Inventory({
   );
 }
 export function Tasks({
+  searchControl,
+  filterControls,
+  sortControl,
+  detailControl,
+  onClearFilters,
   orderRevision,
   importance = [],
   nodes,
@@ -140,6 +147,7 @@ export function Tasks({
 }) {
   const [project, setProject] = useState(""),
     [mode, setMode] = useState("timeline"),
+    [filtersOpen, setFiltersOpen] = useState(false),
     [status, setStatus] = useState("all"),
     [timelineStatuses, setTimelineStatuses] = useState([
       "draft",
@@ -172,40 +180,33 @@ export function Tasks({
     () => taskUrgencies(allTasks, today),
     [allTasks, today],
   );
+  const statusFiltered =
+    mode === "timeline"
+      ? timelineStatuses.length !== Object.keys(TASK_STATUS).length
+      : status !== "all";
+  const filterCount =
+    Number(!!scope) +
+    Number(!!importance.length) +
+    Number(!!project) +
+    Number(statusFiltered);
+  const shownTasks =
+    mode === "timeline"
+      ? tasks.filter((n) => timelineStatuses.includes(n.status))
+      : tasks;
+  function clearFilters() {
+    onClearFilters();
+    setProject("");
+    setStatus("all");
+    setTimelineStatuses(Object.keys(TASK_STATUS));
+  }
   return (
     <section className="collection-view tasks-view">
-      <div className="collection-toolbar">
-        <select
-          aria-label={t("m249")}
-          value={project}
-          onChange={(e) => setProject(e.target.value)}
-        >
-          <option value="">{t("m250")}</option>
-          {nodes
-            .filter((n) => n.type === "project")
-            .map((n) => (
-              <option key={n.id} value={n.id}>
-                {n.title}
-              </option>
-            ))}
-        </select>
-        {mode === "board" && (
-          <select
-            aria-label={t("m251")}
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            <option value="all">{t("m252")}</option>
-            {Object.entries(TASK_STATUS).map(([id, label]) => (
-              <option key={id} value={id}>
-                {label}
-              </option>
-            ))}
-          </select>
-        )}
+      <div className="tasks-toolbar">
+        {searchControl}
         <div className="segmented">
           <button
             className={mode === "board" ? "active" : ""}
+            aria-pressed={mode === "board"}
             onClick={() => setMode("board")}
           >
             <ClipboardList size={15} />
@@ -213,24 +214,96 @@ export function Tasks({
           </button>
           <button
             className={mode === "timeline" ? "active" : ""}
+            aria-pressed={mode === "timeline"}
             onClick={() => setMode("timeline")}
           >
             <CalendarRange size={15} />
             {t("m254")}
           </button>
         </div>
+        <button
+          className={`secondary-button tasks-filter-toggle ${filterCount ? "has-filters" : ""}`}
+          aria-expanded={filtersOpen}
+          aria-controls="task-filters"
+          onClick={() => setFiltersOpen(!filtersOpen)}
+        >
+          <SlidersHorizontal size={16} />
+          {t("workspace.filters")}
+          {!!filterCount && <span className="filter-count">{filterCount}</span>}
+        </button>
         <button className="primary-button" onClick={() => onNew(project)}>
-          <Plus size={15} />
+          <Plus size={16} />
           {t("m255")}
         </button>
       </div>
-      <div className="collection-summary">
-        {tasks.length}
-        {" " + t("m256") + " "}
-        {tasks.filter((n) => n.status === "done").length}
-        {" " + t("m257") + " "}
-        {tasks.filter((n) => urgencyById.get(n.id).overdue).length}
-        {" " + t("m258")}
+      <div id="task-filters" className="task-filters" hidden={!filtersOpen}>
+        <div className="task-filter-fields">
+          {filterControls}
+          <label className="task-project-filter">
+            <span>{t("tools.project")}</span>
+            <select
+              aria-label={t("m249")}
+              value={project}
+              onChange={(e) => setProject(e.target.value)}
+            >
+              <option value="">{t("m250")}</option>
+              {nodes
+                .filter((n) => n.type === "project")
+                .map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.title}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {mode === "board" && (
+            <select
+              aria-label={t("m251")}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="all">{t("m252")}</option>
+              {Object.entries(TASK_STATUS).map(([id, label]) => (
+                <option key={id} value={id}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          )}
+          {mode === "board" && sortControl}
+        </div>
+        <div className="task-filter-footer">
+          {mode === "timeline" && (
+            <fieldset className="timeline-statuses">
+              <legend>{t("timeline.showStatuses")}</legend>
+              {Object.entries(TASK_STATUS).map(([id, label]) => (
+                <label key={id}>
+                  <input
+                    type="checkbox"
+                    checked={timelineStatuses.includes(id)}
+                    onChange={(e) =>
+                      setTimelineStatuses((old) =>
+                        e.target.checked
+                          ? [...old, id]
+                          : old.filter((value) => value !== id),
+                      )
+                    }
+                  />
+                  <span className={`column-dot ${id}`} />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          )}
+          <button
+            className="secondary-button"
+            disabled={!filterCount && !query}
+            onClick={clearFilters}
+          >
+            <X size={14} />
+            {t("workspace.clearFilters")}
+          </button>
+        </div>
       </div>
       {error && (
         <div className="error-banner" role="alert">
@@ -255,12 +328,22 @@ export function Tasks({
           tasks={tasks}
           allTasks={allTasks}
           statuses={timelineStatuses}
-          setStatuses={setTimelineStatuses}
           onEdit={onEdit}
           onRefresh={onRefresh}
           onError={setError}
         />
       )}
+      <div className="tasks-footer">
+        <span aria-live="polite">
+          {shownTasks.length}
+          {" " + t("m256") + " "}
+          {shownTasks.filter((n) => n.status === "done").length}
+          {" " + t("m257") + " "}
+          {shownTasks.filter((n) => urgencyById.get(n.id).overdue).length}
+          {" " + t("m258")}
+        </span>
+        {detailControl}
+      </div>
     </section>
   );
 }

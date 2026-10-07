@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.31
+
+- Simplify the task workspace to a compact search/view/action row and timeline navigation. Keep one New task action and move summary counts below the tasks.
+- Group area, importance, project, status and board sorting controls in a collapsed Filters panel, with an active-filter count and Clear filters action.
+- Move timeline gestures and the urgency legend into on-demand Help. Adapt controls to narrow screens without horizontal overflow.
+
 ## 5.0.1-dev.30
 
 - Draw the collar behind the head and paws so it cannot cover the face while the cat sleeps or grooms.

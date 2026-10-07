@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Flag } from "lucide-react";
+import { ChevronLeft, ChevronRight, Flag, CircleHelp } from "lucide-react";
 import { t, locale } from "../shared/i18n.js";
-import { TASK_STATUS, dayNumber } from "./work-model.js";
+import { dayNumber } from "./work-model.js";
 import { RecordImportance } from "./importance.jsx";
 import {
   checkpoints,
@@ -26,7 +26,6 @@ export function Timeline({
   tasks,
   allTasks,
   statuses,
-  setStatuses,
   onEdit,
   onRefresh,
   onError,
@@ -42,6 +41,7 @@ export function Timeline({
     days: 30,
     preset: "30",
   });
+  const [helpOpen, setHelpOpen] = useState(false);
   const [width, setWidth] = useState(700);
   const host = useRef(),
     current = useRef(),
@@ -159,7 +159,6 @@ export function Timeline({
     <div className="timeline-v2">
       <div className="timeline-controls">
         <label>
-          {t("timeline.scale")}
           <select
             aria-label={t("timeline.scale")}
             value={view.preset}
@@ -219,42 +218,42 @@ export function Timeline({
           {date(view.start, view.days <= 3)} –{" "}
           {date(view.start + view.days, view.days <= 3)}
         </span>
+        <button
+          className="secondary-button timeline-guide-toggle"
+          aria-label={t("timeline.help")}
+          title={t("timeline.help")}
+          aria-expanded={helpOpen}
+          aria-controls="timeline-guide"
+          onClick={() => setHelpOpen(!helpOpen)}
+        >
+          <CircleHelp size={16} />
+          <span>{t("timeline.help")}</span>
+        </button>
       </div>
-      <fieldset className="timeline-statuses">
-        <legend>{t("timeline.showStatuses")}</legend>
-        {Object.entries(TASK_STATUS).map(([id, label]) => (
-          <label key={id}>
-            <input
-              type="checkbox"
-              checked={statuses.includes(id)}
-              onChange={(e) =>
-                setStatuses((old) =>
-                  e.target.checked ? [...old, id] : old.filter((s) => s !== id),
-                )
-              }
-            />
-            <span className={`column-dot ${id}`} />
-            {label}
-          </label>
-        ))}
-      </fieldset>
-      <p className="timeline-instructions">{t("timeline.gestures")}</p>
-      <div
-        className="timeline-urgency-legend"
-        aria-label={t("checkpoint.legend")}
-      >
-        {[
-          ["onTrack", 0],
-          ["attention", 0.5],
-          ["urgent", 1],
-        ].map(([label, score]) => (
-          <span key={label} style={urgencyStyle({ score })}>
-            <i />
-            {t(`checkpoint.${label}`)}
-          </span>
-        ))}
-        <span>{t("checkpoint.legendHelp")}</span>
-      </div>
+      {helpOpen && (
+        <div className="timeline-guide" id="timeline-guide">
+          <p className="timeline-instructions">{t("timeline.gestures")}</p>
+          <div
+            className="timeline-urgency-legend"
+            aria-label={t("checkpoint.legend")}
+          >
+            {[
+              ["onTrack", 0],
+              ["attention", 0.5],
+              ["urgent", 1],
+            ].map(([label, score]) => (
+              <span key={label} style={urgencyStyle({ score })}>
+                <i />
+                {t(`checkpoint.${label}`)}
+              </span>
+            ))}
+            <span>{t("checkpoint.legendHelp")}</span>
+          </div>
+          <p className="timeline-lane-count">
+            {t("timeline.lanes", layout.items.length, layout.lanes)}
+          </p>
+        </div>
+      )}
       <div
         className="timeline-surface"
         ref={host}
@@ -377,9 +376,6 @@ export function Timeline({
           <div className="timeline-no-tasks">{t("timeline.empty")}</div>
         )}
       </div>
-      <p className="timeline-lane-count">
-        {t("timeline.lanes", layout.items.length, layout.lanes)}
-      </p>
     </div>
   );
 }
