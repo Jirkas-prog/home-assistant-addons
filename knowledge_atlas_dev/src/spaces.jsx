@@ -17,6 +17,7 @@ import {
 import { backupTransfer } from "./backup-transfer.js";
 import { getLanguage, t } from "../shared/i18n.js";
 import "./spaces.css";
+import { useCatMotion } from "./cat-motion.js";
 
 export const spaceName = (space) =>
   space.id === "general" && space.name === "General"
@@ -29,6 +30,7 @@ export function spaceHref(id) {
 }
 
 export function SpaceBar({ settings, onSettings }) {
+  const reduced = useCatMotion(settings.catMotion);
   const [data, setData] = useState(null),
     [error, setError] = useState(""),
     [dialog, setDialog] = useState(null),
@@ -131,7 +133,11 @@ export function SpaceBar({ settings, onSettings }) {
             {t("cat.name")}
             <small>
               {t(
-                settings.catEnabled !== false ? "cat.roaming" : "cat.sleeping",
+                settings.catEnabled === false
+                  ? "cat.sleeping"
+                  : reduced
+                    ? "cat.stillStatus"
+                    : "cat.roaming",
               )}
             </small>
           </span>

@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.28
+
+- Add persistent per-space cat animation modes: Full animation (default), Follow system motion preference and Still companion. Report paused animation accurately in the top bar.
+- Prevent global reduced-motion styles from disabling an explicitly selected full-animation mode, including in embedded add-on views.
+- Track scroll and resize on animation frames instead of waiting for scrolling to stop. Carry the cat with its edge without restarting walks, jumps or naps.
+- Keep the companion visible above the settings dialog without intercepting its controls.
+- Verify legacy preference migration, validation, space isolation, restart persistence and backup restore.
+
 ## 5.0.1-dev.27
 
 - Replace disappearing and resetting cat motion with continuous walking and curved jumps between visible panel edges. Approach newly opened dialogs and focused editors within three seconds.

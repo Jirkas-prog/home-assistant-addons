@@ -2,6 +2,9 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const ease = (p) => p * p * (3 - 2 * p);
 
+export const catReducedMotion = (mode = "full", systemReduced = false) =>
+  mode === "still" || (mode === "system" && systemReduced);
+
 // Intervals contain the cat's left edge; subtract its width as well as the control.
 export function catFreeIntervals(left, right, y, obstacles) {
   let intervals = right >= left ? [[left, right]] : [];
@@ -71,6 +74,7 @@ export class CatBehavior {
   setRails(rails, now, { width, height, priority = false } = {}) {
     this.width = width ?? this.width;
     this.height = height ?? this.height;
+    const previous = this.rails.find((r) => r.id === this.railId);
     this.rails = rails;
     if (!rails.length) return;
     if (!this.scene.visible) {
@@ -83,6 +87,31 @@ export class CatBehavior {
     if (!priority && ["hunt", "pounce", "cling"].includes(this.scene.pose))
       return;
     const current = rails.find((r) => r.id === this.railId);
+    // A perch moving with its scroll container is not a new journey. Preserve
+    // pose, deadlines and walking progress, including during a held scrollbar.
+    if (!priority && current && previous) {
+      const dx =
+        (current.anchorX ?? current.left) - (previous.anchorX ?? previous.left);
+      const dy = current.y - previous.y;
+      const move = this.motion || this.queued;
+      if (move && move.kind === "jump") {
+        // Keep takeoff fixed while following a moving landing edge.
+        move.target.x = clamp(move.target.x + dx, current.left, current.right);
+        move.target.y = current.y;
+        return;
+      }
+      this.scene.x += dx;
+      this.scene.y += dy;
+      if (move) {
+        move.target.x = clamp(move.target.x + dx, current.left, current.right);
+        move.target.y = current.y;
+        if (move.from) {
+          move.from.x += dx;
+          move.from.y += dy;
+        }
+      } else this.scene.x = clamp(this.scene.x, current.left, current.right);
+      return;
+    }
     const rail = priority ? rails[0] : current || this.nearest().rail;
     const target = this.motion?.target || this.queued?.target || this.scene;
     const x = clamp(target.x, rail.left, rail.right);

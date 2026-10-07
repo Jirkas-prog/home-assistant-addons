@@ -1,19 +1,20 @@
 import React, { useEffect, useRef } from "react";
 import { CatBehavior, catFreeIntervals } from "./cat-behavior.js";
 import "./atlas-cat.css";
+import { useCatMotion } from "./cat-motion.js";
 
 // The decoration never captures clicks, keyboard focus or the actual cursor.
-export function AtlasCat({ enabled }) {
+export function AtlasCat({ enabled, motion }) {
   const element = useRef();
+  const reduced = useCatMotion(motion);
   useEffect(() => {
     if (!enabled) return;
     const cat = new CatBehavior();
-    const reduced = matchMedia("(prefers-reduced-motion: reduce)");
     const ids = new WeakMap();
     let nextId = 0,
       frame,
       timer,
-      measureTimer,
+      measureFrame,
       dialog,
       focusedField,
       disposed = false;
@@ -34,6 +35,7 @@ export function AtlasCat({ enabled }) {
       if (node.className !== name) node.className = name;
       node.dataset.visible = String(s.visible);
       node.dataset.paused = String(pausedAt !== null);
+      node.dataset.reduced = String(cat.reduced);
     };
     function run() {
       cancelAnimationFrame(frame);
@@ -47,7 +49,8 @@ export function AtlasCat({ enabled }) {
         timer = setTimeout(run, Math.max(16, cat.deadline - time));
     }
     function measure() {
-      clearTimeout(measureTimer);
+      cancelAnimationFrame(measureFrame);
+      measureFrame = null;
       if (disposed || pausedAt !== null) return;
       const clips = new Map();
       const bounds = (element, rect = element.getBoundingClientRect()) => {
@@ -178,6 +181,7 @@ export function AtlasCat({ enabled }) {
           .filter(([a, z]) => z >= a)
           .map(([left, right], index) => ({
             id: `${id(item)}:${index}`,
+            anchorX: r.left,
             left,
             right,
             y,
@@ -201,6 +205,7 @@ export function AtlasCat({ enabled }) {
           if (right >= left)
             rails.push({
               id: `${id(dialog)}:header`,
+              anchorX: r.left,
               left,
               right,
               y: Math.max(4, h.bottom - 67),
@@ -228,7 +233,7 @@ export function AtlasCat({ enabled }) {
           controls,
         );
         for (const [index, [left, right]] of free.entries())
-          rails.push({ id: `viewport:${index}`, left, right, y });
+          rails.push({ id: `viewport:${index}`, anchorX: 0, left, right, y });
         if (!rails.length) rails.push({ id: "viewport", left: 8, right: 8, y });
       }
       cat.setRails(rails, now(), {
@@ -239,8 +244,8 @@ export function AtlasCat({ enabled }) {
       run();
     }
     const requestMeasure = () => {
-      clearTimeout(measureTimer);
-      measureTimer = setTimeout(measure, 80);
+      if (measureFrame == null && pausedAt === null && !disposed)
+        measureFrame = requestAnimationFrame(measure);
     };
     const onPointer = (event) => {
       if (event.pointerType === "touch" || event.buttons) return;
@@ -258,7 +263,8 @@ export function AtlasCat({ enabled }) {
         pausedAt = performance.now();
         cancelAnimationFrame(frame);
         clearTimeout(timer);
-        clearTimeout(measureTimer);
+        cancelAnimationFrame(measureFrame);
+        measureFrame = null;
         paint();
       } else {
         if (pausedAt !== null) pausedTime += performance.now() - pausedAt;
@@ -266,10 +272,6 @@ export function AtlasCat({ enabled }) {
         cat.point(null, now());
         measure();
       }
-    };
-    const onReduced = () => {
-      cat.setReduced(reduced.matches, now());
-      run();
     };
     const changes = new MutationObserver(requestMeasure);
     changes.observe(document.body, {
@@ -282,7 +284,7 @@ export function AtlasCat({ enabled }) {
     sizes.observe(document.body);
     if (document.querySelector(".main"))
       sizes.observe(document.querySelector(".main"));
-    cat.setReduced(reduced.matches, now());
+    cat.setReduced(reduced, now());
     measure();
     document.addEventListener("pointermove", onPointer, { passive: true });
     document.addEventListener("pointerout", onLeave, { passive: true });
@@ -293,12 +295,12 @@ export function AtlasCat({ enabled }) {
       capture: true,
     });
     window.addEventListener("resize", requestMeasure);
-    reduced.addEventListener("change", onReduced);
     return () => {
       disposed = true;
       cancelAnimationFrame(frame);
       clearTimeout(timer);
-      clearTimeout(measureTimer);
+      cancelAnimationFrame(measureFrame);
+      measureFrame = null;
       changes.disconnect();
       sizes.disconnect();
       document.removeEventListener("pointermove", onPointer);
@@ -307,9 +309,8 @@ export function AtlasCat({ enabled }) {
       document.removeEventListener("focusin", requestMeasure);
       window.removeEventListener("scroll", requestMeasure, true);
       window.removeEventListener("resize", requestMeasure);
-      reduced.removeEventListener("change", onReduced);
     };
-  }, [enabled]);
+  }, [enabled, reduced]);
   if (!enabled) return null;
   return (
     <div

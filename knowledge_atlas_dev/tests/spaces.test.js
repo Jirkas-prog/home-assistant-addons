@@ -228,6 +228,65 @@ test("default selection survives restart, concurrent creation and Ingress-style 
   }
 });
 
+test("cat motion preferences migrate, validate, persist per space and round-trip in backups", async (t) => {
+  const f = await fixture(t, "/api/hassio_ingress/example");
+  await f.request("general", "settings");
+  const file = path.join(f.directory, "settings.json");
+  const legacy = JSON.parse(await fs.readFile(file, "utf8"));
+  delete legacy.catMotion;
+  legacy.languageSelectionCompleted = true;
+  await fs.writeFile(file, JSON.stringify(legacy));
+  let settings = await f.request("general", "settings");
+  assert.equal(settings.catMotion, "full");
+  assert.equal(settings.languageSelectionCompleted, true);
+  const { createdId } = await f.request("general", "spaces", {
+    name: "Example",
+  });
+  for (const mode of ["system", "full", "still"]) {
+    settings = await f.request(
+      "general",
+      "settings",
+      { ...settings, catMotion: mode },
+      "PUT",
+    );
+    assert.equal((await f.request("general", "settings")).catMotion, mode);
+    assert.equal((await f.request(createdId, "settings")).catMotion, "full");
+  }
+  const invalid = await fetch(`${f.base}/spaces/general/api/settings`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Knowledge-Client": "atlas",
+    },
+    body: JSON.stringify({ ...settings, catMotion: "invalid" }),
+  });
+  assert.equal(invalid.status, 400);
+  const a = await f.host.openSpace("general"),
+    b = await f.host.openSpace(createdId);
+  const zip = path.join(f.root, "motion.zip");
+  await new Backups(a.store.directory, a.settings).export(
+    createWriteStream(zip),
+  );
+  const backup = new Backups(b.store.directory, b.settings);
+  const preview = await backup.prepare(createReadStream(zip));
+  await backup.restore(preview.id, preview.revision);
+  assert.equal((await b.settings.read()).catMotion, "still");
+  await f.host.stop();
+  const restarted = await createSpacesApp({
+    directory: f.directory,
+    ingress: false,
+  });
+  t.after(() => restarted.stop());
+  assert.equal(
+    (await (await restarted.openSpace("general")).settings.read()).catMotion,
+    "still",
+  );
+  assert.equal(
+    (await (await restarted.openSpace(createdId)).settings.read()).catMotion,
+    "still",
+  );
+});
+
 test("unknown spaces never fall through to General and management retains request protection", async (t) => {
   const f = await fixture(t);
   for (const id of [

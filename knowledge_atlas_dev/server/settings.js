@@ -23,6 +23,7 @@ export class Settings {
       language: "en",
       languageSelectionCompleted: true,
       catEnabled: true,
+      catMotion: "full",
       documentRoot:
         documentRoot ||
         process.env.DOCUMENT_ROOT ||
@@ -115,6 +116,11 @@ export class Settings {
     if (value.catEnabled != null && typeof value.catEnabled !== "boolean")
       fail("Invalid cat companion preference.");
     if (
+      value.catMotion != null &&
+      !["full", "system", "still"].includes(value.catMotion)
+    )
+      fail("Invalid cat companion preference.");
+    if (
       value.libraryId != null &&
       (typeof value.libraryId !== "string" ||
         !/^[a-f0-9-]{32,36}$/.test(value.libraryId))
@@ -168,6 +174,7 @@ export class Settings {
       libraryId:
         value.libraryId ?? digest(path.resolve(this.file)).slice(0, 32),
       language: value.language ?? "en",
+      catMotion: value.catMotion ?? "full",
       languageSelectionCompleted: value.languageSelectionCompleted ?? true,
     };
   }

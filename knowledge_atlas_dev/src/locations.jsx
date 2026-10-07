@@ -121,6 +121,20 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
             />
             {t("cat.setting")}
           </label>
+          <label>
+            {t("cat.motion")}
+            <select
+              aria-label={t("cat.motion")}
+              value={form.catMotion ?? "full"}
+              onChange={(e) => change("catMotion", e.target.value)}
+            >
+              {["full", "system", "still"].map((mode) => (
+                <option key={mode} value={mode}>
+                  {t(`cat.motion.${mode}`)}
+                </option>
+              ))}
+            </select>
+          </label>
           <p className="field-help">{t("cat.help")}</p>
           <label>
             {t("m032")}

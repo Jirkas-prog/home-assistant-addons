@@ -20,7 +20,9 @@ It rests for around five seconds, takes short walks along edges, grooms a paw, p
 
 Hold the pointer a little above a nearby, awake cat to invite a jump. Moving away before it reaches the pointer makes it miss. On a successful catch it hangs on and follows for approximately three seconds, then returns to an edge. This is only a visual interaction: clicking, selecting text and moving the real cursor continue normally. Touch input does not start this game.
 
-Hidden tabs pause the companion's clock and animations. The system's **reduced motion** preference keeps it sitting still and disables cursor chasing. Turn the cat off in the top bar whenever you prefer an unobstructed workspace.
+Hidden tabs pause the companion's clock and animations. **Settings and locations → Cat animation** offers **Full animation** (the default, including existing libraries), **Follow system motion preference**, and **Still companion**. Full animation runs even if the device requests reduced motion; the other modes can keep the cat still and disable cursor chasing. The top bar indicates when animations are paused in settings. Preferences are stored on the server per space and included in backups. Turn the cat off in the top bar whenever you prefer an unobstructed workspace.
+
+Scrolling updates the companion's perch on the next animation frame, including while dragging a scrollbar. Movement with the same edge preserves its current pose and walking progress. Animation runs locally in the browser; Home Assistant Ingress needs no extra port, backend service or network requests for it.
 
 See [UX comparison and workflow decisions](docs/UX-COMPARISON.md) for the current interaction design and measured follow-up priorities.
 

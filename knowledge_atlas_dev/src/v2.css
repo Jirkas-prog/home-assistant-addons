@@ -145,9 +145,9 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *:not(.atlas-cat[data-reduced="false"], .atlas-cat[data-reduced="false"] *),
+  *:not(.atlas-cat[data-reduced="false"] *)::before,
+  *:not(.atlas-cat[data-reduced="false"] *)::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;

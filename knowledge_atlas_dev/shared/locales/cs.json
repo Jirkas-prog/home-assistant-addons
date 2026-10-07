@@ -1248,7 +1248,7 @@
   "cat.roaming": "Prozkoumává váš prostor",
   "cat.sleeping": "Odpočívá",
   "cat.setting": "Zobrazovat toulavou kočku v tomto prostoru",
-  "cat.help": "Offline společnice, která chodí po hranách, navštěvuje editory, čistí si packu, vykukuje a spí. Podržte kurzor kousek nad ní: zkusí skočit a na tři sekundy se zachytit. Neblokuje ovládání a respektuje omezení animací.",
+  "cat.help": "Offline společnice, která chodí po hranách, navštěvuje editory, čistí si packu, vykukuje a spí. Podržte kurzor kousek nad ní: zkusí skočit a na tři sekundy se zachytit. Plné animace fungují i při systémovém omezení pohybu; pro méně pohybu zvolte systémové nastavení nebo klidnou společnici. Volba se ukládá pro každý prostor zvlášť.",
   "spaces.errorName": "Zadejte název prostoru (nejvýše 80 znaků).",
   "spaces.errorDuplicate": "Atlasový prostor s tímto názvem již existuje.",
   "spaces.errorMissing": "Atlasový prostor nebyl nalezen.",
@@ -1256,5 +1256,10 @@
   "cat.errorPreference": "Neplatná volba kočičí společnice.",
   "spaces.errorOpen": "Atlasový prostor nelze otevřít. Podrobnosti najdete v protokolu serveru.",
   "spaces.errorRegistry": "Registr atlasových prostorů je neplatný. Před pokračováním opravte spaces.json.",
-  "spaces.errorSymlink": "Složka prostorů nesmí být symbolický odkaz."
+  "spaces.errorSymlink": "Složka prostorů nesmí být symbolický odkaz.",
+  "cat.motion": "Animace kočky",
+  "cat.motion.full": "Plné animace (výchozí)",
+  "cat.motion.system": "Podle nastavení pohybu v systému",
+  "cat.motion.still": "Klidná společnice",
+  "cat.stillStatus": "Animace pozastavené v nastavení"
 }

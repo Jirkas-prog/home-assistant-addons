@@ -1,8 +1,57 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CatBehavior, catFreeIntervals } from "../src/cat-behavior.js";
+import {
+  CatBehavior,
+  catFreeIntervals,
+  catReducedMotion,
+} from "../src/cat-behavior.js";
 
 const rails = [{ id: "panel", left: 100, right: 600, y: 260 }];
+
+test("full motion remains enabled under a system reduction; system and still modes are explicit", () => {
+  assert.equal(catReducedMotion(undefined, true), false);
+  assert.equal(catReducedMotion("full", true), false);
+  assert.equal(catReducedMotion("system", true), true);
+  assert.equal(catReducedMotion("system", false), false);
+  assert.equal(catReducedMotion("still", false), true);
+});
+
+test("continuous scrolling carries a sleeping cat on the same edge without restarting its pose", () => {
+  const cat = create();
+  cat.enter("sleep", 0, 20000);
+  for (let i = 1; i <= 100; i++) {
+    cat.setRails(
+      [{ ...rails[0], left: 100 + i, right: 600 + i, y: 260 - i }],
+      i * 16,
+    );
+    cat.tick(i * 16);
+    assert.equal(cat.scene.x, 600 + i);
+    assert.equal(cat.scene.y, 260 - i);
+    assert.equal(cat.scene.pose, "sleep");
+    assert.equal(cat.deadline, 20000);
+    assert.equal(cat.motion, undefined);
+  }
+});
+
+test("scrolling every frame does not starve walking or restart a jump to a moving edge", () => {
+  const cat = create();
+  cat.travel(rails[0], 500, 0);
+  for (let i = 1; i <= 200; i++) {
+    cat.setRails([{ ...rails[0], anchorX: 100, y: 260 - i / 2 }], i * 16);
+    cat.tick(i * 16);
+  }
+  assert.equal(cat.scene.x, 500);
+  assert.equal(cat.scene.y, 160);
+  assert.equal(cat.scene.pose, "sit");
+  const editor = { id: "editor", left: 300, right: 700, y: 480 };
+  cat.setRails([editor], 3200, { priority: true });
+  for (let i = 1; i <= 170; i++) {
+    cat.setRails([{ ...editor, y: 480 - i }], 3200 + i * 16);
+    cat.tick(3200 + i * 16);
+  }
+  assert.equal(cat.scene.y, 310);
+  assert.equal(cat.scene.pose, "sit");
+});
 
 test("compact fallback perches keep the complete cat clear of save controls and status text", () => {
   const controls = [

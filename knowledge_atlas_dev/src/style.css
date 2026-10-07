@@ -1630,7 +1630,7 @@ button:hover {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *:not(.atlas-cat[data-reduced="false"], .atlas-cat[data-reduced="false"] *) {
     transition: none !important;
     scroll-behavior: auto !important;
   }

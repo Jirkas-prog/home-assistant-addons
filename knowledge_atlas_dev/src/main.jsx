@@ -1879,6 +1879,7 @@ function App() {
       </main>
       <AtlasCat
         enabled={!!settings.revision && settings.catEnabled !== false}
+        motion={settings.catMotion}
       />
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
       <UploadRecovery

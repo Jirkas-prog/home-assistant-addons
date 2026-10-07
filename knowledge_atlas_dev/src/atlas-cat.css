@@ -6,7 +6,7 @@
   height: 72px;
   pointer-events: none;
   user-select: none;
-  z-index: 60;
+  z-index: 70;
   contain: layout style;
 }
 .atlas-cat * {
@@ -293,12 +293,10 @@
 .atlas-cat[data-paused="true"] * {
   animation-play-state: paused !important;
 }
-@media (prefers-reduced-motion: reduce) {
-  .atlas-cat,
-  .atlas-cat * {
-    animation: none !important;
-    transition: none !important;
-  }
+.atlas-cat[data-reduced="true"],
+.atlas-cat[data-reduced="true"] * {
+  animation: none !important;
+  transition: none !important;
 }
 
 .cat-peek .cat-stage {
