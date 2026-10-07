@@ -106,6 +106,7 @@ import {
   saveMapLayout,
 } from "./use-map-layout.js";
 import "./map-layout.css";
+import "./app-shell.css";
 import { Inventory, Tasks } from "./work-views.jsx";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
 import {
@@ -774,30 +775,17 @@ function App() {
       {sidebar && (
         <div className="side-backdrop" onClick={() => setSidebar(false)} />
       )}
-      <aside className={`sidebar ${sidebar ? "open" : ""}`}>
-        <a
-          className="brand"
-          href={homeId ? `#${encodeURIComponent(homeId)}` : "#"}
-          onClick={(event) => {
-            event.preventDefault();
-            setView("tasks");
-            setDetail(false);
-            setSidebar(false);
+      <aside
+        className={`sidebar ${sidebar ? "open" : ""}`}
+        aria-label={release.name}
+      >
+        <SpaceBar
+          settings={settings}
+          onSettings={(saved) => {
+            setSettings(saved);
+            load();
           }}
-        >
-          <img
-            className="brand-logo"
-            src="./app-logo.svg"
-            alt=""
-            width="40"
-            height="40"
-          />
-          <span>
-            {release.name}
-            <small>{t("m099")}</small>
-          </span>
-        </a>
-        <div className="workspace-label">{t("m100")}</div>
+        />
         <button
           className={`nav-button ${view === "map" ? "active" : ""}`}
           onClick={() => {
@@ -998,13 +986,6 @@ function App() {
         </div>
       </aside>
       <main className="main">
-        <SpaceBar
-          settings={settings}
-          onSettings={(saved) => {
-            setSettings(saved);
-            load();
-          }}
-        />
         <header className="topbar">
           <div className="topbar-left">
             <button

@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.32
+
+- Move the space picker, space management actions and cat toggle to the top of the sidebar, with aligned controls on desktop and in the mobile menu.
+- Fit the application to the available viewport. Keep the main navigation stationary and scroll task, journal, library, tool and backup contents within their own workspace instead of scrolling the entire page.
+- Keep space-management dialogs outside the sidebar so they remain usable at every screen size. Show record details as the active workspace pane on narrow screens.
+
 ## 5.0.1-dev.31
 
 - Simplify the task workspace to a compact search/view/action row and timeline navigation. Keep one New task action and move summary counts below the tasks.

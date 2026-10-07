@@ -1,0 +1,70 @@
+/* One viewport-sized shell; each workspace owns its content scrolling. */
+html:has(.app),
+body:has(.app) {
+  overflow: hidden;
+}
+.app {
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+}
+.app > .sidebar {
+  width: 252px;
+  overscroll-behavior: contain;
+}
+.app > .main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+}
+.main > .topbar,
+.main > .page-heading {
+  flex-shrink: 0;
+}
+.app .main > .workbench {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.app .workbench > * {
+  flex-shrink: 0;
+}
+.app .main > .workbench > .workspace {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  grid-template-rows: minmax(0, 1fr);
+  overflow: hidden;
+}
+.app .workspace > .map-area {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.app
+  .map-area
+  > :is(.collection-view, .library-page, .tool-workspace, .backup-page) {
+  height: 100%;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.app .workspace > .details {
+  height: 100%;
+  min-height: 0;
+}
+.app .map-download-gate {
+  height: 100%;
+  min-height: 0;
+}
+@media (max-width: 700px) {
+  .app .workspace.with-detail > .map-area {
+    display: none;
+  }
+  .app .workspace > .details {
+    flex: 1;
+  }
+}

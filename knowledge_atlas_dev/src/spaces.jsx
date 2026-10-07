@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
+import { createPortal } from "react-dom";
 import {
   Layers3,
   Plus,
@@ -84,7 +85,7 @@ export function SpaceBar({ settings, onSettings }) {
             </select>
           </label>
           <button
-            className="icon-button"
+            className="icon-button space-new"
             disabled={!data || blocked}
             title={t("spaces.new")}
             aria-label={t("spaces.new")}
@@ -93,7 +94,7 @@ export function SpaceBar({ settings, onSettings }) {
             <Plus size={19} />
           </button>
           <button
-            className="icon-button"
+            className="icon-button space-manage"
             disabled={!data || busy}
             title={t("spaces.manage")}
             aria-label={t("spaces.manage")}
@@ -152,17 +153,20 @@ export function SpaceBar({ settings, onSettings }) {
       {backupTransfer.active && (
         <p className="space-message">{t("spaces.transfer")}</p>
       )}
-      {dialog && data && (
-        <SpacesDialog
-          key={dialog}
-          mode={dialog}
-          data={data}
-          current={current}
-          blocked={blocked}
-          onClose={() => setDialog(null)}
-          onChanged={setData}
-        />
-      )}
+      {dialog &&
+        data &&
+        createPortal(
+          <SpacesDialog
+            key={dialog}
+            mode={dialog}
+            data={data}
+            current={current}
+            blocked={blocked}
+            onClose={() => setDialog(null)}
+            onChanged={setData}
+          />,
+          document.body,
+        )}
     </>
   );
 }
