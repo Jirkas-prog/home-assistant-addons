@@ -1248,7 +1248,7 @@
   "cat.roaming": "Exploring your space",
   "cat.sleeping": "Resting",
   "cat.setting": "Show the roaming cat in this space",
-  "cat.help": "An offline companion that walks along edges, visits editors, grooms, peeks and naps. Hold the pointer just above it for a playful jump and a three-second catch. Full animation also works when your device limits motion; choose Follow system or Still companion for less motion. Saved separately for each space.",
+  "cat.help": "An offline companion that walks along edges, visits editors, grooms, peeks and naps. Hold the pointer just above it for a playful jump and a three-second catch. Full animation also works when your device limits motion; choose Follow system or Still companion for less motion. Saved separately for each space. Typing, clicking or dragging releases the cursor game so you can keep working.",
   "spaces.errorName": "Enter a space name (up to 80 characters).",
   "spaces.errorDuplicate": "An atlas space with this name already exists.",
   "spaces.errorMissing": "Atlas space not found.",

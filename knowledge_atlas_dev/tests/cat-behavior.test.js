@@ -16,6 +16,92 @@ test("full motion remains enabled under a system reduction; system and still mod
   assert.equal(catReducedMotion("still", false), true);
 });
 
+test("nearby eyes follow the pointer within their sockets and mirror with the body", () => {
+  const cat = create();
+  cat.point({ x: 740, y: 310 }, 100);
+  assert.ok(cat.gaze.x > 0 && cat.gaze.x <= 1.6);
+  assert.ok(cat.gaze.y > 0 && cat.gaze.y <= 1.2);
+  cat.scene.direction = -1;
+  assert.ok(cat.gaze.x < 0);
+  cat.point({ x: 0, y: 0 }, 200);
+  assert.deepEqual(cat.gaze, { x: 0, y: 0 });
+  cat.point({ x: 740, y: 310 }, 300);
+  cat.enter("sleep", 300, 20000);
+  assert.deepEqual(cat.gaze, { x: 0, y: 0 });
+  cat.setReduced(true, 400);
+  cat.point({ x: 740, y: 310 }, 500);
+  assert.deepEqual(cat.gaze, { x: 0, y: 0 });
+});
+
+test("typing or dragging cancels hunting and releases a catch without interrupting an ordinary nap", () => {
+  for (const phase of [100, 900, 1450]) {
+    const cat = create();
+    cat.point({ x: 650, y: 210 }, 100);
+    advance(cat, 100, phase, 10);
+    assert.ok(["hunt", "pounce", "cling"].includes(cat.scene.pose));
+    cat.yieldPointer(phase);
+    assert.equal(cat.pointer, null);
+    assert.ok(!["hunt", "pounce", "cling"].includes(cat.scene.pose));
+    cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 20 }, phase + 100);
+    assert.notEqual(cat.scene.pose, "hunt");
+    advance(cat, phase, phase + 3500);
+    assert.equal(cat.scene.y, 260);
+  }
+  const sleeping = create();
+  sleeping.enter("sleep", 0, 20000);
+  sleeping.yieldPointer(1000);
+  assert.equal(sleeping.scene.pose, "sleep");
+  assert.equal(sleeping.deadline, 20000);
+});
+
+test("a newly split edge preserves the occupied interval instead of teleporting by array index", () => {
+  const cat = create();
+  cat.setRails([{ ...rails[0], surface: "editor", anchorX: 100 }], 1);
+  cat.enter("sleep", 1, 20000);
+  cat.setRails(
+    [
+      {
+        id: "panel",
+        surface: "editor",
+        anchorX: 100,
+        left: 100,
+        right: 200,
+        y: 260,
+      },
+      {
+        id: "panel:1",
+        surface: "editor",
+        anchorX: 100,
+        left: 400,
+        right: 600,
+        y: 260,
+      },
+    ],
+    100,
+  );
+  assert.equal(cat.scene.x, 600);
+  assert.equal(cat.railId, "panel:1");
+  assert.equal(cat.scene.pose, "sleep");
+  assert.equal(cat.deadline, 20001);
+});
+
+test("a shrinking panel makes the cat walk to free space without a one-frame snap", () => {
+  const cat = create();
+  const narrow = [{ ...rails[0], right: 450 }];
+  cat.setRails(narrow, 100);
+  assert.equal(cat.scene.x, 600);
+  assert.equal(cat.scene.pose, "rise");
+  let previous = cat.scene.x;
+  for (let time = 116; time <= 3100; time += 16) {
+    cat.setRails(narrow, time);
+    cat.tick(time);
+    assert.ok(Math.abs(cat.scene.x - previous) < 5);
+    previous = cat.scene.x;
+  }
+  assert.equal(cat.scene.x, 450);
+  assert.equal(cat.scene.pose, "sit");
+});
+
 test("continuous scrolling carries a sleeping cat on the same edge without restarting its pose", () => {
   const cat = create();
   cat.enter("sleep", 0, 20000);

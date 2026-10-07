@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.29
+
+- Let the cat gently follow nearby pointers with its eyes, respecting its facing direction and reduced-motion preference.
+- Release the cursor game when typing, clicking, dragging or leaving the window, with a cooldown that keeps editing comfortable.
+- Preserve occupied perches when controls split an edge into several free intervals. Walk smoothly to available space when a panel narrows.
+- Coalesce pointer updates into animation frames and keep the companion entirely local without extra downloads or services.
+- Safely discard pending animation callbacks when the companion is turned off.
+
 ## 5.0.1-dev.28
 
 - Add persistent per-space cat animation modes: Full animation (default), Follow system motion preference and Still companion. Report paused animation accurately in the top bar.

@@ -1248,7 +1248,7 @@
   "cat.roaming": "Prozkoumává váš prostor",
   "cat.sleeping": "Odpočívá",
   "cat.setting": "Zobrazovat toulavou kočku v tomto prostoru",
-  "cat.help": "Offline společnice, která chodí po hranách, navštěvuje editory, čistí si packu, vykukuje a spí. Podržte kurzor kousek nad ní: zkusí skočit a na tři sekundy se zachytit. Plné animace fungují i při systémovém omezení pohybu; pro méně pohybu zvolte systémové nastavení nebo klidnou společnici. Volba se ukládá pro každý prostor zvlášť.",
+  "cat.help": "Offline společnice, která chodí po hranách, navštěvuje editory, čistí si packu, vykukuje a spí. Podržte kurzor kousek nad ní: zkusí skočit a na tři sekundy se zachytit. Plné animace fungují i při systémovém omezení pohybu; pro méně pohybu zvolte systémové nastavení nebo klidnou společnici. Volba se ukládá pro každý prostor zvlášť. Při psaní, kliknutí nebo tažení pustí kurzor, abyste mohli nerušeně pracovat.",
   "spaces.errorName": "Zadejte název prostoru (nejvýše 80 znaků).",
   "spaces.errorDuplicate": "Atlasový prostor s tímto názvem již existuje.",
   "spaces.errorMissing": "Atlasový prostor nebyl nalezen.",

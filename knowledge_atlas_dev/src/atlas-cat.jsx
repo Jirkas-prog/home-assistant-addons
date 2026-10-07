@@ -29,8 +29,12 @@ export function AtlasCat({ enabled, motion }) {
     const paint = () => {
       const s = cat.scene,
         node = element.current;
+      if (!node) return;
       node.style.transform = `translate3d(${s.x.toFixed(2)}px,${s.y.toFixed(2)}px,0)`;
       node.style.setProperty("--cat-direction", s.direction);
+      const gaze = cat.gaze;
+      node.style.setProperty("--cat-gaze-x", `${gaze.x.toFixed(2)}px`);
+      node.style.setProperty("--cat-gaze-y", `${gaze.y.toFixed(2)}px`);
       const name = `atlas-cat cat-${s.pose}`;
       if (node.className !== name) node.className = name;
       node.dataset.visible = String(s.visible);
@@ -39,8 +43,9 @@ export function AtlasCat({ enabled, motion }) {
     };
     function run() {
       cancelAnimationFrame(frame);
+      frame = null;
       clearTimeout(timer);
-      if (disposed || pausedAt !== null) return;
+      if (disposed || pausedAt !== null || !element.current) return;
       const time = now();
       cat.tick(time);
       paint();
@@ -51,7 +56,7 @@ export function AtlasCat({ enabled, motion }) {
     function measure() {
       cancelAnimationFrame(measureFrame);
       measureFrame = null;
-      if (disposed || pausedAt !== null) return;
+      if (disposed || pausedAt !== null || !element.current) return;
       const clips = new Map();
       const bounds = (element, rect = element.getBoundingClientRect()) => {
         let { left, right, top, bottom } = rect;
@@ -181,6 +186,7 @@ export function AtlasCat({ enabled, motion }) {
           .filter(([a, z]) => z >= a)
           .map(([left, right], index) => ({
             id: `${id(item)}:${index}`,
+            surface: id(item),
             anchorX: r.left,
             left,
             right,
@@ -248,9 +254,19 @@ export function AtlasCat({ enabled, motion }) {
         measureFrame = requestAnimationFrame(measure);
     };
     const onPointer = (event) => {
-      if (event.pointerType === "touch" || event.buttons) return;
+      if (event.pointerType === "touch") return;
+      if (event.buttons) {
+        onInteraction();
+        return;
+      }
       cat.point({ x: event.clientX, y: event.clientY }, now());
-      if (cat.scene.pose === "hunt" || cat.scene.pose === "cling") run();
+      if (frame == null && pausedAt === null)
+        frame = requestAnimationFrame(run);
+    };
+    const onInteraction = () => {
+      cat.yieldPointer(now());
+      if (frame == null && pausedAt === null)
+        frame = requestAnimationFrame(run);
     };
     const onLeave = (event) => {
       if (!event.relatedTarget) {
@@ -288,6 +304,9 @@ export function AtlasCat({ enabled, motion }) {
     measure();
     document.addEventListener("pointermove", onPointer, { passive: true });
     document.addEventListener("pointerout", onLeave, { passive: true });
+    document.addEventListener("pointerdown", onInteraction, { passive: true });
+    document.addEventListener("keydown", onInteraction);
+    window.addEventListener("blur", onInteraction);
     document.addEventListener("visibilitychange", onVisibility);
     document.addEventListener("focusin", requestMeasure);
     window.addEventListener("scroll", requestMeasure, {
@@ -305,6 +324,9 @@ export function AtlasCat({ enabled, motion }) {
       sizes.disconnect();
       document.removeEventListener("pointermove", onPointer);
       document.removeEventListener("pointerout", onLeave);
+      document.removeEventListener("pointerdown", onInteraction);
+      document.removeEventListener("keydown", onInteraction);
+      window.removeEventListener("blur", onInteraction);
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("focusin", requestMeasure);
       window.removeEventListener("scroll", requestMeasure, true);
@@ -401,13 +423,15 @@ export function AtlasCat({ enabled, motion }) {
               <g className="cat-eyes">
                 <ellipse cx="57" cy="35" rx="4" ry="4.6" fill="#577666" />
                 <ellipse cx="81" cy="35" rx="4" ry="4.6" fill="#577666" />
-                <path
-                  d="M57 32 V38 M81 32 V38"
-                  stroke="#19292a"
-                  strokeWidth="2"
-                />
-                <circle cx="58" cy="33" r=".9" fill="white" stroke="none" />
-                <circle cx="82" cy="33" r=".9" fill="white" stroke="none" />
+                <g className="cat-pupils">
+                  <path
+                    d="M57 32 V38 M81 32 V38"
+                    stroke="#19292a"
+                    strokeWidth="2"
+                  />
+                  <circle cx="58" cy="33" r=".9" fill="white" stroke="none" />
+                  <circle cx="82" cy="33" r=".9" fill="white" stroke="none" />
+                </g>
               </g>
               <path
                 className="cat-closed-eyes"

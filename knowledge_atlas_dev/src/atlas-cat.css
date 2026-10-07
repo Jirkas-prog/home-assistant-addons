@@ -50,6 +50,10 @@
   animation: cat-blink 6.7s infinite;
   transition: opacity 0.25s;
 }
+.cat-pupils {
+  translate: var(--cat-gaze-x, 0px) var(--cat-gaze-y, 0px);
+  transition: translate 0.18s ease-out;
+}
 .cat-peek-paws,
 .cat-closed-eyes,
 .cat-tongue,

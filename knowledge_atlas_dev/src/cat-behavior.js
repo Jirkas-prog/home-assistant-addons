@@ -53,6 +53,22 @@ export class CatBehavior {
     return { x: this.scene.direction === 1 ? 56 : 38, y: 12 };
   }
 
+  get gaze() {
+    if (
+      this.reduced ||
+      !this.pointer ||
+      !["sit", "hunt", "peek"].includes(this.scene.pose)
+    )
+      return { x: 0, y: 0 };
+    const dx = this.pointer.x - (this.scene.x + 47);
+    const dy = this.pointer.y - (this.scene.y + 30);
+    if (Math.hypot(dx, dy) > 280) return { x: 0, y: 0 };
+    return {
+      x: clamp(dx / 65, -1.6, 1.6) * this.scene.direction,
+      y: clamp(dy / 80, -1.2, 1.2),
+    };
+  }
+
   bound(point) {
     return {
       x: clamp(point.x, 0, Math.max(0, this.width - 94)),
@@ -84,12 +100,22 @@ export class CatBehavior {
       this.enter("sit", now, 5000);
       return;
     }
-    if (!priority && ["hunt", "pounce", "cling"].includes(this.scene.pose))
-      return;
-    const current = rails.find((r) => r.id === this.railId);
+    if (!priority && ["pounce", "cling"].includes(this.scene.pose)) return;
+    let current = rails.find((r) => r.id === this.railId);
+    // Adding a control can split an edge and renumber its free intervals.
+    // Stay on the interval containing our destination, not its old array index.
+    if (!priority && previous?.surface) {
+      const target = this.motion?.target || this.queued?.target || this.scene;
+      const containing = rails.find((r) => {
+        const x = target.x + r.anchorX - previous.anchorX;
+        return r.surface === previous.surface && x >= r.left && x <= r.right;
+      });
+      if (containing) current = containing;
+    }
     // A perch moving with its scroll container is not a new journey. Preserve
     // pose, deadlines and walking progress, including during a held scrollbar.
     if (!priority && current && previous) {
+      this.railId = current.id;
       const dx =
         (current.anchorX ?? current.left) - (previous.anchorX ?? previous.left);
       const dy = current.y - previous.y;
@@ -103,13 +129,16 @@ export class CatBehavior {
       this.scene.x += dx;
       this.scene.y += dy;
       if (move) {
-        move.target.x = clamp(move.target.x + dx, current.left, current.right);
+        move.target.x += dx;
         move.target.y = current.y;
         if (move.from) {
           move.from.x += dx;
           move.from.y += dy;
         }
-      } else this.scene.x = clamp(this.scene.x, current.left, current.right);
+      }
+      const target = move?.target || this.scene;
+      const x = clamp(target.x, current.left, current.right);
+      if (Math.abs(target.x - x) > 2) this.travel(current, x, now, true);
       return;
     }
     const rail = priority ? rails[0] : current || this.nearest().rail;
@@ -190,6 +219,15 @@ export class CatBehavior {
       this.scene.direction = point.x >= center ? 1 : -1;
       this.enter("hunt", now, 650);
     }
+  }
+
+  // Let typing, selection and dragging take priority over the cursor game.
+  yieldPointer(now) {
+    this.pointer = null;
+    this.cooldown = Math.max(this.cooldown, now + 2000);
+    if (this.scene.pose === "hunt") this.enter("sit", now, 5000);
+    else if (["pounce", "cling"].includes(this.scene.pose))
+      this.returnToRail(now);
   }
 
   returnToRail(now) {
