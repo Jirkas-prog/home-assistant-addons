@@ -6,6 +6,7 @@
   height: 72px;
   pointer-events: none;
   user-select: none;
+  touch-action: none;
   z-index: 70;
   contain: layout style;
 }
@@ -16,16 +17,55 @@
   position: fixed;
   left: 0;
   top: 0;
-  width: 24px;
-  height: 24px;
-  z-index: 69;
-  pointer-events: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  z-index: 71;
+  pointer-events: auto;
+  touch-action: none;
+  cursor: grab;
   user-select: none;
   filter: drop-shadow(0 2px 2px #0005);
   contain: layout style;
 }
 .cat-yarn * {
   pointer-events: none;
+}
+.cat-yarn[hidden] {
+  display: none;
+}
+.cat-yarn[data-layer="behind"] {
+  z-index: 69;
+}
+.atlas-cat .cat-hit {
+  pointer-events: visiblePainted;
+  cursor: grab;
+}
+.cat-held .cat-hit,
+.cat-yarn[data-phase="held"] {
+  cursor: grabbing;
+}
+.cat-yarn:focus-visible,
+.atlas-cat:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 14px;
+}
+.cat-held .cat-shape {
+  rotate: -5deg;
+  translate: 0 -3px;
+}
+.cat-flight .cat-shape {
+  rotate: var(--cat-tilt, 0deg);
+}
+.cat-held .cat-shadow,
+.cat-flight .cat-shadow {
+  opacity: 0;
+}
+.cat-held .cat-front-leg,
+.cat-held .cat-back-leg {
+  translate: 0 3px;
 }
 .cat-dig .cat-front-leg {
   animation: cat-tap 0.45s ease-in-out infinite;

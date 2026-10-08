@@ -4,10 +4,10 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.44**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.45**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
-- An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
+- An optional offline cat companion that roams panel edges, peeks out and steps aside while typing. Click her to send her away, or drag and throw her or her yarn with inertia. Click yarn to remove it; choose whether it appears in front of or behind the cat.
 - Five selectable themes in **Settings and locations > Appearance**: Original, Lime, Paper, Graphite and Tide. Preview locally before saving; each atlas space remembers its own appearance. Themes use local CSS and existing icons.
 - Nested branches, cross-links, searchable records and live statistics.
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.

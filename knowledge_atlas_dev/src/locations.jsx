@@ -213,6 +213,7 @@ export function LocationsSettings({
                 </Select>
               </label>
               <p className="field-help">{t("cat.help")}</p>
+              <p className="field-help">{t("cat.interactionHelp")}</p>
               <fieldset className="cat-yarn-settings">
                 <legend>{t("cat.yarn.title")}</legend>
                 <label className="check-label">
@@ -224,6 +225,16 @@ export function LocationsSettings({
                   {t("cat.yarn.enabled")}
                 </label>
                 <p className="field-help">{t("cat.yarn.help")}</p>
+                <label>
+                  {t("cat.yarn.layer")}
+                  <Select
+                    value={form.catYarnLayer ?? "front"}
+                    onChange={(e) => change("catYarnLayer", e.target.value)}
+                  >
+                    <option value="front">{t("cat.yarn.front")}</option>
+                    <option value="behind">{t("cat.yarn.behind")}</option>
+                  </Select>
+                </label>
               </fieldset>
             </section>
             <label>

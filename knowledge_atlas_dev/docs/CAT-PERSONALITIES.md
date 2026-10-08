@@ -43,9 +43,9 @@ and an ongoing leap lands through the normal movement system.
 The routines select **available, unobstructed edges**; a small window may only have
 one usable perch. Context changes do not download content or previews. The map is
 never loaded for the pet. The host measures group containers rather than every
-record or calendar event. Text fields and controls remain usable because the pet
-has no pointer events or focus, and landing intervals exclude visible controls
-and title text. Existing scrolling and fallback geometry are retained.
+record or calendar event. Landing intervals exclude visible controls and title
+text. Only the cat silhouette and the ball's touch target intercept input; empty
+space around the cat remains clickable. Existing scrolling geometry is retained.
 
 After the entrance routine, personalities continue their own cycle. In journals,
 editors, comments and settings, new personalities replace roaming/hops with quiet
@@ -110,7 +110,7 @@ click replaces the current toy; balls never accumulate or enter the database.
 
 Disabled controls, labels, links, fields, menus, map/timeline gestures, selected
 text, long presses, modified clicks, keyboard activation and drags do not spawn
-toys. The game never consumes a click, captures focus or activates a control.
+toys. Background spawning does not consume the original click or activate a control.
 Typing, navigation or changing the dialog ends play. Switching the yarn setting
 off removes the toy and settles the cat. Hidden pages pause the same clock used
 by the cat, without accumulating work for later.
@@ -120,3 +120,26 @@ events rather than each frame, and routes are replanned after landings. Scrollin
 carries resting yarn with its supporting edge; removing the edge makes it fall
 again. Each game has a one-minute visible-time bound, no network traffic, no
 external assets and no backend animation service.
+
+## Direct interaction and throws
+
+Click/tap the cat to send her to another perch, with an extended pause before she
+returns to play. Click/tap the yarn to remove it immediately. Hold and drag either
+with a mouse, pen or finger to carry it. The grab keeps its original offset and
+overrides roaming. Release slowly to drop onto a supporting edge; flick to throw.
+Recent pointer velocity controls momentum, gravity pulls down, walls reflect a
+throw and surfaces damp it. Yarn bounces and rolls more than the cat. The cat
+settles her paws on a perch and stays there for about eight seconds.
+
+Native pointer capture retains the gesture when leaving the silhouette; a
+six-pixel movement threshold distinguishes a click from a drag. Pausing before
+release cancels old throw velocity. Escape, lost capture, a hidden tab or window
+blur releases without a throw or click-through. Keyboard Enter/Space sends the
+focused cat away or dismisses focused yarn. Explicit cat carrying still works
+with animation disabled, placing her immediately without inertia.
+
+**Yarn game → Ball position relative to the cat** selects **In front** (default)
+or **Behind**. `catYarnLayer` is validated and saved per space, including settings
+history and backups. Ball positions and throws are temporary and need no network
+requests. Physics uses bounded substeps against visible rails in the existing
+animation loop; it never operates application controls or modifies records.

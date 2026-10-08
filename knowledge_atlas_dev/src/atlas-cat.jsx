@@ -7,6 +7,8 @@ import {
 } from "./cat-behavior.js";
 import "./atlas-cat.css";
 import { useCatMotion } from "./cat-motion.js";
+import { PetDrag } from "./cat-physics.js";
+import { t } from "../shared/i18n.js";
 
 function clippedBounds() {
   const clips = new Map();
@@ -45,12 +47,13 @@ function clippedBounds() {
   };
 }
 
-// The decoration never captures clicks, keyboard focus or the actual cursor.
+// One local animation clock; explicit grabs never activate the controls beneath.
 export function AtlasCat({
   enabled,
   motion,
   personality = "classic",
   yarnEnabled = true,
+  yarnLayer = "front",
 }) {
   const runtime = useRef();
   const element = useRef();
@@ -68,6 +71,9 @@ export function AtlasCat({
       focusedField,
       placedElement,
       pointerStart,
+      gesture,
+      suppressClick,
+      hadFlight = false,
       hadYarn = false,
       controlElements = new Map(),
       disposed = false;
@@ -85,6 +91,10 @@ export function AtlasCat({
       if (!node) return;
       node.style.transform = `translate3d(${s.x.toFixed(2)}px,${s.y.toFixed(2)}px,0)`;
       node.style.setProperty("--cat-direction", s.direction);
+      node.style.setProperty(
+        "--cat-tilt",
+        `${Math.max(-18, Math.min(18, (cat.flight?.vx || 0) * 9)) * s.direction}deg`,
+      );
       const gaze = cat.gaze;
       node.style.setProperty("--cat-gaze-x", `${gaze.x.toFixed(2)}px`);
       node.style.setProperty("--cat-gaze-y", `${gaze.y.toFixed(2)}px`);
@@ -101,15 +111,16 @@ export function AtlasCat({
         toy.hidden = !ball;
         if (ball) {
           toy.dataset.phase = ball.phase;
-          toy.style.transform = `translate3d(${(ball.x - 12).toFixed(2)}px,${(ball.y - 12).toFixed(2)}px,0) rotate(${ball.rotation.toFixed(2)}deg) scale(${ball.scale})`;
+          toy.style.transform = `translate3d(${(ball.x - 22).toFixed(2)}px,${(ball.y - 22).toFixed(2)}px,0) rotate(${ball.rotation.toFixed(2)}deg) scale(${ball.scale})`;
           toy.style.opacity = ball.opacity;
         }
       }
-      if (hadYarn && !ball) {
+      if ((hadYarn && !ball) || (hadFlight && !cat.flight)) {
         placedElement = controlElements.get(cat.railId) || placedElement;
         requestMeasure();
       }
       hadYarn = !!ball;
+      hadFlight = !!cat.flight;
     };
     function run() {
       cancelAnimationFrame(frame);
@@ -167,12 +178,15 @@ export function AtlasCat({
             r.left + 1,
             Math.min(r.right - 1, (rail.left + rail.right) / 2 + 47),
           );
-          const hit = document.elementFromPoint(x, r.top + 2);
+          const hit = document
+            .elementsFromPoint(x, r.top + 2)
+            .find((e) => !e.closest("[data-atlas-pet]"));
           return hit === item || item.contains(hit);
         });
     }
     function collectControlRails(scope, bounds) {
       const items = [...scope.querySelectorAll(controls)].filter((item) => {
+        if (item.closest("[data-atlas-pet]")) return false;
         const r = bounds(item);
         return (
           r.width >= 28 &&
@@ -236,18 +250,19 @@ export function AtlasCat({
         .filter((d) => d.getClientRects().length)
         .at(-1);
       let priority = nextDialog !== dialog;
+      if (priority && gesture) finishGesture(null, true, false);
       dialog = nextDialog;
       const workbench = document.querySelector(".workbench");
       const contextElement =
         dialog || workbench?.querySelector("[data-cat-context]") || workbench;
       const context =
         contextElement?.dataset.catContext || (dialog ? "editor" : "workspace");
-      priority =
-        cat.setContext(
-          context,
-          contextElement ? `${id(contextElement)}:${context}` : context,
-          now(),
-        ) || priority;
+      const contextKey = contextElement
+        ? `${id(contextElement)}:${context}`
+        : context;
+      if (gesture && contextKey !== cat.contextKey)
+        finishGesture(null, true, false);
+      priority = cat.setContext(context, contextKey, now()) || priority;
       const classic = cat.personality === "classic";
       const activeField =
         dialog?.contains(document.activeElement) &&
@@ -284,9 +299,10 @@ export function AtlasCat({
           (dialog && !dialog.contains(placedElement)))
       )
         placedElement = null;
-      const playRails = cat.yarn.ball
-        ? collectControlRails(dialog || document.body, bounds)
-        : [];
+      const playRails =
+        cat.yarn.ball || cat.held || cat.flight
+          ? collectControlRails(dialog || document.body, bounds)
+          : [];
       if (playRails.length)
         controlElements = new Map(playRails.map((r) => [r.id, r.element]));
       if (placedElement && !playRails.some((r) => r.element === placedElement))
@@ -461,7 +477,87 @@ export function AtlasCat({
       if (measureFrame == null && pausedAt === null && !disposed)
         measureFrame = requestAnimationFrame(measure);
     };
+    const point = (e) => ({ x: e.clientX, y: e.clientY });
+    function finishGesture(event, cancelled = false, remeasure = true) {
+      const g = gesture;
+      if (!g || (event && event.pointerId !== g.pointerId)) return;
+      gesture = null;
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      if (g.node.hasPointerCapture(g.pointerId))
+        g.node.releasePointerCapture(g.pointerId);
+      const time = now();
+      if (event && !cancelled) {
+        const position = g.drag.move(point(event), time);
+        if (g.drag.dragged) g.actor.dragTo(position);
+      }
+      suppressClick = { until: time + 800 };
+      pointerStart = null;
+      if (cancelled || g.drag.dragged)
+        g.actor.release(
+          cancelled ? { vx: 0, vy: 0 } : g.drag.velocity(time),
+          time,
+        );
+      else if (g.kind === "yarn") cat.yarn.stop(time);
+      else cat.shoo(time);
+      if (remeasure) measure();
+    }
+    const onPetDown = (event) => {
+      suppressClick = null;
+      const node = event.target.closest?.("[data-atlas-pet]");
+      if (!node || event.button !== 0 || event.isPrimary === false || gesture)
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      pointerStart = null;
+      const kind = node.dataset.atlasPet;
+      const actor = kind === "yarn" ? cat.yarn : cat;
+      const body = kind === "yarn" ? cat.yarn.ball : cat.scene;
+      if (!body) return;
+      const drag = new PetDrag(point(event), body, now());
+      actor.grab(now());
+      gesture = { node, kind, actor, drag, pointerId: event.pointerId };
+      node.setPointerCapture(event.pointerId);
+      measure();
+    };
+    const onPetClick = (event) => {
+      if (
+        event.target.closest?.("[data-atlas-pet]") ||
+        (suppressClick && now() < suppressClick.until)
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        suppressClick = null;
+      }
+    };
+    const onPetKey = (event) => {
+      if (gesture && event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        finishGesture(null, true);
+        return;
+      }
+      const node = event.target.closest?.("[data-atlas-pet]");
+      if (!node || !["Enter", " "].includes(event.key)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.repeat) return;
+      if (node.dataset.atlasPet === "yarn") cat.yarn.stop(now());
+      else cat.shoo(now());
+      run();
+    };
     const onPointer = (event) => {
+      if (gesture) {
+        if (event.pointerId !== gesture.pointerId) return;
+        event.preventDefault();
+        event.stopPropagation();
+        const position = gesture.drag.move(point(event), now());
+        if (gesture.drag.dragged) gesture.actor.dragTo(position);
+        run();
+        return;
+      }
       if (
         pointerStart &&
         Math.hypot(
@@ -541,8 +637,14 @@ export function AtlasCat({
       requestMeasure();
       run();
     };
-    const onPointerCancel = () => {
+    const onPointerUp = (event) => finishGesture(event);
+    const onPointerCancel = (event) => {
       pointerStart = null;
+      finishGesture(event, true);
+    };
+    const onBlur = () => {
+      finishGesture(null, true);
+      onInteraction();
     };
     const onLeave = (event) => {
       if (!event.relatedTarget) {
@@ -552,6 +654,7 @@ export function AtlasCat({
     };
     const onVisibility = () => {
       if (document.hidden) {
+        finishGesture(null, true);
         pausedAt = performance.now();
         cancelAnimationFrame(frame);
         clearTimeout(timer);
@@ -580,15 +683,21 @@ export function AtlasCat({
     cat.yarn.setEnabled(yarnEnabled, now());
     cat.setReduced(reduced, now());
     measure();
-    document.addEventListener("pointermove", onPointer, { passive: true });
+    document.addEventListener("pointermove", onPointer, {
+      passive: false,
+      capture: true,
+    });
+    document.addEventListener("pointerdown", onPetDown, true);
+    document.addEventListener("pointerup", onPointerUp, true);
+    document.addEventListener("lostpointercapture", onPointerCancel, true);
+    document.addEventListener("click", onPetClick, true);
+    document.addEventListener("keydown", onPetKey, true);
     document.addEventListener("pointerout", onLeave, { passive: true });
     document.addEventListener("pointerdown", onInteraction, { passive: true });
-    document.addEventListener("pointercancel", onPointerCancel, {
-      passive: true,
-    });
+    document.addEventListener("pointercancel", onPointerCancel, true);
     document.addEventListener("click", onBackgroundClick);
     document.addEventListener("keydown", onInteraction);
-    window.addEventListener("blur", onInteraction);
+    window.addEventListener("blur", onBlur);
     document.addEventListener("visibilitychange", onVisibility);
     document.addEventListener("focusin", requestMeasure);
     window.addEventListener("scroll", requestMeasure, {
@@ -598,6 +707,9 @@ export function AtlasCat({
     window.addEventListener("resize", requestMeasure);
     return () => {
       disposed = true;
+      if (gesture?.node.hasPointerCapture(gesture.pointerId))
+        gesture.node.releasePointerCapture(gesture.pointerId);
+      gesture = null;
       if (runtime.current?.cat === cat) runtime.current = null;
       cancelAnimationFrame(frame);
       clearTimeout(timer);
@@ -605,13 +717,18 @@ export function AtlasCat({
       measureFrame = null;
       changes.disconnect();
       sizes.disconnect();
-      document.removeEventListener("pointermove", onPointer);
+      document.removeEventListener("pointermove", onPointer, true);
+      document.removeEventListener("pointerdown", onPetDown, true);
+      document.removeEventListener("pointerup", onPointerUp, true);
+      document.removeEventListener("lostpointercapture", onPointerCancel, true);
+      document.removeEventListener("click", onPetClick, true);
+      document.removeEventListener("keydown", onPetKey, true);
       document.removeEventListener("pointerout", onLeave);
       document.removeEventListener("pointerdown", onInteraction);
-      document.removeEventListener("pointercancel", onPointerCancel);
+      document.removeEventListener("pointercancel", onPointerCancel, true);
       document.removeEventListener("click", onBackgroundClick);
       document.removeEventListener("keydown", onInteraction);
-      window.removeEventListener("blur", onInteraction);
+      window.removeEventListener("blur", onBlur);
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("focusin", requestMeasure);
       window.removeEventListener("scroll", requestMeasure, true);
@@ -633,8 +750,24 @@ export function AtlasCat({
   if (!enabled) return null;
   return (
     <>
-      <div ref={yarnElement} className="cat-yarn" aria-hidden="true" hidden>
-        <svg viewBox="0 0 24 24" width="24" height="24" focusable="false">
+      <div
+        ref={yarnElement}
+        className="cat-yarn"
+        data-atlas-pet="yarn"
+        data-layer={yarnLayer}
+        role="button"
+        tabIndex={0}
+        aria-label={t("cat.yarn.interact")}
+        title={t("cat.yarn.interact")}
+        hidden
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="24"
+          height="24"
+          focusable="false"
+          aria-hidden="true"
+        >
           <circle
             cx="12"
             cy="12"
@@ -657,11 +790,21 @@ export function AtlasCat({
       <div
         ref={element}
         className="atlas-cat"
-        aria-hidden="true"
+        data-atlas-pet="cat"
+        role="button"
+        tabIndex={0}
+        aria-label={t("cat.interact")}
+        title={t("cat.interact")}
         data-visible="false"
       >
         <div className="cat-stage">
-          <svg viewBox="0 0 110 84" width="94" height="72" focusable="false">
+          <svg
+            viewBox="0 0 110 84"
+            width="94"
+            height="72"
+            focusable="false"
+            aria-hidden="true"
+          >
             <ellipse
               className="cat-shadow"
               cx="57"
@@ -679,7 +822,7 @@ export function AtlasCat({
               strokeLinecap="round"
             >
               <path
-                className="cat-tail"
+                className="cat-tail cat-hit"
                 d="M34 66 C13 76 7 59 15 51 C21 46 25 50 23 55"
                 fill="none"
                 stroke="#e5ad72"
@@ -687,6 +830,7 @@ export function AtlasCat({
               />
               <path
                 d="M34 71 C27 57 34 42 46 40 C62 35 77 43 82 62 L78 75Z"
+                className="cat-hit"
                 fill="#eabd89"
               />
               <path
@@ -733,6 +877,7 @@ export function AtlasCat({
               <g className="cat-head">
                 <path
                   d="M44 37 L41 11 Q41 6 46 9 L59 19 Q68 16 78 20 L91 10 Q95 7 95 13 L92 38 Q88 54 69 54 Q48 54 44 37Z"
+                  className="cat-hit"
                   fill="#edc18e"
                 />
                 <path

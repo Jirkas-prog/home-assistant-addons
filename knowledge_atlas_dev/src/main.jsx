@@ -2002,6 +2002,7 @@ function App() {
         motion={settings.catMotion}
         personality={settings.catPersonality}
         yarnEnabled={settings.catYarnEnabled !== false}
+        yarnLayer={settings.catYarnLayer ?? "front"}
       />
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
       <UploadRecovery

@@ -1,3 +1,4 @@
+import { stepPetPhysics } from "./cat-physics.js";
 const clamp = (n, a, b) => Math.max(a, Math.min(b, n));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -84,7 +85,32 @@ export class CatYarn {
   stop(now, settle = true) {
     if (!this.ball) return;
     this.ball = null;
-    if (settle) this.cat.returnToRail(now);
+    if (settle && !this.cat.held && !this.cat.flight)
+      this.cat.returnToRail(now);
+  }
+
+  grab(now) {
+    if (!this.ball) return;
+    Object.assign(this.ball, { phase: "held", opacity: 1, scale: 1 });
+    this.cat.pointer = null;
+    if (!this.cat.held && !this.cat.flight) this.cat.returnToRail(now);
+  }
+
+  dragTo(point) {
+    if (!this.ball) return;
+    this.ball.x = clamp(point.x, 12, this.cat.width - 12);
+    this.ball.y = clamp(point.y, 12, this.cat.height - 15);
+  }
+
+  release(velocity, now) {
+    if (!this.ball) return;
+    Object.assign(this.ball, velocity, { phase: "flight", began: now });
+    this.lastTick = now;
+    this.expires = now + 60000;
+    this.pauseUntil = now + 350;
+    this.cat.placedUntil = 0;
+    if (!this.cat.motion && !this.cat.held && !this.cat.flight)
+      this.cat.enter("watch", now, 350);
   }
 
   setEnabled(enabled, now) {
@@ -95,6 +121,7 @@ export class CatYarn {
   sync(rails, now) {
     const b = this.ball;
     if (!b) return;
+    if (["held", "flight"].includes(b.phase)) return;
     // A resized viewport must not strand an airborne toy below its new floor.
     if (["fall", "toss"].includes(b.phase)) {
       b.x = clamp(b.x, 12, this.cat.width - 12);
@@ -115,13 +142,19 @@ export class CatYarn {
     }
     const dx = (rail.anchorX ?? rail.left) - (old.anchorX ?? old.left);
     const dy = rail.y - old.y;
+    const left =
+      rail.id === "drop-floor" ? 12 : (rail.supportLeft ?? rail.left + 47);
+    const right =
+      rail.id === "drop-floor"
+        ? this.cat.width - 12
+        : (rail.supportRight ?? rail.right + 47);
     this.destination = {
       rail,
-      x: clamp(this.destination.x + dx, rail.left + 47, rail.right + 47),
+      x: clamp(this.destination.x + dx, left, right),
       y: rail.y + 57,
     };
     if (!["fall", "toss"].includes(b.phase)) {
-      b.x = clamp(b.x + dx, rail.left + 47, rail.right + 47);
+      b.x = clamp(b.x + dx, left, right);
       b.y += dy;
     }
   }
@@ -132,12 +165,24 @@ export class CatYarn {
     if (!b) return;
     const dt = Math.max(0, now - this.lastTick);
     this.lastTick = now;
+    if (b.phase === "held") return;
     if (now > this.expires) {
       this.stop(now);
       return;
     }
     const target = this.destination;
-    if (b.phase === "fall") {
+    if (b.phase === "flight") {
+      const rail = stepPetPhysics(b, dt, c.rails, {
+        width: c.width,
+        height: c.height,
+        yarn: true,
+      });
+      if (rail) {
+        if (!c.rails.some((r) => r.id === rail.id)) c.rails.push(rail);
+        this.destination = { rail, x: b.x, y: b.y };
+        b.phase = "chase";
+      }
+    } else if (b.phase === "fall") {
       b.y += b.velocity * dt + 0.0015 * dt * dt;
       b.velocity += 0.003 * dt;
       b.x += (target.x - b.x) * (1 - Math.exp(-dt / 100));
@@ -159,6 +204,10 @@ export class CatYarn {
       b.rotation += dt * 0.6;
       if (p === 1) b.phase = "chase";
     } else if (b.phase === "paw") {
+      if (c.held || c.flight || now < this.pauseUntil) {
+        b.phase = "chase";
+        return;
+      }
       const age = now - b.began;
       b.x = target.x + Math.sin(age / 170) * 3;
       b.rotation = Math.sin(age / 170) * 22;
@@ -194,6 +243,16 @@ export class CatYarn {
         }
       }
     } else if (["hide", "bury"].includes(b.phase)) {
+      if (c.held || c.flight || now < this.pauseUntil) {
+        Object.assign(b, {
+          phase: "chase",
+          opacity: 1,
+          scale: 1,
+          x: target.x,
+          y: target.y,
+        });
+        return;
+      }
       const p = clamp((now - b.began) / 2000, 0, 1);
       b.x =
         b.from.x +
@@ -213,6 +272,9 @@ export class CatYarn {
       !["chase", "toss"].includes(b.phase) ||
       c.motion ||
       c.queued ||
+      c.held ||
+      c.flight ||
+      now < this.pauseUntil ||
       now < c.deadline
     )
       return;

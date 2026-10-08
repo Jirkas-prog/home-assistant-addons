@@ -1,5 +1,6 @@
 import { CAT_PERSONALITIES, catRoutine } from "../shared/cat-personalities.js";
 import { CatYarn } from "./cat-yarn.js";
+import { stepPetPhysics } from "./cat-physics.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -110,7 +111,7 @@ export class CatBehavior {
     this.cooldown = this.scene.visible ? now + 2000 : 0;
     this.relocate = this.scene.visible;
     if (["pounce", "cling"].includes(this.scene.pose)) this.returnToRail(now);
-    else if (!this.motion && !this.queued)
+    else if (!this.motion && !this.queued && !this.held && !this.flight)
       this.enter("sit", now, this.reduced ? Infinity : 1000);
   }
 
@@ -146,7 +147,77 @@ export class CatBehavior {
   }
 
   get animated() {
-    return !!this.motion || this.scene.pose === "cling" || !!this.yarn.ball;
+    return (
+      !!this.flight ||
+      !!this.motion ||
+      this.scene.pose === "cling" ||
+      (!!this.yarn.ball && this.yarn.ball.phase !== "held")
+    );
+  }
+
+  grab(now) {
+    this.held = true;
+    this.flight = this.motion = this.queued = null;
+    this.pointer = null;
+    this.routine = [];
+    this.yarn.pauseUntil = Infinity;
+    this.enter("held", now, Infinity);
+  }
+
+  dragTo(point) {
+    Object.assign(this.scene, this.bound(point));
+  }
+
+  release(velocity, now) {
+    this.held = false;
+    this.yarn.pauseUntil = now + 9000;
+    this.cooldown = now + 10000;
+    this.lastTick = now;
+    if (this.reduced) return this.returnToRail(now);
+    this.flight = { ...this.scene, ...velocity };
+    this.enter("flight", now, Infinity);
+  }
+
+  shoo(now) {
+    this.held = false;
+    this.flight = this.motion = this.queued = null;
+    this.pointer = null;
+    this.routine = [];
+    this.yarn.pauseUntil = now + 12000;
+    this.placedUntil = now + 11000;
+    this.cooldown = now + 13000;
+    const choices = this.rails.flatMap((rail) =>
+      [rail.left, rail.right].map((x) => ({ rail, x, y: rail.y })),
+    );
+    let away =
+      choices
+        .filter((p) => distance(p, this.scene) >= 160)
+        .sort((a, b) => distance(a, this.scene) - distance(b, this.scene))[0] ||
+      choices.sort(
+        (a, b) => distance(b, this.scene) - distance(a, this.scene),
+      )[0];
+    if (!away || distance(away, this.scene) < 100) {
+      const rail = {
+        id: "drop-floor",
+        left: 0,
+        right: Math.max(0, this.width - 94),
+        y: Math.max(0, this.height - 72),
+        anchorX: 0,
+      };
+      const x = this.scene.x < rail.right / 2 ? rail.right : rail.left;
+      away = { rail, x, y: rail.y };
+      this.rails = [...this.rails.filter((r) => r.id !== rail.id), rail];
+    }
+    this.travel(away.rail, away.x, now, true);
+    const move = this.queued || this.motion;
+    if (move)
+      this.start(
+        {
+          ...move,
+          duration: clamp(distance(this.scene, move.target) * 2, 450, 1100),
+        },
+        now,
+      );
   }
 
   get hand() {
@@ -209,6 +280,10 @@ export class CatBehavior {
       ];
     this.rails = rails;
     this.yarn.sync(rails, now);
+    if (this.held || this.flight) {
+      Object.assign(this.scene, this.bound(this.scene));
+      return;
+    }
     if (!rails.length) {
       if (this.motion?.kind === "fall") this.returnToRail(now);
       return;
@@ -289,6 +364,8 @@ export class CatBehavior {
     this.reduced = reduced;
     this.pointer = null;
     this.motion = this.queued = null;
+    this.held = false;
+    this.flight = null;
     this.enter("sit", now, reduced ? Infinity : 5000);
     const closest = this.nearest();
     if (closest) {
@@ -403,6 +480,8 @@ export class CatBehavior {
   }
 
   returnToRail(now) {
+    this.held = false;
+    this.flight = null;
     this.motion = this.queued = null;
     this.cooldown = now + (this.profile.cooldown || 9000);
     const landing =
@@ -494,6 +573,27 @@ export class CatBehavior {
     this.lastTick = now;
     if (!this.scene.visible || this.reduced) return this.scene;
     this.yarn.tick(now);
+    if (this.held) return this.scene;
+    if (this.flight) {
+      const f = this.flight;
+      const rail = stepPetPhysics(f, dt, this.rails, {
+        width: this.width,
+        height: this.height,
+      });
+      this.scene.x = f.x;
+      this.scene.y = f.y;
+      if (Math.abs(f.vx) > 0.1) this.scene.direction = f.vx > 0 ? 1 : -1;
+      if (rail) {
+        this.flight = null;
+        this.railId = rail.id;
+        if (!this.rails.some((r) => r.id === rail.id)) this.rails.push(rail);
+        this.placedUntil = now + 8000;
+        this.cooldown = now + 10000;
+        this.yarn.pauseUntil = this.placedUntil;
+        this.enter("land", now, 400);
+      }
+      return this.scene;
+    }
     if (this.motion) {
       const m = this.motion;
       if (m.kind === "fall") {
@@ -557,7 +657,9 @@ export class CatBehavior {
     }
     if (now < this.deadline) return this.scene;
     if (this.queued) this.start(this.queued, now);
-    else if (this.yarn.ball) return this.scene;
+    else if (now < this.placedUntil) {
+      this.enter("sit", now, this.placedUntil - now);
+    } else if (this.yarn.ball) return this.scene;
     else if (this.scene.pose === "hunt") {
       const pointer = this.pointer;
       if (
@@ -577,8 +679,6 @@ export class CatBehavior {
           now,
         );
       }
-    } else if (now < this.placedUntil) {
-      this.enter("sit", now, this.placedUntil - now);
     } else if (this.personality !== "classic" && now < this.workUntil) {
       this.enter("watch", now, this.workUntil - now);
     } else if (this.scene.pose === "sleep") this.enter("wake", now, 1800);

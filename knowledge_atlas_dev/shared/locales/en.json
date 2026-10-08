@@ -1427,5 +1427,12 @@
   "appearance.light": "Light",
   "appearance.dark": "Dark",
   "undo.field.appearance": "Appearance",
-  "appearance.invalid": "Invalid appearance preference."
+  "appearance.invalid": "Invalid appearance preference.",
+  "cat.interact": "Cat: click to send her away; drag to carry or throw",
+  "cat.yarn.interact": "Yarn: click to remove; drag to move or throw",
+  "cat.interactionHelp": "Click the cat to send her out of the way. Hold and drag her to move her; release gently to place her on the edge below, or flick to throw. The ball works the same way, but a click removes it. Mouse, pen and touch are supported. Enter or Space also sends the focused cat away or removes the ball. Escape cancels a drag without throwing. Reduced motion allows carrying without inertia.",
+  "cat.yarn.layer": "Ball position relative to the cat",
+  "cat.yarn.front": "In front of the cat (default)",
+  "cat.yarn.behind": "Behind the cat",
+  "undo.field.catYarnLayer": "Yarn layering"
 }

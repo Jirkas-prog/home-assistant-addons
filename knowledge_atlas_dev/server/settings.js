@@ -29,6 +29,7 @@ export class Settings {
       catMotion: "full",
       catPersonality: "classic",
       catYarnEnabled: true,
+      catYarnLayer: "front",
       appearance: DEFAULT_APPEARANCE,
       taskDefaultView: "timeline",
       taskCalendarView: "month",
@@ -153,6 +154,11 @@ export class Settings {
     )
       fail("Invalid cat companion preference.");
     if (
+      value.catYarnLayer != null &&
+      !["front", "behind"].includes(value.catYarnLayer)
+    )
+      fail("Invalid yarn layer preference.");
+    if (
       value.libraryId != null &&
       (typeof value.libraryId !== "string" ||
         !/^[a-f0-9-]{32,36}$/.test(value.libraryId))
@@ -210,6 +216,7 @@ export class Settings {
       catMotion: value.catMotion ?? "full",
       catPersonality: value.catPersonality ?? "classic",
       catYarnEnabled: value.catYarnEnabled ?? true,
+      catYarnLayer: value.catYarnLayer ?? "front",
       taskDefaultView: value.taskDefaultView ?? "timeline",
       taskCalendarView: value.taskCalendarView ?? "month",
       languageSelectionCompleted: value.languageSelectionCompleted ?? true,

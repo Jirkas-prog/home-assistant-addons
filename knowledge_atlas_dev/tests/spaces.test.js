@@ -239,12 +239,14 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
   delete legacy.catMotion;
   delete legacy.catPersonality;
   delete legacy.catYarnEnabled;
+  delete legacy.catYarnLayer;
   legacy.languageSelectionCompleted = true;
   await fs.writeFile(file, JSON.stringify(legacy));
   let settings = await f.request("general", "settings");
   assert.equal(settings.catMotion, "full");
   assert.equal(settings.catPersonality, "classic");
   assert.equal(settings.catYarnEnabled, true);
+  assert.equal(settings.catYarnLayer, "front");
   assert.equal(settings.languageSelectionCompleted, true);
   const { createdId } = await f.request("general", "spaces", {
     name: "Example",
@@ -252,11 +254,24 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
   settings = await f.request(
     "general",
     "settings",
-    { ...settings, catYarnEnabled: false },
+    { ...settings, catYarnEnabled: false, catYarnLayer: "behind" },
     "PUT",
   );
   assert.equal((await f.request("general", "settings")).catYarnEnabled, false);
   assert.equal((await f.request(createdId, "settings")).catYarnEnabled, true);
+  assert.equal((await f.request("general", "settings")).catYarnLayer, "behind");
+  assert.equal((await f.request(createdId, "settings")).catYarnLayer, "front");
+  for (const catYarnLayer of ["unknown", "", ["front"], 1]) {
+    const invalid = await fetch(`${f.base}/spaces/general/api/settings`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Knowledge-Client": "atlas",
+      },
+      body: JSON.stringify({ ...settings, catYarnLayer }),
+    });
+    assert.equal(invalid.status, 400);
+  }
   const invalidYarn = await fetch(`${f.base}/spaces/general/api/settings`, {
     method: "PUT",
     headers: {
@@ -334,6 +349,7 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
   assert.equal((await b.settings.read()).catMotion, "still");
   assert.equal((await b.settings.read()).catPersonality, "playful");
   assert.equal((await b.settings.read()).catYarnEnabled, false);
+  assert.equal((await b.settings.read()).catYarnLayer, "behind");
   await f.host.stop();
   const restarted = await createSpacesApp({
     directory: f.directory,
@@ -349,6 +365,10 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
     "still",
   );
   for (const space of ["general", createdId]) {
+    assert.equal(
+      (await (await restarted.openSpace(space)).settings.read()).catYarnLayer,
+      "behind",
+    );
     assert.equal(
       (await (await restarted.openSpace(space)).settings.read()).catYarnEnabled,
       false,

@@ -1427,5 +1427,12 @@
   "appearance.light": "Světlý",
   "appearance.dark": "Tmavý",
   "undo.field.appearance": "Vzhled",
-  "appearance.invalid": "Neplatná volba vzhledu."
+  "appearance.invalid": "Neplatná volba vzhledu.",
+  "cat.interact": "Kočka: kliknutím odeženeš, tažením přeneseš nebo hodíš",
+  "cat.yarn.interact": "Klubíčko: kliknutím odstraníš, tažením přemístíš nebo hodíš",
+  "cat.interactionHelp": "Kliknutím kočku odeženeš z místa, kde překáží. Podržením a tažením ji přeneseš; pomalým puštěním položíš na hranu pod ní, švihem hodíš. Klubíčko funguje stejně, ale kliknutím zmizí. Funguje myš, pero i dotyk. Enter nebo mezerník také odežene vybranou kočku či odstraní klubíčko. Escape ukončí tažení bez hodu. Při omezeném pohybu lze kočku přenášet bez setrvačnosti.",
+  "cat.yarn.layer": "Umístění klubíčka vůči kočce",
+  "cat.yarn.front": "Před kočkou (výchozí)",
+  "cat.yarn.behind": "Za kočkou",
+  "undo.field.catYarnLayer": "Vrstvení klubíčka"
 }

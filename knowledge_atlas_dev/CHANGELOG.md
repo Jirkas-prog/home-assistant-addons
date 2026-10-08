@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.45
+
+- Make the cat and yarn directly draggable with mouse, pen and touch. Preserve grab offsets; distinguish clicks, slow placement and velocity-based throws. Apply gravity, wall reflection, surface bounces and rolling friction using visible control edges.
+- Click the cat to send her out of the way with a resting cooldown; click the yarn to dismiss it. Pause roaming while held, retain a newly chosen perch, and cancel interrupted gestures without a throw or activating controls underneath. Support keyboard dismissal and reduced-motion carrying.
+- Add a per-space yarn layer preference under Pet settings, defaulting to in front of the cat. Preserve it in settings history, backups and updates. Keep all animation local with no extra dependencies or network requests.
+
 ## 5.0.1-dev.44
 
 - Add a dedicated Appearance section with five accessible preview cards: Original, Lime, Paper, Graphite and Tide. Preserve both previous designs alongside three distinct new palettes, surface treatments and corner styles.
