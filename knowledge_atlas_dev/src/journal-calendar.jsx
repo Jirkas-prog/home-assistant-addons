@@ -87,19 +87,22 @@ function Month({ date, entries, onOpen, onDay, onCreate, dateOnly }) {
   const [height, setHeight] = useState(500);
   const [overflowDay, setOverflowDay] = useState(null);
   useEffect(() => {
-    const measure = () =>
+    const element = container.current;
+    const measure = () => {
+      if (!element?.isConnected) return;
       setHeight(
         Math.max(
           350,
           window.innerHeight -
-            container.current.getBoundingClientRect().top -
+            element.getBoundingClientRect().top -
             window.scrollY -
             20,
         ),
       );
+    };
     measure();
     const observer = new ResizeObserver(measure);
-    observer.observe(container.current.parentElement);
+    observer.observe(element.parentElement);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();

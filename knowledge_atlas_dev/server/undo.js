@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { historyDirectory } from "./file-safety.js";
 import { fail } from "../shared/schema.js";
 import { safePath } from "./documents.js";
+import { parseMarkdown } from "./store.js";
 
 const compress = promisify(gzip),
   decompress = promisify(gunzip);
@@ -26,6 +27,32 @@ const conflict = () =>
     "The affected data changed outside this history. No changes were overwritten.",
     409,
   );
+
+function changedFields(changes) {
+  const fields = new Set();
+  for (const { target, before, after } of changes) {
+    if (before === null || after === null) continue;
+    try {
+      if (target.kind === "record" || target.name === "settings.json") {
+        const parse = target.kind === "record" ? parseMarkdown : JSON.parse;
+        const previous = parse(before),
+          next = parse(after);
+        for (const key of new Set([
+          ...Object.keys(previous),
+          ...Object.keys(next),
+        ]))
+          if (
+            !["updated", "revision", "created", "schema", "id"].includes(key) &&
+            JSON.stringify(previous[key]) !== JSON.stringify(next[key])
+          )
+            fields.add(key.slice(0, 64));
+      } else fields.add(target.kind);
+    } catch {
+      fields.add(target.kind);
+    }
+  }
+  return [...fields].slice(0, 32);
+}
 
 // The existing mutation queue serializes edits and travel. Only touched text
 // files are captured; attachments are never copied with a map move or a rating.
@@ -66,7 +93,7 @@ export class UndoHistory {
     const root = await this.rootIdentity();
     const folder = await this.folder(),
       file = path.join(folder, "index.json");
-    const raw = await this.readFile(file, 1_000_000);
+    const raw = await this.readFile(file, 4_000_000);
     if (this.cached?.raw === raw && this.cached.value.root === root)
       return this.cached.value;
     let state;
@@ -100,7 +127,15 @@ export class UndoHistory {
             "document",
           ].includes(e.kind) ||
           typeof e.title !== "string" ||
-          e.title.length > 240,
+          e.title.length > 240 ||
+          (e.at !== undefined &&
+            (typeof e.at !== "string" || !Number.isFinite(Date.parse(e.at)))) ||
+          (e.fields !== undefined &&
+            (!Array.isArray(e.fields) ||
+              e.fields.length > 32 ||
+              e.fields.some(
+                (field) => typeof field !== "string" || field.length > 64,
+              ))),
       ) ||
       new Set(state.entries.map((e) => e.id)).size !== state.entries.length
     )
@@ -126,6 +161,37 @@ export class UndoHistory {
     return {
       ...this.describe(await this.state()),
       ...(this.recoveryError ? { error: this.recoveryError } : {}),
+    };
+  }
+  async history(offset = 0) {
+    if (!Number.isSafeInteger(offset) || offset < 0 || offset > LIMIT)
+      fail("Invalid history page.");
+    const state = await this.state(),
+      limit = 40;
+    offset = Math.min(
+      offset,
+      Math.max(0, Math.ceil(state.entries.length / limit) - 1) * limit,
+    );
+    return {
+      ...this.describe(state),
+      ...(this.recoveryError ? { error: this.recoveryError } : {}),
+      offset,
+      total: state.entries.length,
+      next: offset + limit < state.entries.length ? offset + limit : null,
+      previous: offset ? Math.max(0, offset - limit) : null,
+      entries: state.entries
+        .toReversed()
+        .slice(offset, offset + limit)
+        .map((entry, i) => {
+          const index = state.entries.length - 1 - offset - i;
+          const applied = index < state.cursor;
+          return {
+            ...entry,
+            applied,
+            direction: applied ? "undo" : "redo",
+            steps: applied ? state.cursor - index : index - state.cursor + 1,
+          };
+        }),
     };
   }
   async atomic(file, body) {
@@ -361,7 +427,13 @@ export class UndoHistory {
         });
         const entries = [
           ...state.entries.slice(0, state.cursor),
-          { id, bytes, ...context.label },
+          {
+            id,
+            bytes,
+            ...context.label,
+            at: audit.at,
+            fields: changedFields(completed),
+          },
         ];
         let total = entries.reduce((sum, entry) => sum + entry.bytes, 0);
         while (entries.length > LIMIT || (total > BUDGET && entries.length > 1))
@@ -407,29 +479,61 @@ export class UndoHistory {
     await this.saveState(this.empty(state.root));
     await this.pruneEntries([]);
   }
-  async travel(direction, revision) {
+  async travel(direction, revision, entryId) {
     await this.recover();
     const state = await this.state();
     if (!["undo", "redo"].includes(direction)) fail("Choose undo or redo.");
     if (revision !== state.revision)
       fail("The undo history changed. Refresh and try again.", 409);
-    const cursor = direction === "undo" ? state.cursor - 1 : state.cursor;
+    const cursor =
+      entryId === undefined
+        ? direction === "undo"
+          ? state.cursor - 1
+          : state.cursor
+        : state.entries.findIndex((entry) => entry.id === entryId);
     const entry = state.entries[cursor];
     if (!entry) fail("There are no changes in this direction.", 409);
-    const loaded = await this.unpack(`${entry.id}.json.gz`);
-    const changes = await this.changes(loaded.changes);
-    if (direction === "undo")
-      for (const change of changes)
-        [change.before, change.after] = [change.after, change.before];
-    for (const change of changes)
+    if ((direction === "undo") !== cursor < state.cursor)
+      fail("The undo history changed. Refresh and try again.", 409);
+    const entries =
+      direction === "undo"
+        ? state.entries.slice(cursor, state.cursor).toReversed()
+        : state.entries.slice(state.cursor, cursor + 1);
+    // Compose the selected range before touching data. One transaction preserves
+    // the existing rollback and crash recovery guarantees for multi-step travel.
+    const combined = new Map();
+    let combinedBytes = 0;
+    for (const selected of entries) {
+      const loaded = await this.unpack(`${selected.id}.json.gz`);
+      for (const change of await this.changes(loaded.changes)) {
+        if (direction === "undo")
+          [change.before, change.after] = [change.after, change.before];
+        const previous = combined.get(change.file);
+        if (previous) {
+          if (previous.after !== change.before) conflict();
+          combinedBytes -= Buffer.byteLength(previous.after || "");
+          previous.after = change.after;
+        } else {
+          combined.set(change.file, change);
+          combinedBytes += Buffer.byteLength(change.before || "");
+        }
+        combinedBytes += Buffer.byteLength(change.after || "");
+        if (combined.size > 10000 || combinedBytes > 128 * 1024 ** 2)
+          fail("This change is too large for undo history.");
+      }
+    }
+    for (const change of combined.values())
       if ((await this.readFile(change.file)) !== change.before) conflict();
+    const changes = [...combined.values()].filter(
+      (change) => change.before !== change.after,
+    );
     await this.validate(changes);
     for (const change of changes)
       if ((await this.readFile(change.file)) !== change.before) conflict();
     const next = {
       ...state,
       revision: randomUUID(),
-      cursor: state.cursor + (direction === "undo" ? -1 : 1),
+      cursor: direction === "undo" ? cursor : cursor + 1,
     };
     await this.packed("pending.json.gz", {
       mode: "travel",
@@ -442,6 +546,9 @@ export class UndoHistory {
         at: new Date().toISOString(),
         source: direction,
         ...(entry.recordId ? { recordId: entry.recordId } : {}),
+        recordIds: [
+          ...new Set(entries.map((item) => item.recordId).filter(Boolean)),
+        ],
       },
     });
     try {

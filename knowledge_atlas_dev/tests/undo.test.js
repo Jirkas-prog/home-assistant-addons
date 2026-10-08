@@ -7,7 +7,6 @@ import { randomUUID } from "node:crypto";
 import { createApp } from "../server/index.js";
 import { UndoHistory } from "../server/undo.js";
 import { serialize } from "../server/store.js";
-import { undoShortcut } from "../src/undo-shortcut.js";
 import { translate } from "../shared/i18n.js";
 
 const record = (id, extra = {}) => ({
@@ -440,27 +439,213 @@ test("copied or replaced libraries start a new undo boundary and reject untruste
   );
 });
 
-test("keyboard shortcuts preserve native text undo and both languages keep the same action keys", () => {
-  const base = { key: "z", ctrlKey: true, target: { closest: () => null } };
-  assert.equal(undoShortcut(base), "undo");
-  assert.equal(undoShortcut({ ...base, shiftKey: true }), "redo");
-  assert.equal(undoShortcut({ ...base, key: "y" }), "redo");
-  assert.equal(
-    undoShortcut({ ...base, ctrlKey: false, metaKey: true, shiftKey: true }),
-    "redo",
-  );
-  assert.equal(
-    undoShortcut({ ...base, target: { closest: () => ({}) } }),
-    null,
-  );
-  assert.equal(undoShortcut({ ...base, defaultPrevented: true }), null);
+test("history labels and confirmations are available in both languages", () => {
   for (const language of ["en", "cs"])
     for (const key of [
       "undo.undo",
       "undo.redo",
-      "undo.available",
+      "undo.section",
+      "undo.confirmHelp.undo",
+      "undo.confirmHelp.redo",
       "undo.conflict",
       "undo.action.map",
     ])
       assert.notEqual(translate(language, key), key);
+});
+
+test("history lists saved descriptions without file contents and selected ranges undo and redo atomically", async (t) => {
+  const { directory } = await fixture(t),
+    { request } = await start(t, directory);
+  let node = await request("nodes", "POST", record("note"), 201);
+  node = await request("nodes/note", "PUT", { ...node, importance: 5 });
+  node = await request("nodes/note", "PUT", {
+    ...node,
+    title: "Revised title",
+    body: "Private example body",
+  });
+  const list = await request("undo/history");
+  assert.equal(list.entries.length, 3);
+  assert.equal(list.entries[0].title, "Revised title");
+  assert.deepEqual(list.entries[0].fields.toSorted(), ["body", "title"]);
+  assert.deepEqual(list.entries[1].fields, ["importance"]);
+  assert.ok(Number.isFinite(Date.parse(list.entries[0].at)));
+  assert.equal(JSON.stringify(list).includes("Private example body"), false);
+  assert.equal((await request("undo")).entries, undefined);
+  assert.deepEqual(
+    list.entries.map((e) => e.steps),
+    [1, 2, 3],
+  );
+  assert.deepEqual(
+    (await new UndoHistory(directory).history()).entries,
+    list.entries,
+  );
+  const undo = await request("undo/undo", "POST", {
+    revision: list.revision,
+    entryId: list.entries[1].id,
+  });
+  const restored = await request("nodes/note");
+  assert.equal(restored.importance, 3);
+  assert.equal(restored.title, "Example note");
+  assert.equal(restored.body, "Original notes");
+  assert.equal(undo.redo, 2);
+  const undone = await request("undo/history");
+  assert.deepEqual(
+    undone.entries.map((e) => [e.applied, e.direction, e.steps]),
+    [
+      [false, "redo", 2],
+      [false, "redo", 1],
+      [true, "undo", 1],
+    ],
+  );
+  await request("undo/redo", "POST", {
+    revision: undone.revision,
+    entryId: list.entries[0].id,
+  });
+  assert.equal((await request("nodes/note")).importance, 5);
+  assert.equal((await request("nodes/note")).body, "Private example body");
+  await request(
+    "undo/undo",
+    "POST",
+    { revision: list.revision, entryId: list.entries[0].id },
+    409,
+  );
+  const state = await request("undo");
+  await request(
+    "undo/redo",
+    "POST",
+    { revision: state.revision, entryId: list.entries[0].id },
+    409,
+  );
+  await request(
+    "undo/undo",
+    "POST",
+    { revision: state.revision, entryId: "missing" },
+    409,
+  );
+  assert.equal((await request("undo")).revision, state.revision);
+});
+
+test("history pages remain small, accept legacy entries and reject invalid page offsets", async (t) => {
+  const { directory } = await fixture(t),
+    { request } = await start(t, directory);
+  const history = new UndoHistory(directory, { validate: async () => {} });
+  const file = path.join(directory, "note.md");
+  await fs.writeFile(file, "0");
+  for (let i = 1; i <= 43; i++)
+    await history.record(async () => {
+      await history.watch(
+        { kind: "record", id: "note" },
+        { kind: "record", title: `Revision ${i}` },
+      );
+      await fs.writeFile(file, String(i));
+    });
+  const state = await history.state();
+  delete state.entries[0].at;
+  delete state.entries[0].fields;
+  await history.saveState(state);
+  const first = await request("undo/history"),
+    last = await request("undo/history?offset=40");
+  assert.equal(first.entries.length, 40);
+  assert.equal(first.entries[0].title, "Revision 43");
+  assert.equal(first.next, 40);
+  assert.equal(last.entries.length, 3);
+  assert.equal(last.next, null);
+  assert.equal(last.previous, 0);
+  assert.equal(last.entries.at(-1).at, undefined);
+  assert.equal((await request("undo/history?offset=1000")).offset, 40);
+  for (const offset of ["-1", "1.5", "no", "1001"])
+    await request(`undo/history?offset=${offset}`, "GET", undefined, 400);
+  assert.equal((await request("undo")).undo, 43);
+});
+
+test("a selected range rejects external edits before writes and rolls back every file after a disk failure", async (t) => {
+  const { directory } = await fixture(t),
+    { request, store } = await start(t, directory);
+  const a = await store.save(record("first")),
+    b = await store.save(record("second"));
+  await request("nodes/first", "PUT", { ...a, importance: 4 });
+  await request("nodes/second", "PUT", { ...b, importance: 5 });
+  const list = await request("undo/history");
+  const firstFile = path.join(directory, "first.md"),
+    secondFile = path.join(directory, "second.md");
+  const originalFirst = await fs.readFile(firstFile, "utf8"),
+    originalSecond = await fs.readFile(secondFile, "utf8");
+  await fs.writeFile(firstFile, originalFirst + "\nExternal edit");
+  const body = { revision: list.revision, entryId: list.entries[1].id };
+  await request("undo/undo", "POST", body, 409);
+  assert.equal(await fs.readFile(secondFile, "utf8"), originalSecond);
+  await fs.writeFile(firstFile, originalFirst);
+  const rename = fs.rename.bind(fs);
+  let reject = true;
+  const mock = t.mock.method(fs, "rename", async (source, target) => {
+    if (reject && target === firstFile) {
+      reject = false;
+      throw new Error("Simulated range write failure");
+    }
+    return rename(source, target);
+  });
+  await request("undo/undo", "POST", body, 500);
+  mock.mock.restore();
+  assert.equal(await fs.readFile(firstFile, "utf8"), originalFirst);
+  assert.equal(await fs.readFile(secondFile, "utf8"), originalSecond);
+  assert.equal((await request("undo")).revision, list.revision);
+  await request("undo/undo", "POST", body);
+  assert.equal((await request("nodes/first")).importance, 3);
+  assert.equal((await request("nodes/second")).importance, 3);
+});
+
+test("a range with no net file changes still moves the history cursor and remains reversible", async (t) => {
+  const { directory } = await fixture(t);
+  const history = new UndoHistory(directory, { validate: async () => {} });
+  const file = path.join(directory, "temporary.md");
+  await history.record(async () => {
+    await history.watch(
+      { kind: "record", id: "temporary" },
+      { kind: "create" },
+    );
+    await fs.writeFile(file, "Temporary note");
+  });
+  await history.record(async () => {
+    await history.watch(
+      { kind: "record", id: "temporary" },
+      { kind: "archive" },
+    );
+    await fs.unlink(file);
+  });
+  const list = await history.history();
+  let state = await history.travel("undo", list.revision, list.entries[1].id);
+  assert.equal(state.undo, 0);
+  assert.equal(state.redo, 2);
+  state = await history.travel("redo", state.revision, list.entries[0].id);
+  assert.equal(state.undo, 2);
+  await assert.rejects(fs.stat(file), { code: "ENOENT" });
+});
+
+test("combined ranges stay within the recovery file limit before writing any data", async (t) => {
+  const { directory } = await fixture(t);
+  const history = new UndoHistory(directory, {
+    validate: async () => assert.fail("Validation must not start"),
+  });
+  const state = await history.state();
+  state.entries = Array.from({ length: 2 }, () => ({
+    id: randomUUID(),
+    bytes: 1,
+    kind: "record",
+    title: "Batch edit",
+  }));
+  state.cursor = 2;
+  await history.saveState(state);
+  t.mock.method(history, "unpack", async (name) => ({
+    changes: Array.from({ length: 6000 }, (_, i) => ({
+      target: { kind: "record", id: `${name.slice(0, 36)}-${i}` },
+      before: "Before",
+      after: "After",
+    })),
+  }));
+  await assert.rejects(
+    history.travel("undo", state.revision, state.entries[0].id),
+    /too large/,
+  );
+  assert.equal((await history.status()).revision, state.revision);
+  assert.deepEqual(await fs.readdir(directory), [".history"]);
 });

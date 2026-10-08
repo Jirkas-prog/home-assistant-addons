@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.34**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.35**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -12,7 +12,7 @@ This is the **development channel**, version **5.0.1-dev.34**. The add-on name a
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.
 - Dated record cards, editable and fixed list positions with automatic renumbering, and date/importance sorting.
 - Drag entire branches in 2D/3D, save their positions with the library, and reset each layout independently.
-- Persistent Undo and Redo with step counts for saved edits, ratings, ordering and map arrangements.
+- Persistent history in **Settings and locations > Restore recent changes**, with dated descriptions and confirmed Undo/Redo for saved edits, ratings, ordering and map arrangements.
 - Full breadcrumb paths wrap onto multiple lines.
 - Six retained map layouts in 2D and 3D, cached geometry and readable labels with progressive detail.
 - Combined topic, type and multi-value importance filters.
@@ -75,3 +75,11 @@ Choose **Set as default** below the view to remember that layout (and the calend
 In a task card, **New project** creates and selects a project while preserving the task draft. **Write in journal**, or **Save and write in journal**, opens an editable journal draft for today, linked to that task and project. It reuses the title, tags, and importance. Saving the journal does not complete the task. Attachments are neither copied nor fetched by this action.
 
 Dropdowns use an application menu on desktop and mobile. Long lists include search; arrows, Home/End, Enter, Escape and Tab work without the operating system's picker. Space switching remains within the add-on, including Home Assistant Ingress.
+
+### Restoring recent changes
+
+Open **Settings and locations**, then expand **Restore recent changes**. The list is loaded only on demand, 40 descriptions at a time. New entries show their time, affected record and changed properties; older entries remain available even if their original timestamp was not recorded.
+
+Each action asks for confirmation. Selecting an older applied entry undoes that entry and every newer applied entry together; the confirmation states the exact count. An undone entry restores the necessary steps in their original order. A new saved edit discards the redo branch. Save or discard unsaved settings before restoring history. Global Ctrl+Z no longer changes the atlas; text fields retain their native undo.
+
+The history is separate for each space and survives restarts. It retains up to 1,000 steps within a 256 MiB compressed storage budget. Full library replacement starts a new history boundary. Revision conflicts or externally edited target files prevent a restore from overwriting newer data.

@@ -1646,3 +1646,16 @@ button:hover {
   display: block;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 700px) {
+  .topbar {
+    flex-wrap: wrap;
+    gap: 8px;
+    height: auto;
+    min-height: 61px;
+    padding-block: 10px;
+  }
+  .topbar-actions {
+    flex-wrap: wrap;
+  }
+}

@@ -16,6 +16,7 @@ import {
 import { api, useDialogKeys } from "./client.js";
 import { resourceLocation } from "./atlas-model.js";
 import { DataTools } from "./data-tools.jsx";
+import { UndoHistory } from "./undo-history.jsx";
 import { locationDescendants, locationLabel } from "../shared/locations.js";
 const KINDS = {
   get addon() {
@@ -34,7 +35,14 @@ const KINDS = {
     return t("m027");
   },
 };
-export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
+export function LocationsSettings({
+  initial,
+  nodes,
+  onClose,
+  onSaved,
+  onHistoryChanged,
+  historyDisabled,
+}) {
   const [form, setForm] = useState(() => structuredClone(initial)),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
@@ -48,6 +56,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
     }));
   };
   const close = () => {
+    if (busy) return;
     if (!dirty || confirm(t("m028"))) onClose();
   };
   useDialogKeys(React, close);
@@ -95,6 +104,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
           <button
             type="button"
             autoFocus
+            disabled={busy}
             className="icon-button"
             aria-label={t("m031")}
             onClick={close}
@@ -103,160 +113,131 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
           </button>
         </header>
         <div className="editor-body">
-          <label>
-            {t("settings.language")}
-            <Select
-              value={form.language || "en"}
-              onChange={(e) => change("language", e.target.value)}
-            >
-              <option value="en">{t("language.en")}</option>
-              <option value="cs">{t("language.cs")}</option>
-            </Select>
-          </label>
-          <p className="field-help">{t("settings.languageHelp")}</p>
-          <label className="check-label">
-            <input
-              type="checkbox"
-              checked={form.catEnabled !== false}
-              onChange={(e) => change("catEnabled", e.target.checked)}
-            />
-            {t("cat.setting")}
-          </label>
-          <label>
-            {t("cat.motion")}
-            <Select
-              aria-label={t("cat.motion")}
-              value={form.catMotion ?? "full"}
-              onChange={(e) => change("catMotion", e.target.value)}
-            >
-              {["full", "system", "still"].map((mode) => (
-                <option key={mode} value={mode}>
-                  {t(`cat.motion.${mode}`)}
-                </option>
-              ))}
-            </Select>
-          </label>
-          <p className="field-help">{t("cat.help")}</p>
-          <label>
-            {t("m032")}
-            <input
-              required
-              value={form.documentRoot}
-              onChange={(e) => change("documentRoot", e.target.value)}
-            />
-          </label>
-          <p className="field-help">{t("m033")}</p>
-          <div className="editor-label">
-            <span>{t("m034")}</span>
-            <button
-              type="button"
-              onClick={() =>
-                change("locations", [
-                  ...form.locations,
-                  {
-                    id: crypto.randomUUID(),
-                    name: "",
-                    kind: "physical",
-                  },
-                ])
-              }
-            >
-              <Plus size={15} />
-              {t("m035")}
-            </button>
-          </div>
-          {form.locations.map((l) => {
-            const used = nodes.filter((n) =>
-              [...n.resources, ...(n.stock?.placements || [])].some(
-                (r) => resourceLocation(r) === l.id,
-              ),
-            ).length;
-            const descendants = locationDescendants(form.locations, l.id);
-            const children = form.locations.filter(
-              (x) => x.parentId === l.id,
-            ).length;
-            return (
-              <div className="location-card" key={l.id}>
-                <div className="location-fields">
-                  <label>
-                    {t("m036")}
-                    <input
-                      required
-                      maxLength={100}
-                      value={l.name}
-                      onChange={(e) => update(l.id, "name", e.target.value)}
-                    />
-                  </label>
-                  <label>
-                    {t("m037")}
-                    <Select
-                      value={l.kind}
-                      onChange={(e) => update(l.id, "kind", e.target.value)}
-                    >
-                      {Object.entries(KINDS).map(([id, name]) => (
-                        <option key={id} value={id}>
-                          {name}
-                        </option>
-                      ))}
-                    </Select>
-                  </label>
-                  <button
-                    type="button"
-                    disabled={used > 0 || children > 0}
-                    title={used ? t("m038", used) : t("m039")}
-                    aria-label={t("m040", l.name)}
-                    className="icon-button"
-                    onClick={() =>
-                      change(
-                        "locations",
-                        form.locations.filter((x) => x.id !== l.id),
-                      )
-                    }
-                  >
-                    <X size={17} />
-                  </button>
-                </div>
-                {l.kind === "physical" && (
-                  <>
+          <fieldset className="draft-fields" disabled={busy}>
+            <label>
+              {t("settings.language")}
+              <Select
+                value={form.language || "en"}
+                onChange={(e) => change("language", e.target.value)}
+              >
+                <option value="en">{t("language.en")}</option>
+                <option value="cs">{t("language.cs")}</option>
+              </Select>
+            </label>
+            <p className="field-help">{t("settings.languageHelp")}</p>
+            <label className="check-label">
+              <input
+                type="checkbox"
+                checked={form.catEnabled !== false}
+                onChange={(e) => change("catEnabled", e.target.checked)}
+              />
+              {t("cat.setting")}
+            </label>
+            <label>
+              {t("cat.motion")}
+              <Select
+                aria-label={t("cat.motion")}
+                value={form.catMotion ?? "full"}
+                onChange={(e) => change("catMotion", e.target.value)}
+              >
+                {["full", "system", "still"].map((mode) => (
+                  <option key={mode} value={mode}>
+                    {t(`cat.motion.${mode}`)}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <p className="field-help">{t("cat.help")}</p>
+            <label>
+              {t("m032")}
+              <input
+                required
+                value={form.documentRoot}
+                onChange={(e) => change("documentRoot", e.target.value)}
+              />
+            </label>
+            <p className="field-help">{t("m033")}</p>
+            <div className="editor-label">
+              <span>{t("m034")}</span>
+              <button
+                type="button"
+                onClick={() =>
+                  change("locations", [
+                    ...form.locations,
+                    {
+                      id: crypto.randomUUID(),
+                      name: "",
+                      kind: "physical",
+                    },
+                  ])
+                }
+              >
+                <Plus size={15} />
+                {t("m035")}
+              </button>
+            </div>
+            {form.locations.map((l) => {
+              const used = nodes.filter((n) =>
+                [...n.resources, ...(n.stock?.placements || [])].some(
+                  (r) => resourceLocation(r) === l.id,
+                ),
+              ).length;
+              const descendants = locationDescendants(form.locations, l.id);
+              const children = form.locations.filter(
+                (x) => x.parentId === l.id,
+              ).length;
+              return (
+                <div className="location-card" key={l.id}>
+                  <div className="location-fields">
                     <label>
-                      {t("locations.parent")}
+                      {t("m036")}
+                      <input
+                        required
+                        maxLength={100}
+                        value={l.name}
+                        onChange={(e) => update(l.id, "name", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      {t("m037")}
                       <Select
-                        value={l.parentId || ""}
-                        onChange={(e) =>
-                          update(l.id, "parentId", e.target.value || null)
-                        }
+                        value={l.kind}
+                        onChange={(e) => update(l.id, "kind", e.target.value)}
                       >
-                        <option value="">{t("locations.root")}</option>
-                        {form.locations
-                          .filter(
-                            (x) =>
-                              x.kind === "physical" && !descendants.has(x.id),
-                          )
-                          .map((x) => (
-                            <option key={x.id} value={x.id}>
-                              {locationLabel(form.locations, x.id)}
-                            </option>
-                          ))}
+                        {Object.entries(KINDS).map(([id, name]) => (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        ))}
                       </Select>
                     </label>
-                    {(used > 0 || children > 0) && (
-                      <details>
-                        <summary>{t("locations.replace")}</summary>
-                        <p className="field-help">
-                          {t("locations.replaceHelp", used, children)}
-                        </p>
+                    <button
+                      type="button"
+                      disabled={used > 0 || children > 0}
+                      title={used ? t("m038", used) : t("m039")}
+                      aria-label={t("m040", l.name)}
+                      className="icon-button"
+                      onClick={() =>
+                        change(
+                          "locations",
+                          form.locations.filter((x) => x.id !== l.id),
+                        )
+                      }
+                    >
+                      <X size={17} />
+                    </button>
+                  </div>
+                  {l.kind === "physical" && (
+                    <>
+                      <label>
+                        {t("locations.parent")}
                         <Select
-                          aria-label={t("locations.destination", l.name)}
-                          disabled={dirty || busy}
-                          value={replacement[l.id] || ""}
+                          value={l.parentId || ""}
                           onChange={(e) =>
-                            setReplacement({
-                              ...replacement,
-                              [l.id]: e.target.value,
-                            })
+                            update(l.id, "parentId", e.target.value || null)
                           }
                         >
-                          <option value="">{t("stock.choose")}</option>
+                          <option value="">{t("locations.root")}</option>
                           {form.locations
                             .filter(
                               (x) =>
@@ -268,72 +249,117 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                               </option>
                             ))}
                         </Select>
-                        <button
-                          type="button"
-                          disabled={dirty || busy || !replacement[l.id]}
-                          className="secondary-button"
-                          onClick={async () => {
-                            setBusy(true);
-                            setError("");
-                            try {
-                              await api(`locations/${l.id}/replace`, {
-                                method: "POST",
-                                body: JSON.stringify({
-                                  target: replacement[l.id],
-                                  revision: form.revision,
-                                }),
-                              });
-                              const next = await api("settings");
-                              setForm(next);
-                              onSaved(next);
-                            } catch (e) {
-                              setError(e.message);
-                            } finally {
-                              setBusy(false);
+                      </label>
+                      {(used > 0 || children > 0) && (
+                        <details>
+                          <summary>{t("locations.replace")}</summary>
+                          <p className="field-help">
+                            {t("locations.replaceHelp", used, children)}
+                          </p>
+                          <Select
+                            aria-label={t("locations.destination", l.name)}
+                            disabled={dirty || busy}
+                            value={replacement[l.id] || ""}
+                            onChange={(e) =>
+                              setReplacement({
+                                ...replacement,
+                                [l.id]: e.target.value,
+                              })
                             }
-                          }}
-                        >
-                          {t("locations.moveAndRemove")}
-                        </button>
-                      </details>
-                    )}
-                  </>
-                )}
-                {l.kind === "server" && (
-                  <label>
-                    {t("m041")}
-                    <input
-                      required
-                      value={l.basePath || ""}
-                      placeholder={t("m042")}
-                      onChange={(e) => update(l.id, "basePath", e.target.value)}
-                    />
-                  </label>
-                )}
-                {["addon", "server"].includes(l.kind) && (
-                  <label className="check-label">
-                    <input
-                      type="checkbox"
-                      checked={!!l.writable}
-                      onChange={(e) =>
-                        update(l.id, "writable", e.target.checked)
-                      }
-                    />
-                    {t("m043")}
-                    {l.kind === "addon" ? t("m044") : ""}
-                  </label>
-                )}
-                <small>
-                  {used}
-                  {" " + t("m045") + " "}
-                  {l.id}
-                </small>
-              </div>
-            );
-          })}
-          <p className="field-help">{t("m046")}</p>
+                          >
+                            <option value="">{t("stock.choose")}</option>
+                            {form.locations
+                              .filter(
+                                (x) =>
+                                  x.kind === "physical" &&
+                                  !descendants.has(x.id),
+                              )
+                              .map((x) => (
+                                <option key={x.id} value={x.id}>
+                                  {locationLabel(form.locations, x.id)}
+                                </option>
+                              ))}
+                          </Select>
+                          <button
+                            type="button"
+                            disabled={dirty || busy || !replacement[l.id]}
+                            className="secondary-button"
+                            onClick={async () => {
+                              setBusy(true);
+                              setError("");
+                              try {
+                                await api(`locations/${l.id}/replace`, {
+                                  method: "POST",
+                                  body: JSON.stringify({
+                                    target: replacement[l.id],
+                                    revision: form.revision,
+                                  }),
+                                });
+                                const next = await api("settings");
+                                setForm(next);
+                                onSaved(next);
+                              } catch (e) {
+                                setError(e.message);
+                              } finally {
+                                setBusy(false);
+                              }
+                            }}
+                          >
+                            {t("locations.moveAndRemove")}
+                          </button>
+                        </details>
+                      )}
+                    </>
+                  )}
+                  {l.kind === "server" && (
+                    <label>
+                      {t("m041")}
+                      <input
+                        required
+                        value={l.basePath || ""}
+                        placeholder={t("m042")}
+                        onChange={(e) =>
+                          update(l.id, "basePath", e.target.value)
+                        }
+                      />
+                    </label>
+                  )}
+                  {["addon", "server"].includes(l.kind) && (
+                    <label className="check-label">
+                      <input
+                        type="checkbox"
+                        checked={!!l.writable}
+                        onChange={(e) =>
+                          update(l.id, "writable", e.target.checked)
+                        }
+                      />
+                      {t("m043")}
+                      {l.kind === "addon" ? t("m044") : ""}
+                    </label>
+                  )}
+                  <small>
+                    {used}
+                    {" " + t("m045") + " "}
+                    {l.id}
+                  </small>
+                </div>
+              );
+            })}
+            <p className="field-help">{t("m046")}</p>
+          </fieldset>
           {dirty && <p className="field-help">{t("data.saveSettingsFirst")}</p>}
-          <fieldset className="maintenance-fieldset" disabled={dirty}>
+          <UndoHistory
+            disabled={dirty || busy || historyDisabled}
+            onBusy={setBusy}
+            onChanged={async () => {
+              setForm(await api("settings"));
+              await onHistoryChanged();
+            }}
+          />
+          {historyDisabled && (
+            <p className="field-help">{t("undo.finishEditing")}</p>
+          )}
+          <fieldset className="maintenance-fieldset" disabled={dirty || busy}>
             <DataTools
               onChanged={async () => {
                 const latest = await api("settings");
@@ -350,10 +376,15 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
           )}
         </div>
         <footer>
-          <button type="button" className="secondary-button" onClick={close}>
+          <button
+            type="button"
+            disabled={busy}
+            className="secondary-button"
+            onClick={close}
+          >
             {t("m047")}
           </button>
-          <button disabled={busy} className="primary-button">
+          <button disabled={busy || !dirty} className="primary-button">
             <Check size={16} />
             {busy ? t("m022") : t("m048")}
           </button>

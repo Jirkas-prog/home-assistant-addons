@@ -425,12 +425,18 @@ export async function createApp({
   app.get("/api/undo", async (req, res) =>
     res.set("Cache-Control", "no-store").json(await undo.status()),
   );
+  app.get("/api/undo/history", async (req, res) =>
+    res
+      .set("Cache-Control", "no-store")
+      .json(await undo.history(Number(req.query.offset ?? 0))),
+  );
   app.post("/api/undo/:direction", async (req, res) => {
     const state = await mutate(
       async () => {
         const result = await undo.travel(
           req.params.direction,
           req.body.revision,
+          req.body.entryId,
         );
         await store.read();
         return result;

@@ -134,13 +134,11 @@ export class TaskData {
     for (const change of changes) {
       if (
         change.target.kind === "metadata" &&
-        change.target.name === "list-order.json" &&
-        event.recordId
+        change.target.name === "list-order.json"
       )
-        records.set(event.recordId, [
-          ...(records.get(event.recordId) || []),
-          "order",
-        ]);
+        for (const id of event.recordIds ||
+          (event.recordId ? [event.recordId] : []))
+          records.set(id, [...(records.get(id) || []), "order"]);
       const id = change.target.id;
       if (!id) continue;
       let fields;

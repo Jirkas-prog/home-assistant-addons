@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.35
+
+- Move Undo and Redo from ordinary pages into a dedicated Restore recent changes section in Settings. Global history shortcuts no longer perform edits outside this section; native text undo remains available.
+- Load history descriptions in pages of 40 only when the section opens. Preserve existing history; record timestamps and changed properties for new entries without downloading attachment contents.
+- Confirm every undo or redo with the selected change and the exact number of affected steps. Older selections include newer applied changes, and undone ranges can be restored in order.
+- Apply a selected range in one recoverable transaction, with revision and external-edit checks before any writes. Protect unsaved settings and retain the existing per-space history boundaries and limits.
+- Ignore pending calendar resize notifications after the calendar has been removed during a settings refresh.
+
 ## 5.0.1-dev.34
 
 - Prioritize task titles on the timeline and remove list numbers from task bars.
