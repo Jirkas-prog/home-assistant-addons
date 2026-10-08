@@ -27,6 +27,7 @@ export class Settings {
       catEnabled: true,
       catMotion: "full",
       catPersonality: "classic",
+      catYarnEnabled: true,
       taskDefaultView: "timeline",
       taskCalendarView: "month",
       documentRoot:
@@ -134,6 +135,11 @@ export class Settings {
     if (value.catEnabled != null && typeof value.catEnabled !== "boolean")
       fail("Invalid cat companion preference.");
     if (
+      value.catYarnEnabled != null &&
+      typeof value.catYarnEnabled !== "boolean"
+    )
+      fail("Invalid cat companion preference.");
+    if (
       value.catMotion != null &&
       !["full", "system", "still"].includes(value.catMotion)
     )
@@ -194,6 +200,7 @@ export class Settings {
       language: value.language ?? "en",
       catMotion: value.catMotion ?? "full",
       catPersonality: value.catPersonality ?? "classic",
+      catYarnEnabled: value.catYarnEnabled ?? true,
       taskDefaultView: value.taskDefaultView ?? "timeline",
       taskCalendarView: value.taskCalendarView ?? "month",
       languageSelectionCompleted: value.languageSelectionCompleted ?? true,

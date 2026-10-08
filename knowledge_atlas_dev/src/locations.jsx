@@ -201,6 +201,18 @@ export function LocationsSettings({
                 </Select>
               </label>
               <p className="field-help">{t("cat.help")}</p>
+              <fieldset className="cat-yarn-settings">
+                <legend>{t("cat.yarn.title")}</legend>
+                <label className="check-label">
+                  <input
+                    type="checkbox"
+                    checked={form.catYarnEnabled !== false}
+                    onChange={(e) => change("catYarnEnabled", e.target.checked)}
+                  />
+                  {t("cat.yarn.enabled")}
+                </label>
+                <p className="field-help">{t("cat.yarn.help")}</p>
+              </fieldset>
             </section>
             <label>
               {t("m032")}

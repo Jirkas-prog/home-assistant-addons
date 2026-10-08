@@ -1932,6 +1932,7 @@ function App() {
         enabled={!!settings.revision && settings.catEnabled !== false}
         motion={settings.catMotion}
         personality={settings.catPersonality}
+        yarnEnabled={settings.catYarnEnabled !== false}
       />
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
       <UploadRecovery

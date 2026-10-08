@@ -12,6 +12,43 @@
 .atlas-cat * {
   pointer-events: none;
 }
+.cat-yarn {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 24px;
+  height: 24px;
+  z-index: 69;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 2px 2px #0005);
+  contain: layout style;
+}
+.cat-yarn * {
+  pointer-events: none;
+}
+.cat-dig .cat-front-leg {
+  animation: cat-tap 0.45s ease-in-out infinite;
+}
+.cat-dig .cat-back-leg {
+  animation: cat-tap 0.45s ease-in-out -0.22s infinite;
+}
+.cat-dig .cat-head {
+  rotate: 16deg;
+  translate: 0 5px;
+}
+.cat-yarn-settings {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+}
+.cat-yarn-settings legend {
+  font-weight: 600;
+  padding: 0 6px;
+}
+.cat-yarn-settings .field-help {
+  margin-top: 10px;
+}
 .atlas-cat[data-visible="false"] {
   visibility: hidden;
 }

@@ -1,4 +1,5 @@
 import { CAT_PERSONALITIES, catRoutine } from "../shared/cat-personalities.js";
+import { CatYarn } from "./cat-yarn.js";
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -87,6 +88,7 @@ export class CatBehavior {
     this.visited = [];
     this.workUntil = 0;
     this.activity = 0;
+    this.yarn = new CatYarn(this, catLanding);
     this.setPersonality(personality, 0);
   }
 
@@ -114,13 +116,15 @@ export class CatBehavior {
 
   setContext(kind, key, now) {
     if (key === this.contextKey && kind === this.context) return false;
+    const playing = !!this.yarn.ball;
+    this.yarn.stop(now, false);
     this.context = kind;
     this.contextKey = key;
     this.routine = catRoutine(this.personality, kind);
     // A new window is interesting once, not on every resize or progress update.
     if (this.personality !== "classic")
       this.cooldown = Math.max(this.cooldown, now + 2500);
-    return this.personality !== "classic";
+    return this.personality !== "classic" || playing;
   }
 
   preferred(rails, explore = false) {
@@ -142,7 +146,7 @@ export class CatBehavior {
   }
 
   get animated() {
-    return !!this.motion || this.scene.pose === "cling";
+    return !!this.motion || this.scene.pose === "cling" || !!this.yarn.ball;
   }
 
   get hand() {
@@ -189,7 +193,10 @@ export class CatBehavior {
     this.width = width ?? this.width;
     this.height = height ?? this.height;
     const previous = this.rails.find((r) => r.id === this.railId);
-    if (this.railId === "drop-floor")
+    if (
+      this.railId === "drop-floor" ||
+      (this.yarn.ball && this.yarn.destination.rail.id === "drop-floor")
+    )
       rails = [
         ...rails,
         {
@@ -201,6 +208,7 @@ export class CatBehavior {
         },
       ];
     this.rails = rails;
+    this.yarn.sync(rails, now);
     if (!rails.length) {
       if (this.motion?.kind === "fall") this.returnToRail(now);
       return;
@@ -277,6 +285,7 @@ export class CatBehavior {
   }
 
   setReduced(reduced, now) {
+    this.yarn.stop(now, false);
     this.reduced = reduced;
     this.pointer = null;
     this.motion = this.queued = null;
@@ -349,6 +358,7 @@ export class CatBehavior {
     this.pointer = point;
     if (
       !point ||
+      this.yarn.ball ||
       this.reduced ||
       !this.scene.visible ||
       now < this.cooldown ||
@@ -374,6 +384,7 @@ export class CatBehavior {
 
   // Let typing, selection and dragging take priority over the cursor game.
   yieldPointer(now, { typing = false } = {}) {
+    if (typing) this.yarn.stop(now);
     this.pointer = null;
     this.cooldown = Math.max(this.cooldown, now + 2000);
     if (typing && !this.reduced && this.personality !== "classic") {
@@ -482,6 +493,7 @@ export class CatBehavior {
     const dt = Math.max(0, now - this.lastTick);
     this.lastTick = now;
     if (!this.scene.visible || this.reduced) return this.scene;
+    this.yarn.tick(now);
     if (this.motion) {
       const m = this.motion;
       if (m.kind === "fall") {
@@ -545,6 +557,7 @@ export class CatBehavior {
     }
     if (now < this.deadline) return this.scene;
     if (this.queued) this.start(this.queued, now);
+    else if (this.yarn.ball) return this.scene;
     else if (this.scene.pose === "hunt") {
       const pointer = this.pointer;
       if (

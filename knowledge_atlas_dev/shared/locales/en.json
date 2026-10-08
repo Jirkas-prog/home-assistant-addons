@@ -1374,5 +1374,9 @@
   "cat.personality.playful.windows": "Prefers tabs and board columns. Peeks at attachments, paws at calendar and checkpoint edges and hops between free perches. Calms down beside journals, settings and backups; takes a proper nap after playing.",
   "cat.personality.playful.pointer": "Reacts sooner to a nearby pointer, holds on for two and a half seconds and then rests before another chase. Typing pauses her games for six seconds; no chasing during backups.",
   "undo.field.catPersonality": "Cat personality",
-  "cat.carryHelp": "Carry her above a button or field while she holds the pointer. When she lets go, she lands on a free edge below and stays there for a moment. Waiting for release does not click the control."
+  "cat.carryHelp": "Carry her above a button or field while she holds the pointer. When she lets go, she lands on a free edge below and stays there for a moment. Waiting for release does not click the control.",
+  "cat.yarn.title": "Yarn game",
+  "cat.yarn.enabled": "Drop yarn when clicking an empty background",
+  "cat.yarn.help": "Click an empty area: a ball of yarn drops onto the edge below. The cat hops over, paws it, bats it away and chases it, then hides or buries it. This game works with every personality, including Quiet companion. Buttons, fields, dragging and text selection do not create yarn. One ball at a time; typing or changing views ends the game. Still motion disables it.",
+  "undo.field.catYarnEnabled": "Yarn game"
 }

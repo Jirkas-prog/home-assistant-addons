@@ -1374,5 +1374,9 @@
   "cat.personality.playful.windows": "Má ráda záložky a sloupce tabule. Vykukuje u příloh, zkouší packou hrany kalendáře a checkpointů a přeskakuje mezi volnými místy. U deníku, nastavení a záloh se zklidní; po hraní si pořádně zdřímne.",
   "cat.personality.playful.pointer": "Na blízký kurzor reaguje rychleji, drží se dvě a půl sekundy a před dalším lovem si odpočine. Psaní její hry na šest sekund přeruší; při zálohování kurzor neloví.",
   "undo.field.catPersonality": "Povaha kočky",
-  "cat.carryHelp": "Když se drží kurzoru, přenes ji nad tlačítko nebo políčko. Po puštění dopadne na volnou hranu pod sebou a chvíli tam posedí. Když počkáš, až se pustí sama, tlačítko se tím nestiskne."
+  "cat.carryHelp": "Když se drží kurzoru, přenes ji nad tlačítko nebo políčko. Po puštění dopadne na volnou hranu pod sebou a chvíli tam posedí. Když počkáš, až se pustí sama, tlačítko se tím nestiskne.",
+  "cat.yarn.title": "Hra s klubíčkem",
+  "cat.yarn.enabled": "Vytvořit klubíčko kliknutím na volné pozadí",
+  "cat.yarn.help": "Klikni na prázdné místo: klubíčko spadne na hranu pod ním. Kočka k němu přeskáče, popinká ho packou, odpálí a doběhne za ním. Nakonec ho schová nebo zahrabe. Hra funguje se všemi povahami včetně Tiché společnice. Tlačítka, políčka, tažení ani výběr textu klubíčko nevytvářejí. Vždy je aktivní jen jedno; psaní nebo změna stránky hru ukončí. Při vypnutém pohybu se nespouští.",
+  "undo.field.catYarnEnabled": "Hra s klubíčkem"
 }

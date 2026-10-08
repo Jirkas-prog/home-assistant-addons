@@ -235,15 +235,34 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
   const legacy = JSON.parse(await fs.readFile(file, "utf8"));
   delete legacy.catMotion;
   delete legacy.catPersonality;
+  delete legacy.catYarnEnabled;
   legacy.languageSelectionCompleted = true;
   await fs.writeFile(file, JSON.stringify(legacy));
   let settings = await f.request("general", "settings");
   assert.equal(settings.catMotion, "full");
   assert.equal(settings.catPersonality, "classic");
+  assert.equal(settings.catYarnEnabled, true);
   assert.equal(settings.languageSelectionCompleted, true);
   const { createdId } = await f.request("general", "spaces", {
     name: "Example",
   });
+  settings = await f.request(
+    "general",
+    "settings",
+    { ...settings, catYarnEnabled: false },
+    "PUT",
+  );
+  assert.equal((await f.request("general", "settings")).catYarnEnabled, false);
+  assert.equal((await f.request(createdId, "settings")).catYarnEnabled, true);
+  const invalidYarn = await fetch(`${f.base}/spaces/general/api/settings`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Knowledge-Client": "atlas",
+    },
+    body: JSON.stringify({ ...settings, catYarnEnabled: "yes" }),
+  });
+  assert.equal(invalidYarn.status, 400);
   for (const mode of ["system", "full", "still"]) {
     settings = await f.request(
       "general",
@@ -311,6 +330,7 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
   await backup.restore(preview.id, preview.revision);
   assert.equal((await b.settings.read()).catMotion, "still");
   assert.equal((await b.settings.read()).catPersonality, "playful");
+  assert.equal((await b.settings.read()).catYarnEnabled, false);
   await f.host.stop();
   const restarted = await createSpacesApp({
     directory: f.directory,
@@ -325,11 +345,16 @@ test("cat preferences migrate, validate, persist per space and round-trip in bac
     (await (await restarted.openSpace(createdId)).settings.read()).catMotion,
     "still",
   );
-  for (const space of ["general", createdId])
+  for (const space of ["general", createdId]) {
+    assert.equal(
+      (await (await restarted.openSpace(space)).settings.read()).catYarnEnabled,
+      false,
+    );
     assert.equal(
       (await (await restarted.openSpace(space)).settings.read()).catPersonality,
       "playful",
     );
+  }
 });
 
 test("unknown spaces never fall through to General and management retains request protection", async (t) => {

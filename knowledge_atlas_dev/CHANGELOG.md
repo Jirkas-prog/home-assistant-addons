@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.40
+
+- Add an independent per-space Yarn game setting. A short click on empty background drops a yarn ball onto the usable edge below, without interfering with controls, text selection or map/timeline gestures.
+- Let every personality follow a route across visible elements, pat and bat the yarn, chase it repeatedly, then hide or bury it. Keep one local toy at a time and resume the normal personality afterward.
+- Track scrolling and removed supports; stop on typing, context changes or disabling the toy. Preserve hidden-tab and reduced-motion behavior. Include the preference in settings history, backups and update compatibility.
+
 ## 5.0.1-dev.39
 
 - Let the cat land on the nearest usable control or panel edge underneath after releasing the cursor. Carry her onto buttons, fields and tabs without activating them.

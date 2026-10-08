@@ -56,8 +56,8 @@ does not wake an ordinary nap. Clicking or dragging always releases a cursor gam
 
 ## Performance and accessibility
 
-- One existing SVG with CSS poses; no image downloads or extra dependencies.
-- Animation frames run only for movement or following a caught pointer. Idle
+- Local SVG cat and yarn with CSS poses; no image downloads or extra dependencies.
+- Animation frames run only for movement, an active yarn game or following a caught pointer. Idle
   decisions use timers; geometry is measured on relevant mutations, resize and
   scroll, coalesced into a single pending frame.
 - Hidden tabs pause both CSS animation and the behavior clock. No missed actions
@@ -91,3 +91,32 @@ Only the occupied control joins normal geometry tracking. Scrolling carries the
 resting cat with it; scrolling during a fall updates the destination without
 restarting gravity. A removed or raised target triggers a fresh downward landing.
 Hidden tabs pause the clock, and disabled/reduced animation still overrides play.
+
+## Independent yarn game
+
+Pet settings include **Yarn game → Drop yarn when clicking an empty background**.
+The `catYarnEnabled` boolean defaults to true and is independent of personality:
+even Quiet companion plays when explicitly offered yarn. The setting is stored
+per space, participates in settings history and survives backups and updates.
+Cat visibility and still/reduced motion remain the outer controls.
+
+A short primary click/tap on a non-interactive background creates one ball at the
+pointer. It drops with gravity and a small bounce onto a usable edge underneath,
+or the viewport floor if none is available. The cat plans a route through visible
+perches, pats the ball, bats it away and follows it for two or three more rounds.
+She finishes by hiding it behind herself or making a digging motion as it fades
+into the supporting edge, then resumes her normal routine. Another background
+click replaces the current toy; balls never accumulate or enter the database.
+
+Disabled controls, labels, links, fields, menus, map/timeline gestures, selected
+text, long presses, modified clicks, keyboard activation and drags do not spawn
+toys. The game never consumes a click, captures focus or activates a control.
+Typing, navigation or changing the dialog ends play. Switching the yarn setting
+off removes the toy and settles the cat. Hidden pages pause the same clock used
+by the cat, without accumulating work for later.
+
+Only visible controls join the route during play. Geometry is refreshed on layout
+events rather than each frame, and routes are replanned after landings. Scrolling
+carries resting yarn with its supporting edge; removing the edge makes it fall
+again. Each game has a one-minute visible-time bound, no network traffic, no
+external assets and no backend animation service.
