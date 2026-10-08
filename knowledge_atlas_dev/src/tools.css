@@ -66,7 +66,7 @@
   text-align: left;
   position: relative;
   padding: 15px;
-  border: 1px solid #2d3745;
+  border: 1px solid var(--line);
   border-radius: 9px;
   background: #18212c;
 }
@@ -100,7 +100,7 @@
 }
 .tool-detail {
   background: #151d27;
-  border: 1px solid #303b48;
+  border: 1px solid var(--line);
   border-radius: 12px;
   padding: 24px;
   min-width: 0;

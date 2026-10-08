@@ -114,6 +114,7 @@ import {
 } from "./use-map-layout.js";
 import "./map-layout.css";
 import "./app-shell.css";
+import "./atmosphere.css";
 import { Inventory, Tasks } from "./work-views.jsx";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
 import {

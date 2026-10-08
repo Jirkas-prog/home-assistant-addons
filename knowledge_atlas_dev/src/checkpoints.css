@@ -33,7 +33,7 @@
 }
 .checkpoint-fields {
   min-width: 0;
-  border: 1px solid #354152;
+  border: 1px solid var(--line);
   border-radius: 8px;
   padding: 12px;
   margin: 14px 0;
@@ -78,7 +78,7 @@
   align-items: flex-start;
   gap: 10px;
   padding: 13px 10px;
-  border: 1px solid #354152;
+  border: 1px solid var(--line);
   border-radius: 8px;
   margin: 9px 0;
   cursor: pointer;
@@ -184,7 +184,7 @@
   border: 1px solid #18222e;
 }
 .timeline-checkpoint-marker.done::after {
-  background: #a7e87b;
+  background: var(--accent);
 }
 .timeline-checkpoint-marker.overdue::after {
   background: #ff8e8e;

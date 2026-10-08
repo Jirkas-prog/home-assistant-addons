@@ -23,8 +23,8 @@
   display: flex;
   flex-direction: column;
   padding: 5px;
-  background: #1b222b;
-  color: #e7ebf2;
+  background: var(--surface-raised);
+  color: var(--text);
   border: 1px solid #58665a;
   border-radius: 10px;
   box-shadow: 0 10px 36px #0009;
@@ -62,7 +62,7 @@
   background: #2b3b2b;
 }
 .atlas-select-options [data-active="true"] {
-  outline: 1px solid #b0ef88;
+  outline: 1px solid var(--accent);
   outline-offset: -2px;
   background: #354238;
 }

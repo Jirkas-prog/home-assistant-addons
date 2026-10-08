@@ -4,14 +4,14 @@
   place-items: center;
   padding: 30px 18px;
   background:
-    radial-gradient(ellipse at 50% 0, #27362455, transparent 65%), #101419;
+    radial-gradient(ellipse at 50% 0, #27362455, transparent 65%), var(--canvas);
 }
 .language-card {
   width: min(100%, 520px);
   padding: 32px;
-  border: 1px solid #303942;
+  border: 1px solid var(--line);
   border-radius: 18px;
-  background: #161d24;
+  background: var(--surface);
   box-shadow: 0 24px 90px #0004;
 }
 .language-brand {
@@ -28,7 +28,7 @@
 }
 .language-emblem {
   margin-top: 36px;
-  color: #b4eb7c;
+  color: var(--accent);
 }
 .language-card h1 {
   margin: 16px 0 10px;
@@ -36,7 +36,7 @@
   letter-spacing: -0.6px;
 }
 .language-card p {
-  color: #aab6c3;
+  color: var(--text-secondary);
   line-height: 1.65;
 }
 .language-card fieldset {
@@ -48,7 +48,7 @@
 }
 .language-card legend {
   font-size: 13px;
-  color: #aab6c3;
+  color: var(--text-secondary);
   margin-bottom: 10px;
 }
 .language-option {
@@ -56,10 +56,10 @@
   align-items: center;
   gap: 13px;
   padding: 17px;
-  border: 1px solid #35414c;
+  border: 1px solid var(--line);
   border-radius: 10px;
   cursor: pointer;
-  background: #111820;
+  background: var(--field);
 }
 .language-option.selected {
   border-color: #9ed875;
@@ -68,7 +68,7 @@
 .language-option input {
   width: 17px;
   height: 17px;
-  accent-color: #b4eb7c;
+  accent-color: var(--accent);
 }
 .language-option span {
   flex: 1;
@@ -78,15 +78,15 @@
   display: block;
 }
 .language-option small {
-  color: #aab6c3;
+  color: var(--text-secondary);
   font-size: 12px;
   margin-top: 4px;
 }
 .language-option svg {
-  color: #b4eb7c;
+  color: var(--accent);
 }
 .language-option:focus-within {
-  outline: 2px solid #b4eb7c;
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
 .language-card .language-submit {

@@ -154,7 +154,7 @@ export default function Map3D({
               13,
               "#e6eaf2",
             );
-            label.backgroundColor = "#11151ce8";
+            label.backgroundColor = "#222e29ed";
             label.padding = [4, 2];
             label.material.depthTest = false;
             label.userData.atlasPart = "label";
@@ -212,7 +212,7 @@ export default function Map3D({
       graphData={graph}
       width={size.width}
       height={size.height}
-      backgroundColor="#11151c"
+      backgroundColor="#222e29"
       showNavInfo={false}
       enableNodeDrag={!dragDisabled}
       onNodeDrag={(node) => {

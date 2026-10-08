@@ -30,7 +30,7 @@
 }
 .importance-filter button {
   color: var(--muted);
-  background: #121920;
+  background: var(--field);
   border: 1px solid var(--line);
   border-radius: 5px;
   padding: 7px;
@@ -89,7 +89,7 @@
   position: relative;
   z-index: 8;
   min-width: 0;
-  background: #161b23;
+  background: var(--surface);
   border-bottom: 1px solid var(--line);
 }
 .map-toolbar {
@@ -166,7 +166,7 @@
   padding: 12px 16px;
   border: 1px solid var(--line);
   border-radius: 0 0 12px 12px;
-  background: #181f29;
+  background: var(--surface);
   box-shadow: 0 14px 30px #0007;
 }
 .map-options-panel header,
@@ -252,7 +252,7 @@
 .map-hierarchy-buttons .secondary-button {
   padding: 8px 10px;
   font-size: 12px;
-  background: #19212cf5;
+  background: var(--surface-raised);
 }
 .map-hierarchy-buttons [aria-pressed="true"] {
   color: var(--accent);
@@ -263,7 +263,7 @@
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #151c26f5;
+  background: var(--surface);
   color: var(--text);
   font-size: 13px;
   line-height: 1.5;
@@ -331,8 +331,8 @@
   flex-wrap: wrap;
   gap: 10px;
   padding: 10px 14px;
-  background: #19232f;
-  color: #e7ebf2;
+  background: var(--surface);
+  color: var(--text);
   border: 1px solid #75849a;
   border-radius: 7px;
   font-size: 13px;
@@ -369,7 +369,7 @@
   padding: 30px 26px;
   border: 1px solid #91bd6970;
   border-radius: 24px;
-  background: linear-gradient(145deg, #26352b, #151e24 70%);
+  background: linear-gradient(145deg, var(--surface-raised), var(--surface) 70%);
   box-shadow:
     0 0 45px #a7e87b0e,
     inset 0 1px #d1efb426;
@@ -377,11 +377,11 @@
   text-align: center;
 }
 .map-download-button:hover {
-  border-color: #b0ef88;
+  border-color: var(--accent);
   background-color: #26352b;
 }
 .map-download-button:focus-visible {
-  outline: 3px solid #b0ef88;
+  outline: 3px solid var(--accent);
   outline-offset: 6px;
 }
 .map-download-button strong {
@@ -401,7 +401,7 @@
   height: 116px;
   border: 1px dashed #a7e87b70;
   border-radius: 50%;
-  color: #b0ef88;
+  color: var(--accent);
   background: radial-gradient(circle, #a7e87b25, transparent 70%);
   box-shadow: 0 0 0 10px #a7e87b05;
 }
@@ -413,6 +413,6 @@
   width: 37px;
   height: 37px;
   border-radius: 50%;
-  background: #b0ef88;
-  color: #1c2c17;
+  background: var(--accent);
+  color: var(--on-accent);
 }

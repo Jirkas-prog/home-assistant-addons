@@ -1,7 +1,7 @@
 :root {
-  --scrollbar-track: #121820;
-  --scrollbar-thumb: #687d61;
-  --scrollbar-thumb-hover: #91b37c;
+  --scrollbar-track: var(--canvas);
+  --scrollbar-thumb: #839773;
+  --scrollbar-thumb-hover: #b8d886;
 }
 
 /* Keep native scrolling and respect the operating system's high-contrast mode. */

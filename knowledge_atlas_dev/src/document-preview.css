@@ -63,15 +63,15 @@
   gap: 5px;
 }
 .document-view-modes button {
-  border: 1px solid #394452;
-  background: #1b232e;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
   color: #d8e1ed;
   border-radius: 6px;
   padding: 7px 12px;
   cursor: pointer;
 }
 .document-view-modes button[aria-pressed="true"] {
-  border-color: #a7e87b;
+  border-color: var(--accent);
   color: #c6f7a3;
   background: #273729;
 }
@@ -80,7 +80,7 @@
   min-height: 0;
   overflow: auto;
   padding: 24px;
-  background: #11151c;
+  background: var(--canvas);
 }
 .document-preview pre {
   margin: 0;
@@ -103,7 +103,7 @@
   min-height: 0;
   overflow: auto;
   padding: 18px;
-  background: #11151c;
+  background: var(--canvas);
 }
 .media-document img,
 .media-document video {

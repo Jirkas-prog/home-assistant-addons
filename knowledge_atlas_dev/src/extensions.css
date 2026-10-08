@@ -26,7 +26,7 @@
   overflow: auto;
 }
 .field-help {
-  color: #96a2b4;
+  color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
   margin: 10px 0 18px;
@@ -45,8 +45,8 @@
   font-size: 14px;
 }
 .location-card {
-  background: #171e27;
-  border: 1px solid #313c4b;
+  background: var(--surface);
+  border: 1px solid var(--line);
   border-radius: 10px;
   padding: 15px;
   margin-bottom: 12px;
@@ -90,10 +90,10 @@
   margin-top: 20px;
 }
 .resource-form {
-  border: 1px solid #303b48;
+  border: 1px solid var(--line);
   padding: 12px;
   border-radius: 9px;
-  background: #141a22;
+  background: var(--field);
   margin: 12px 0;
 }
 .resource-form > input {
@@ -379,7 +379,7 @@
 }
 .kanban-column {
   border: 1px solid #2b3543;
-  background: #151b24;
+  background: var(--field);
   border-radius: 12px;
   padding: 12px;
   min-height: 250px;
@@ -411,7 +411,7 @@
   background: #f1bb73;
 }
 .column-dot.done {
-  background: #a7e87b;
+  background: var(--accent);
 }
 .task-card {
   background: #202938;
@@ -509,7 +509,7 @@
   overflow-x: auto;
   border: 1px solid #2d3849;
   border-radius: 10px;
-  background: #141a23;
+  background: var(--field);
 }
 .timeline-chart {
   position: relative;
@@ -519,7 +519,7 @@
 .timeline-ruler {
   height: 64px;
   position: relative;
-  border-bottom: 1px solid #334151;
+  border-bottom: 1px solid var(--line);
   margin-bottom: 10px;
 }
 .timeline-ruler > span {
@@ -567,7 +567,7 @@
 }
 .timeline-bar.done {
   background: #a7e87b32;
-  border-color: #a7e87b;
+  border-color: var(--accent);
   color: #c6eeb2;
 }
 .today-line {
@@ -602,7 +602,7 @@
   align-items: center;
   gap: 15px;
   font-size: 13px;
-  background: #222c3a;
+  background: var(--surface-raised);
   border: 1px dashed #556379;
   border-radius: 7px;
   padding: 9px 13px;
@@ -702,7 +702,7 @@
   font-size: 11px;
   letter-spacing: 1px;
   color: #9baac0;
-  border-bottom: 1px solid #334151;
+  border-bottom: 1px solid var(--line);
 }
 .timeline-names > button {
   height: 51px;

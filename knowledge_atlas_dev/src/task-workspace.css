@@ -1,8 +1,8 @@
 .deck-workspace {
-  --deck-bg: #18191c;
-  --deck-surface: #202226;
-  --deck-border: #3a3d43;
-  --deck-accent: #c986f4;
+  --deck-bg: var(--surface);
+  --deck-surface: var(--surface-raised);
+  --deck-border: var(--line);
+  --deck-accent: var(--accent);
   min-width: 0;
 }
 .board-actions {
@@ -98,7 +98,7 @@
   padding: 3px 9px;
   font-size: 11px;
   line-height: 1.4;
-  background: color-mix(in srgb, var(--tag-color) 28%, #202226);
+  background: color-mix(in srgb, var(--tag-color) 28%, var(--surface-raised));
   color: #fff;
   overflow-wrap: anywhere;
   max-width: 100%;
@@ -110,7 +110,7 @@
   gap: 5px;
   font-size: 12px;
   padding: 9px 0;
-  color: #cad0d9;
+  color: var(--text-secondary);
 }
 .deck-due small {
   margin-left: auto;
@@ -124,7 +124,7 @@
   display: flex;
   align-items: center;
   gap: 5px;
-  color: #bac3d0;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 .deck-move {
@@ -153,7 +153,7 @@
   max-height: calc(100dvh - 48px);
   display: flex;
   flex-direction: column;
-  background: #191b20;
+  background: var(--surface);
   overflow: hidden;
 }
 .task-dialog > header {
@@ -168,7 +168,7 @@
   margin: 0 0 7px;
 }
 .task-dialog header small {
-  color: #a6aebb;
+  color: var(--text-secondary);
 }
 .task-dialog > header > div {
   min-width: 0;
@@ -186,7 +186,7 @@
 }
 .task-rating > span {
   font-size: 12px;
-  color: #b9c1ce;
+  color: var(--text-secondary);
 }
 .task-locations {
   display: flex;
@@ -202,13 +202,13 @@
   overflow-wrap: anywhere;
   white-space: normal;
   text-align: left;
-  color: #b9c1ce;
+  color: var(--text-secondary);
 }
 .task-tabs {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   padding: 0 22px;
-  border-bottom: 1px solid #33363e;
+  border-bottom: 1px solid var(--line);
   gap: 3px;
   flex: none;
 }
@@ -221,13 +221,13 @@
   gap: 8px;
   border-radius: 7px 7px 0 0;
   position: relative;
-  color: #c9ced7;
+  color: var(--text-secondary);
   font-size: 13px;
   padding: 10px 3px;
 }
 .task-tabs button[aria-selected="true"] {
-  background: #29282e;
-  color: #f0e6ff;
+  background: var(--accent-soft);
+  color: var(--text);
 }
 .task-tabs button[aria-selected="true"]:after {
   content: "";
@@ -237,7 +237,7 @@
   right: 10%;
   height: 4px;
   border-radius: 5px;
-  background: #c986f4;
+  background: var(--accent);
 }
 .task-dialog-body {
   overflow-y: auto;
@@ -249,7 +249,7 @@
 .task-dialog label {
   display: grid;
   gap: 8px;
-  color: #bfc6d1;
+  color: var(--text-secondary);
   font-size: 13px;
   margin-bottom: 15px;
   min-width: 0;
@@ -259,9 +259,9 @@
 .task-dialog textarea {
   width: 100%;
   min-width: 0;
-  background: #14161b;
-  border: 1px solid #454956;
-  color: #f0f2f6;
+  background: var(--field);
+  border: 1px solid var(--line-strong);
+  color: var(--text);
   border-radius: 7px;
   padding: 9px 11px;
 }
@@ -292,7 +292,7 @@
   flex-wrap: wrap;
   padding: 12px 28px;
   flex: none;
-  border-top: 1px solid #33363e;
+  border-top: 1px solid var(--line);
 }
 .task-dialog > footer > span {
   margin-right: auto;
@@ -301,7 +301,7 @@
 }
 .task-markdown {
   margin: 8px 0 20px;
-  border: 1px solid #383d49;
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow: hidden;
 }
@@ -310,7 +310,7 @@
   gap: 8px;
   align-items: center;
   padding: 7px 10px;
-  background: #22252d;
+  background: var(--surface-raised);
 }
 .task-formatting > .secondary-button {
   margin-left: auto;

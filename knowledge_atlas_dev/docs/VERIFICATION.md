@@ -1,6 +1,6 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.42` on 2026-10-08.
+Validated for Knowledge Atlas Dev `5.0.1-dev.43` on 2026-10-08.
 
 - All 270 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
@@ -21,6 +21,14 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.42` on 2026-10-08.
 - English/Czech browser checks cover creating and editing entries, day/week/month/custom ranges, related-record links, saved-place lookup, multi-file uploads, EXIF suggestions, photo navigation, PDF/Markdown/DOCX viewing and custom-extension text previews. Saved language and the selected entry survive reloads; console checks found no errors. All fixtures are generic.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
+
+## Illuminated sage appearance (5.0.1-dev.43)
+
+All 270 tests, production build, language audit (1411 keys), add-on and permanent-channel checks pass. The visual update uses shared CSS palette tokens, gradients and existing icons; it adds no dependencies, external imagery or animation loops. The built stylesheet is approximately 24.5 kB gzip. The persistence and API code is unchanged.
+
+Browser checks with a generic 14-record library covered the task calendar, record cards, task details, checkpoint warning colors, nested project menus, on-demand map loading and both 2D/3D renderers. At 390 x 844, the document remained viewport-sized and the task dialog had no horizontal content overflow. Primary actions, selected tabs and navigation retain non-color cues. Core palette contrast measurements are 10.79:1 for primary text on panels, 6.32:1 for secondary text on panels, 5.24:1 for secondary text on raised surfaces and 11.29:1 for text on the accent color. These are token-pair measurements, not a complete accessibility certification of every record color or screen.
+
+The local browser console recorded no warnings or errors. Generic records, the saved language and default task view remained after restarting the server. Physical-phone rendering, operating-system high-contrast mode and a live Home Assistant update were not tested.
 
 ## Compact map controls (5.0.1-dev.42)
 

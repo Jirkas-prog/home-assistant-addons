@@ -7,7 +7,7 @@
   padding-bottom: 16px;
 }
 .tasks-view {
-  background: #11161d;
+  background: var(--canvas);
 }
 .tasks-toolbar {
   display: flex;
@@ -16,7 +16,7 @@
   gap: 10px;
   padding-bottom: 14px;
   margin-bottom: 14px;
-  border-bottom: 1px solid #29313c;
+  border-bottom: 1px solid var(--line);
 }
 .tasks-toolbar .search {
   flex: 1 1 200px;
@@ -46,9 +46,9 @@
 .task-filters {
   padding: 16px;
   margin-bottom: 16px;
-  border: 1px solid #354050;
+  border: 1px solid var(--line);
   border-radius: 9px;
-  background: #181e27;
+  background: var(--surface);
 }
 .task-filters[hidden] {
   display: none;
@@ -69,7 +69,7 @@
   display: grid;
   gap: 8px;
   font-size: 12px;
-  color: #b6c4d6;
+  color: var(--text-secondary);
 }
 .task-filter-fields :is(select, .atlas-select) {
   width: 100%;
@@ -98,14 +98,14 @@
   justify-content: space-between;
   gap: 12px;
   padding-top: 10px;
-  color: #9fadc0;
+  color: var(--muted);
   font-size: 12px;
 }
 .timeline-guide {
   padding: 12px 16px;
   border-left: 2px solid #83b65f;
   margin-bottom: 14px;
-  background: #1b232d;
+  background: var(--surface-raised);
   border-radius: 0 7px 7px 0;
 }
 .timeline-guide p {
@@ -197,7 +197,7 @@
 }
 .timeline-statuses legend {
   font-size: 11px;
-  color: #9fadc0;
+  color: var(--muted);
   padding: 0 0 8px;
 }
 .timeline-statuses label {
@@ -208,11 +208,11 @@
   cursor: pointer;
 }
 .timeline-statuses input {
-  accent-color: #a7e87b;
+  accent-color: var(--accent);
 }
 .timeline-instructions,
 .timeline-lane-count {
-  color: #9fadc0;
+  color: var(--muted);
   font-size: 12px;
   line-height: 1.6;
 }
@@ -220,15 +220,15 @@
   position: relative;
   width: 100%;
   overflow: hidden;
-  border: 1px solid #354050;
+  border: 1px solid var(--line);
   border-radius: 10px;
-  background: #141a23;
+  background: var(--field);
   touch-action: none;
   user-select: none;
   min-width: 0;
 }
 .timeline-surface:focus-visible {
-  outline: 2px solid #a7e87b;
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 .timeline-tick {
@@ -280,7 +280,7 @@
   background: #403726;
 }
 .timeline-task-bar.done {
-  border-color: #a7e87b;
+  border-color: var(--accent);
   background: #2d3c29;
 }
 .timeline-bar-content {
@@ -374,7 +374,7 @@
 }
 .task-undated {
   margin-top: 14px;
-  border: 1px solid #354050;
+  border: 1px solid var(--line);
   border-radius: 9px;
   padding: 12px;
 }

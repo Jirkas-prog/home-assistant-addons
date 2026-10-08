@@ -3,7 +3,7 @@
   gap: 12px;
   padding: 16px 12px 14px;
   margin-bottom: 8px;
-  border-bottom: 1px solid #35413c;
+  border-bottom: 1px solid var(--line);
   background: linear-gradient(145deg, #1d2c26 0%, #161e22 65%, #27221f 100%);
 }
 .space-picker {
@@ -147,7 +147,7 @@
   align-items: center;
   padding: 13px;
   background: #1b2325;
-  border: 1px solid #35413c;
+  border: 1px solid var(--line);
   border-radius: 12px;
 }
 .space-row a {

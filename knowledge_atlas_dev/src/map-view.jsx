@@ -529,7 +529,7 @@ export default function MapView({
               ctx.font = label.font;
               ctx.textAlign = label.align;
               ctx.textBaseline = "top";
-              ctx.fillStyle = "#11151ce8";
+              ctx.fillStyle = "#222e29ed";
               ctx.fillRect(...label.box);
               ctx.fillStyle = active
                 ? "#ffffff"

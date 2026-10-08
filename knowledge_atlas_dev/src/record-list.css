@@ -3,7 +3,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  color: #b6c4d6;
+  color: var(--text-secondary);
   font-size: 12px;
   min-width: 0;
 }
@@ -15,7 +15,7 @@
   flex-wrap: wrap;
   gap: 6px 12px;
   align-items: baseline;
-  color: #b6c4d6;
+  color: var(--text-secondary);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -95,7 +95,7 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: #b6c4d6;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 .record-order input {

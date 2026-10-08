@@ -1,12 +1,12 @@
 .workspace:has(.journal-calendar-view) {
   height: auto;
   min-height: 350px;
-  background: #171717;
+  background: var(--canvas);
 }
 .journal-calendar-view {
   padding: 18px;
-  background: #171717;
-  color: #ededed;
+  background: var(--canvas);
+  color: var(--text);
   min-width: 0;
   overflow: auto;
   flex: 1;
@@ -33,12 +33,12 @@
 }
 .calendar-toolbar input,
 .calendar-toolbar :is(select, .atlas-select) {
-  background: #202020;
-  border-color: #555;
-  color: #eee;
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
+  color: var(--text);
 }
 .calendar-month {
-  border: 1px solid #444;
+  border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -49,9 +49,9 @@
 }
 .calendar-weekdays {
   text-align: center;
-  border-bottom: 1px solid #444;
+  border-bottom: 1px solid var(--line);
   padding: 10px 0;
-  color: #b9b9b9;
+  color: var(--muted);
   font-size: 12px;
   text-transform: uppercase;
 }
@@ -59,7 +59,7 @@
   position: relative;
   height: var(--week-height, 100px);
   padding-top: 35px;
-  border-bottom: 1px solid #383838;
+  border-bottom: 1px solid var(--line);
 }
 .calendar-week:last-child {
   border: 0;
@@ -70,7 +70,7 @@
 }
 .calendar-day {
   position: relative;
-  border-right: 1px solid #383838;
+  border-right: 1px solid var(--line);
   min-width: 0;
   padding: 4px;
 }
@@ -87,8 +87,8 @@
   padding: 3px;
 }
 .calendar-day.outside {
-  background: #121212;
-  color: #838383;
+  background: var(--canvas);
+  color: var(--muted);
 }
 .calendar-date.today,
 .calendar-mini-grid .today {
@@ -99,7 +99,7 @@
   position: absolute;
   right: 3px;
   top: 7px;
-  color: #aaa;
+  color: var(--muted);
   opacity: 0;
 }
 .calendar-day:hover .calendar-add,
@@ -120,7 +120,7 @@
   max-width: 100%;
   pointer-events: auto;
   border: 1px solid color-mix(in srgb, var(--entry-color) 80%, #fff);
-  background: color-mix(in srgb, var(--entry-color) 36%, #191919);
+  background: color-mix(in srgb, var(--entry-color) 36%, var(--surface));
   color: #fff;
   border-radius: 5px;
   text-align: left;
@@ -144,7 +144,7 @@
   min-width: 0;
 }
 .calendar-entry small {
-  color: #eee;
+  color: var(--text);
   flex-shrink: 0;
   font-size: 10px;
   display: inline;
@@ -167,34 +167,34 @@
   color: #d8b5e7;
 }
 .calendar-time {
-  border: 1px solid #444;
+  border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
 }
 .calendar-time-head {
   display: grid;
   grid-template-columns: 55px repeat(var(--days), minmax(0, 1fr));
-  background: #1c1c1c;
+  background: var(--surface);
 }
 .calendar-time-head button {
   padding: 10px 0;
-  color: #aaa;
+  color: var(--muted);
   font-size: 11px;
   text-transform: uppercase;
 }
 .calendar-time-head strong {
   display: block;
   font-size: 24px;
-  color: #eee;
+  color: var(--text);
   font-weight: 400;
 }
 .calendar-time-head .today strong {
-  color: #e0a7f4;
+  color: var(--accent);
 }
 .calendar-all-day {
   display: flex;
-  border-top: 1px solid #444;
-  border-bottom: 1px solid #444;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   padding: 4px 0;
   max-height: 220px;
   overflow-y: auto;
@@ -206,7 +206,7 @@
   text-align: center;
   align-self: start;
   padding: 7px 2px;
-  color: #aaa;
+  color: var(--muted);
   overflow-wrap: anywhere;
 }
 .calendar-all-bars {
@@ -233,7 +233,7 @@
   display: grid;
   grid-template-rows: repeat(24, 52px);
   font-size: 10px;
-  color: #aaa;
+  color: var(--muted);
   text-align: right;
   padding-right: 7px;
 }
@@ -243,18 +243,18 @@
 .calendar-hour-day {
   position: relative;
   min-width: 0;
-  border-left: 1px solid #383838;
+  border-left: 1px solid var(--line);
   display: grid;
   grid-template-rows: repeat(24, 52px);
 }
 .calendar-hour-slot {
-  border-top: 1px solid #333;
+  border-top: 1px solid var(--line);
   width: 100%;
   padding: 0;
   border-radius: 0;
 }
 .calendar-hour-slot:hover {
-  background: #a956cc10;
+  background: var(--accent-soft);
 }
 .calendar-entry.timed {
   position: absolute;
@@ -262,7 +262,7 @@
   min-height: 8px;
   padding: 2px 5px;
   z-index: 1;
-  border-right: 3px solid #171717;
+  border-right: 3px solid var(--canvas);
 }
 .calendar-entry.timed strong,
 .calendar-entry.timed small {
@@ -280,7 +280,7 @@
   font-size: 16px;
   text-transform: capitalize;
   margin-bottom: 12px;
-  color: #eee;
+  color: var(--text);
 }
 .calendar-mini-grid {
   display: grid;
@@ -295,7 +295,7 @@
   border-radius: 20px;
 }
 .calendar-mini-grid .outside {
-  color: #777;
+  color: var(--muted);
 }
 .calendar-mini-grid .has-entries:after {
   content: "";
@@ -319,11 +319,11 @@
   max-height: calc(100dvh - 36px);
   display: flex;
   flex-direction: column;
-  background: #171717;
+  background: var(--canvas);
 }
 .journal-record-dialog > header {
   flex: none;
-  border-bottom: 1px solid #3c3c3c;
+  border-bottom: 1px solid var(--line);
   gap: 12px;
 }
 .journal-record-dialog > header > div {
@@ -358,9 +358,9 @@
   gap: 10px;
   padding: 14px;
   text-align: left;
-  border: 1px solid #444;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  background: #202020;
+  background: var(--surface-raised);
   min-width: 0;
 }
 .journal-auto-file strong {
@@ -371,7 +371,7 @@
   width: 100%;
   height: 160px;
   object-fit: contain;
-  background: #151515;
+  background: var(--field);
   border-radius: 5px;
 }
 .journal-auto-file small {
@@ -521,20 +521,20 @@
   display: grid;
   gap: 6px;
   font-size: 11px;
-  color: #eee;
+  color: var(--text);
 }
 .attachment-transfer progress {
   width: 100%;
   height: 6px;
-  accent-color: #c986f4;
+  accent-color: var(--accent);
 }
 .journal-auto-file:disabled {
   opacity: 1;
   cursor: progress;
 }
 .journal-editor {
-  background: #171717;
-  color: #eee;
+  background: var(--canvas);
+  color: var(--text);
 }
 .journal-editor .editor-body {
   padding: 20px 28px;
@@ -549,9 +549,9 @@
 .journal-editor input,
 .journal-editor :is(select, .atlas-select),
 .journal-editor textarea {
-  background: #1d1d1d;
-  border-color: #555;
-  color: #eee;
+  background: var(--surface);
+  border-color: var(--line-strong);
+  color: var(--text);
 }
 .journal-editor textarea {
   line-height: 1.65;
@@ -561,7 +561,7 @@
   font-family: inherit;
 }
 .journal-editor .primary-button {
-  background: #c986f4;
+  background: var(--accent);
   color: #21102c;
 }
 .journal-editor .importance-field {
@@ -575,12 +575,12 @@
   padding: 20px 28px;
 }
 .journal-editor :is(input, :is(select, .atlas-select), textarea):focus {
-  border-color: #c986f4;
-  outline-color: #c986f4;
+  border-color: var(--accent);
+  outline-color: var(--accent);
 }
 .calendar-day-dialog {
   width: min(560px, 95vw);
-  background: #171717;
+  background: var(--canvas);
 }
 .calendar-day-dialog h2 {
   font-size: 20px;
@@ -628,11 +628,11 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--bg, #11151c);
+  background: var(--bg, var(--canvas));
 }
 .library-pagination > span {
   flex: 1;
-  color: #b9c1ce;
+  color: var(--text-secondary);
   font-size: 12px;
 }
 .search-status {

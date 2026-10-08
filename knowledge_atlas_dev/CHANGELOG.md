@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.43
+
+- Brighten the atlas with shared sage and charcoal surfaces, lime action buttons, warm ambient light and subtle orbital accents. Apply the palette to navigation, map controls, record cards, task boards, calendars, settings, backups and dialogs.
+- Improve secondary-text contrast and distinguish selected controls with borders, inset highlights and lime accents. Keep record colors, importance stars, urgency and warning colors meaningful.
+- Use CSS gradients and existing icons without new dependencies, image downloads or background animation. Preserve compact mobile layouts, on-demand map loading and all stored data.
+
 ## 5.0.1-dev.42
 
 - Give the knowledge map more usable space with a compact heading and a collapsible Filters and layout panel. Keep search, 2D/3D switching and the details toggle directly accessible. Opening options does not resize the canvas or refit the map.

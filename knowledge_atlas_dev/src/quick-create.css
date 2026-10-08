@@ -41,14 +41,14 @@
   padding: 14px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #1b222c;
+  background: var(--surface-raised);
 }
 .quick-create-options > button:hover {
-  background: #28313e;
+  background: var(--surface-raised);
   border-color: #718762;
 }
 .quick-create-options > button > svg {
-  color: #b0ef88;
+  color: var(--accent);
   flex-shrink: 0;
 }
 .quick-create-options span {
@@ -86,11 +86,11 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 7px 9px;
-  background: #202735;
+  background: var(--surface-raised);
   font-size: 12px;
 }
 .journal-starters button:hover {
-  border-color: #b0ef88;
+  border-color: var(--accent);
 }
 .record-properties > label {
   display: flex;
