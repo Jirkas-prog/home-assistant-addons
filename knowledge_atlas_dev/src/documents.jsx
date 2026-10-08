@@ -127,6 +127,7 @@ export function DocumentViewer({ resource, onClose, navigation, preloaded }) {
     <div className="modal-backdrop upper-modal">
       <section
         className="modal document-modal"
+        data-cat-context="document"
         role="dialog"
         aria-modal="true"
         aria-label={t("m386", resource.title)}

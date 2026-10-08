@@ -4,12 +4,13 @@ import "./atlas-cat.css";
 import { useCatMotion } from "./cat-motion.js";
 
 // The decoration never captures clicks, keyboard focus or the actual cursor.
-export function AtlasCat({ enabled, motion }) {
+export function AtlasCat({ enabled, motion, personality = "classic" }) {
+  const runtime = useRef();
   const element = useRef();
   const reduced = useCatMotion(motion);
   useEffect(() => {
     if (!enabled) return;
-    const cat = new CatBehavior();
+    const cat = new CatBehavior(Math.random, personality);
     const ids = new WeakMap();
     let nextId = 0,
       frame,
@@ -40,6 +41,8 @@ export function AtlasCat({ enabled, motion }) {
       node.dataset.visible = String(s.visible);
       node.dataset.paused = String(pausedAt !== null);
       node.dataset.reduced = String(cat.reduced);
+      node.dataset.personality = cat.personality;
+      node.dataset.context = cat.context;
     };
     function run() {
       cancelAnimationFrame(frame);
@@ -96,6 +99,18 @@ export function AtlasCat({ enabled, motion }) {
         .at(-1);
       let priority = nextDialog !== dialog;
       dialog = nextDialog;
+      const workbench = document.querySelector(".workbench");
+      const contextElement =
+        dialog || workbench?.querySelector("[data-cat-context]") || workbench;
+      const context =
+        contextElement?.dataset.catContext || (dialog ? "editor" : "workspace");
+      priority =
+        cat.setContext(
+          context,
+          contextElement ? `${id(contextElement)}:${context}` : context,
+          now(),
+        ) || priority;
+      const classic = cat.personality === "classic";
       const activeField =
         dialog?.contains(document.activeElement) &&
         document.activeElement.matches('textarea, [contenteditable="true"]')
@@ -104,7 +119,7 @@ export function AtlasCat({ enabled, motion }) {
       if (activeField && focusedField !== activeField) priority = true;
       focusedField = activeField;
       // Text fields are preferred perches. Only their visible upper edge qualifies.
-      const panels = dialog
+      let panels = dialog
         ? [
             ...dialog.querySelectorAll('textarea, [contenteditable="true"]'),
             dialog,
@@ -115,6 +130,35 @@ export function AtlasCat({ enabled, motion }) {
               ".workbench, .calendar-month, .collection-toolbar .segmented",
             ),
           ];
+      if (!classic) {
+        const extra =
+          (dialog || workbench)?.querySelectorAll(
+            dialog
+              ? ".task-tabs, .document-preview, .journal-entry, .journal-entry-text, .journal-auto-attachments, .attachment-gallery, .resource-editor, .checkpoint-editor, .task-comments, .task-activity"
+              : ".calendar-month, .calendar-time, .calendar-year, .timeline-surface, .deck-column, .inventory-table, .backup-transfer",
+          ) || [];
+        panels = [...new Set([...panels, ...extra])];
+      }
+      const kind = (item) => {
+        if (item.matches('textarea, [contenteditable="true"]'))
+          return "writing";
+        if (item.matches(".task-tabs, .segmented")) return "tabs";
+        if (
+          item.matches(
+            ".calendar-month, .calendar-time, .calendar-year, .timeline-surface",
+          )
+        )
+          return "calendar";
+        if (item.matches(".deck-column")) return "column";
+        if (item.matches(".checkpoint-editor")) return "checkpoint";
+        if (
+          item.matches(
+            ".document-preview, .journal-entry, .journal-entry-text, .journal-auto-attachments, .attachment-gallery, .resource-editor, .task-comments, .task-activity, .inventory-table",
+          )
+        )
+          return "reader";
+        return "frame";
+      };
       if (activeField)
         panels.sort(
           (a, b) => (b === activeField ? 1 : 0) - (a === activeField ? 1 : 0),
@@ -136,6 +180,12 @@ export function AtlasCat({ enabled, motion }) {
             : ".page-heading > div, .toolbar, .collection-toolbar, .topbar, .space-bar",
         ),
       ];
+      if (!classic)
+        obstacles.push(
+          ...(dialog || document).querySelectorAll(
+            ".tasks-toolbar, .calendar-toolbar, .combined-calendar-controls, .timeline-controls, .board-actions, .deck-column > header, .cat-personality-details, .cat-personalities, .field-help, .notebook-summary, .backup-transfer-heading, .backup-transfer-numbers",
+          ),
+        );
       const blocks = obstacles.map((o) => ({
         element: o,
         rect: bounds(o),
@@ -187,6 +237,7 @@ export function AtlasCat({ enabled, motion }) {
           .map(([left, right], index) => ({
             id: `${id(item)}:${index}`,
             surface: id(item),
+            kind: kind(item),
             anchorX: r.left,
             left,
             right,
@@ -211,6 +262,7 @@ export function AtlasCat({ enabled, motion }) {
           if (right >= left)
             rails.push({
               id: `${id(dialog)}:header`,
+              kind: "frame",
               anchorX: r.left,
               left,
               right,
@@ -263,8 +315,11 @@ export function AtlasCat({ enabled, motion }) {
       if (frame == null && pausedAt === null)
         frame = requestAnimationFrame(run);
     };
-    const onInteraction = () => {
-      cat.yieldPointer(now());
+    const onInteraction = (event) => {
+      const typing =
+        event?.type === "keydown" &&
+        !!event.target?.closest?.('input, textarea, [contenteditable="true"]');
+      cat.yieldPointer(now(), { typing });
       if (frame == null && pausedAt === null)
         frame = requestAnimationFrame(run);
     };
@@ -294,12 +349,13 @@ export function AtlasCat({ enabled, motion }) {
       childList: true,
       subtree: true,
       attributes: true,
-      attributeFilter: ["open"],
+      attributeFilter: ["open", "data-cat-context"],
     });
     const sizes = new ResizeObserver(requestMeasure);
     sizes.observe(document.body);
     if (document.querySelector(".main"))
       sizes.observe(document.querySelector(".main"));
+    runtime.current = { cat, now, measure };
     cat.setReduced(reduced, now());
     measure();
     document.addEventListener("pointermove", onPointer, { passive: true });
@@ -316,6 +372,7 @@ export function AtlasCat({ enabled, motion }) {
     window.addEventListener("resize", requestMeasure);
     return () => {
       disposed = true;
+      if (runtime.current?.cat === cat) runtime.current = null;
       cancelAnimationFrame(frame);
       clearTimeout(timer);
       cancelAnimationFrame(measureFrame);
@@ -333,6 +390,12 @@ export function AtlasCat({ enabled, motion }) {
       window.removeEventListener("resize", requestMeasure);
     };
   }, [enabled, reduced]);
+  useEffect(() => {
+    const current = runtime.current;
+    if (!current) return;
+    current.cat.setPersonality(personality, current.now());
+    current.measure();
+  }, [personality]);
   if (!enabled) return null;
   return (
     <div

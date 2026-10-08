@@ -211,7 +211,10 @@ export function JournalNotebook({
     else if (original) setActiveId(original.id);
   };
   return (
-    <section className="collection-view journal-calendar-view">
+    <section
+      className="collection-view journal-calendar-view"
+      data-cat-context="calendar"
+    >
       {combined && (
         <div className="combined-calendar-controls">
           <div
@@ -410,6 +413,7 @@ function JournalRecordDialog({
     <div className="modal-backdrop">
       <section
         className="modal journal-record-dialog"
+        data-cat-context="journal"
         role="dialog"
         aria-modal="true"
         aria-label={node.title}

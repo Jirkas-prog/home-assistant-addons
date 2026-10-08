@@ -325,3 +325,176 @@ test("normal layout refreshes preserve a long nap and changing windows cannot re
   advance(cat, 22000, 24900);
   assert.equal(cat.scene.y, 260);
 });
+
+const personalityRails = [
+  {
+    id: "frame",
+    surface: "frame",
+    kind: "frame",
+    left: 100,
+    right: 600,
+    y: 100,
+  },
+  {
+    id: "reader",
+    surface: "reader",
+    kind: "reader",
+    left: 100,
+    right: 600,
+    y: 260,
+  },
+  { id: "tabs", surface: "tabs", kind: "tabs", left: 100, right: 600, y: 430 },
+];
+function character(personality, context = "workspace") {
+  const cat = new CatBehavior(() => 0.5, personality);
+  cat.setContext(context, context, 0);
+  cat.setRails(personalityRails, 0, { width: 1000, height: 800 });
+  return cat;
+}
+
+test("personalities choose different perches and exploration favors unvisited surfaces", () => {
+  assert.equal(character("classic").railId, "frame");
+  assert.equal(character("quiet").railId, "frame");
+  const curious = character("curious");
+  assert.equal(curious.railId, "reader");
+  assert.equal(character("playful").railId, "tabs");
+  curious.visited = ["reader", "frame"];
+  assert.equal(curious.preferred(personalityRails, true).id, "tabs");
+  assert.equal(character("unknown").personality, "classic");
+});
+
+test("context changes start a distinct routine once, without restarting on layout refresh", () => {
+  const cat = character("curious", "attachments");
+  cat.tick(1200);
+  assert.equal(cat.scene.pose, "inspect");
+  const remaining = [...cat.routine],
+    deadline = cat.deadline;
+  for (let time = 1300; time < 3000; time += 100) {
+    assert.equal(cat.setContext("attachments", "attachments", time), false);
+    cat.setRails(personalityRails, time);
+    cat.tick(time);
+  }
+  assert.deepEqual(cat.routine, remaining);
+  assert.equal(cat.deadline, deadline);
+  cat.tick(deadline);
+  assert.equal(cat.scene.pose, "paw");
+  assert.equal(cat.setContext("journal", "journal-window", 5000), true);
+  cat.enter("sit", 5000, 0);
+  cat.tick(5000);
+  assert.equal(cat.scene.pose, "watch");
+  cat.tick(cat.deadline);
+  assert.equal(cat.scene.pose, "groom");
+  cat.tick(cat.deadline);
+  assert.equal(cat.scene.pose, "sleep");
+});
+
+test("switching personality preserves an in-flight position and retargets continuously", () => {
+  const cat = character("playful", "board");
+  cat.tick(1200);
+  advance(cat, 1200, 1600, 10);
+  assert.ok(cat.motion);
+  const before = { x: cat.scene.x, y: cat.scene.y };
+  cat.setPersonality("quiet", 1600);
+  cat.setRails(personalityRails, 1600);
+  assert.deepEqual({ x: cat.scene.x, y: cat.scene.y }, before);
+  advance(cat, 1600, 4500, 10);
+  assert.equal(cat.railId, "frame");
+  assert.equal(cat.scene.y, 100);
+  assert.equal(cat.scene.visible, true);
+});
+
+test("quiet never hunts; active personalities have different capture timing", () => {
+  for (const [name, hunt, hold] of [
+    ["classic", 650, 3000],
+    ["curious", 850, 2000],
+    ["playful", 450, 2500],
+  ]) {
+    const cat = character(name);
+    cat.enter("sit", 3000, 9000);
+    cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 30 }, 3000);
+    assert.equal(cat.scene.pose, "hunt");
+    cat.tick(3000 + hunt);
+    assert.equal(cat.scene.pose, "pounce");
+    cat.tick(3000 + hunt + 650);
+    assert.equal(cat.scene.pose, "cling");
+    assert.equal(cat.deadline, 3000 + hunt + 650 + hold);
+  }
+  const quiet = character("quiet");
+  quiet.point({ x: quiet.scene.x + 47, y: quiet.scene.y - 30 }, 3000);
+  assert.equal(quiet.scene.pose, "sit");
+});
+
+test("typing releases a playful catch and suppresses new games without waking a nap", () => {
+  const cat = character("playful");
+  cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 30 }, 3000);
+  cat.tick(3450);
+  cat.tick(4100);
+  assert.equal(cat.scene.pose, "cling");
+  cat.yieldPointer(4200, { typing: true });
+  assert.notEqual(cat.scene.pose, "cling");
+  advance(cat, 4200, 7000, 10);
+  assert.equal(cat.scene.y, 430);
+  cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 30 }, 7000);
+  assert.notEqual(cat.scene.pose, "hunt");
+  assert.equal(cat.workUntil, 10200);
+  cat.enter("sleep", 8000, 20000);
+  cat.yieldPointer(9000, { typing: true });
+  assert.equal(cat.scene.pose, "sleep");
+  assert.equal(cat.deadline, 28000);
+});
+
+test("backups stay calm beyond their initial routine and never chase the pointer", () => {
+  for (const name of ["quiet", "curious", "playful"]) {
+    const cat = character(name, "transfer");
+    for (let time = 0; time < 240000; time += 100) {
+      cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 30 }, time);
+      cat.tick(time);
+      assert.ok(
+        ["sit", "watch", "groom", "sleep", "wake"].includes(cat.scene.pose),
+        cat.scene.pose,
+      );
+    }
+  }
+});
+
+test("all personalities remain visible, bounded and rested during a long session", () => {
+  for (const name of ["classic", "quiet", "curious", "playful"]) {
+    const cat = character(name, "board"),
+      poses = new Set();
+    for (let time = 0; time < 600000; time += 50) {
+      cat.tick(time);
+      poses.add(cat.scene.pose);
+      assert.ok(cat.scene.visible);
+      assert.ok(
+        Number.isFinite(cat.scene.x) && cat.scene.x >= 0 && cat.scene.x <= 906,
+      );
+      assert.ok(
+        Number.isFinite(cat.scene.y) && cat.scene.y >= 0 && cat.scene.y <= 728,
+      );
+      assert.ok(cat.visited.length <= 4);
+    }
+    assert.ok(poses.has("sleep"), name);
+    assert.ok(poses.has("wake"), name);
+    if (name === "curious") assert.ok(poses.has("inspect"));
+    if (name === "playful") assert.ok(poses.has("paw"));
+  }
+});
+
+test("reduced motion overrides personality switches, window routines and typing", () => {
+  const cat = character("playful");
+  cat.setReduced(true, 0);
+  for (const name of ["quiet", "curious", "classic", "playful"]) {
+    cat.setPersonality(name, 1000);
+    cat.setContext("attachments", name, 1000);
+    cat.setRails(personalityRails, 1000);
+    const point = { x: cat.scene.x, y: cat.scene.y };
+    cat.yieldPointer(1200, { typing: true });
+    for (let time = 1500; time < 60000; time += 1000) {
+      cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 30 }, time);
+      cat.tick(time);
+      assert.deepEqual({ x: cat.scene.x, y: cat.scene.y }, point);
+      assert.equal(cat.scene.pose, "sit");
+      assert.equal(cat.animated, false);
+    }
+  }
+});

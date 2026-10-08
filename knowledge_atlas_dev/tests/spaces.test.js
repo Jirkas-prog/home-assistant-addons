@@ -228,16 +228,18 @@ test("default selection survives restart, concurrent creation and Ingress-style 
   }
 });
 
-test("cat motion preferences migrate, validate, persist per space and round-trip in backups", async (t) => {
+test("cat preferences migrate, validate, persist per space and round-trip in backups", async (t) => {
   const f = await fixture(t, "/api/hassio_ingress/example");
   await f.request("general", "settings");
   const file = path.join(f.directory, "settings.json");
   const legacy = JSON.parse(await fs.readFile(file, "utf8"));
   delete legacy.catMotion;
+  delete legacy.catPersonality;
   legacy.languageSelectionCompleted = true;
   await fs.writeFile(file, JSON.stringify(legacy));
   let settings = await f.request("general", "settings");
   assert.equal(settings.catMotion, "full");
+  assert.equal(settings.catPersonality, "classic");
   assert.equal(settings.languageSelectionCompleted, true);
   const { createdId } = await f.request("general", "spaces", {
     name: "Example",
@@ -251,6 +253,43 @@ test("cat motion preferences migrate, validate, persist per space and round-trip
     );
     assert.equal((await f.request("general", "settings")).catMotion, mode);
     assert.equal((await f.request(createdId, "settings")).catMotion, "full");
+  }
+  for (const personality of ["quiet", "classic", "curious", "playful"]) {
+    settings = await f.request(
+      "general",
+      "settings",
+      { ...settings, catPersonality: personality },
+      "PUT",
+    );
+    assert.equal(
+      (await f.request("general", "settings")).catPersonality,
+      personality,
+    );
+    assert.equal(
+      (await f.request(createdId, "settings")).catPersonality,
+      "classic",
+    );
+  }
+  for (const invalidPersonality of [
+    "unknown",
+    "constructor",
+    "__proto__",
+    ["classic"],
+    3,
+  ]) {
+    const invalid = await fetch(`${f.base}/spaces/general/api/settings`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Knowledge-Client": "atlas",
+      },
+      body: JSON.stringify({ ...settings, catPersonality: invalidPersonality }),
+    });
+    assert.equal(invalid.status, 400);
+    assert.equal(
+      (await f.request("general", "settings")).catPersonality,
+      "playful",
+    );
   }
   const invalid = await fetch(`${f.base}/spaces/general/api/settings`, {
     method: "PUT",
@@ -271,6 +310,7 @@ test("cat motion preferences migrate, validate, persist per space and round-trip
   const preview = await backup.prepare(createReadStream(zip));
   await backup.restore(preview.id, preview.revision);
   assert.equal((await b.settings.read()).catMotion, "still");
+  assert.equal((await b.settings.read()).catPersonality, "playful");
   await f.host.stop();
   const restarted = await createSpacesApp({
     directory: f.directory,
@@ -285,6 +325,11 @@ test("cat motion preferences migrate, validate, persist per space and round-trip
     (await (await restarted.openSpace(createdId)).settings.read()).catMotion,
     "still",
   );
+  for (const space of ["general", createdId])
+    assert.equal(
+      (await (await restarted.openSpace(space)).settings.read()).catPersonality,
+      "playful",
+    );
 });
 
 test("unknown spaces never fall through to General and management retains request protection", async (t) => {

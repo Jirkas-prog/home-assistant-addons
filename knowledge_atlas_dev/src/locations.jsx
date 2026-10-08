@@ -1,3 +1,4 @@
+import { CAT_PERSONALITIES } from "../shared/cat-personalities.js";
 import { Select } from "./select.jsx";
 import { t, locale } from "../shared/i18n.js";
 import React, { useState, useRef } from "react";
@@ -76,6 +77,7 @@ export function LocationsSettings({
     <div className="modal-backdrop upper-modal">
       <form
         className="modal locations-modal"
+        data-cat-context="settings"
         role="dialog"
         aria-modal="true"
         aria-label={t("m029")}
@@ -125,29 +127,78 @@ export function LocationsSettings({
               </Select>
             </label>
             <p className="field-help">{t("settings.languageHelp")}</p>
-            <label className="check-label">
-              <input
-                type="checkbox"
-                checked={form.catEnabled !== false}
-                onChange={(e) => change("catEnabled", e.target.checked)}
-              />
-              {t("cat.setting")}
-            </label>
-            <label>
-              {t("cat.motion")}
-              <Select
-                aria-label={t("cat.motion")}
-                value={form.catMotion ?? "full"}
-                onChange={(e) => change("catMotion", e.target.value)}
-              >
-                {["full", "system", "still"].map((mode) => (
-                  <option key={mode} value={mode}>
-                    {t(`cat.motion.${mode}`)}
-                  </option>
-                ))}
-              </Select>
-            </label>
-            <p className="field-help">{t("cat.help")}</p>
+            <section
+              className="cat-settings"
+              aria-labelledby="cat-settings-title"
+            >
+              <h3 id="cat-settings-title">{t("cat.settings")}</h3>
+              <label className="check-label">
+                <input
+                  type="checkbox"
+                  checked={form.catEnabled !== false}
+                  onChange={(e) => change("catEnabled", e.target.checked)}
+                />
+                {t("cat.setting")}
+              </label>
+              <fieldset className="cat-personalities">
+                <legend>{t("cat.personality")}</legend>
+                <div className="cat-personality-grid">
+                  {Object.keys(CAT_PERSONALITIES).map((personality) => (
+                    <label
+                      key={personality}
+                      className="cat-personality-card"
+                      data-selected={
+                        (form.catPersonality ?? "classic") === personality
+                      }
+                    >
+                      <input
+                        type="radio"
+                        name="cat-personality"
+                        value={personality}
+                        checked={
+                          (form.catPersonality ?? "classic") === personality
+                        }
+                        onChange={() => change("catPersonality", personality)}
+                      />
+                      <span>
+                        <strong>{t(`cat.personality.${personality}`)}</strong>
+                        <small>
+                          {t(`cat.personality.${personality}.summary`)}
+                        </small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
+              <div className="cat-personality-details" aria-live="polite">
+                <strong>{t("cat.behavior")}</strong>
+                <p>
+                  {t(
+                    `cat.personality.${form.catPersonality ?? "classic"}.windows`,
+                  )}
+                </p>
+                <p>
+                  {t(
+                    `cat.personality.${form.catPersonality ?? "classic"}.pointer`,
+                  )}
+                </p>
+              </div>
+              <label>
+                {t("cat.motion")}
+                <Select
+                  aria-label={t("cat.motion")}
+                  value={form.catMotion ?? "full"}
+                  onChange={(e) => change("catMotion", e.target.value)}
+                >
+                  {["full", "system", "still"].map((mode) => (
+                    <option key={mode} value={mode}>
+                      {t(`cat.motion.${mode}`)}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+              <p className="field-help">{t("cat.help")}</p>
+            </section>
             <label>
               {t("m032")}
               <input

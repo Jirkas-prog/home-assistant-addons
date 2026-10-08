@@ -27,6 +27,7 @@ export function BackupTransferPanel({ floating = false }) {
   return (
     <section
       className={`backup-transfer ${floating ? "backup-transfer-floating" : ""}`}
+      data-cat-context="transfer"
       aria-label={t("transfer.title")}
     >
       <div className="backup-transfer-heading">

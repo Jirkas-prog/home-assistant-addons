@@ -1,3 +1,5 @@
+import { CAT_PERSONALITIES, catRoutine } from "../shared/cat-personalities.js";
+
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const ease = (p) => p * p * (3 - 2 * p);
@@ -27,7 +29,7 @@ export function catFreeIntervals(left, right, y, obstacles) {
 // Time is supplied by the host so a hidden tab can pause the whole scene.
 // Positions always describe the current frame, never the end of a CSS transition.
 export class CatBehavior {
-  constructor(random = Math.random) {
+  constructor(random = Math.random, personality = "classic") {
     this.random = random;
     this.scene = { x: 0, y: 0, pose: "sit", direction: 1, visible: false };
     this.rails = [];
@@ -37,6 +39,57 @@ export class CatBehavior {
     this.width = 1024;
     this.height = 768;
     this.lastTick = 0;
+    this.context = "workspace";
+    this.contextKey = "";
+    this.visited = [];
+    this.workUntil = 0;
+    this.activity = 0;
+    this.setPersonality(personality, 0);
+  }
+
+  get profile() {
+    return CAT_PERSONALITIES[this.personality];
+  }
+
+  idleDuration() {
+    return this.profile.idle[0] + this.random() * this.profile.idle[1];
+  }
+
+  setPersonality(value, now) {
+    const next = Object.hasOwn(CAT_PERSONALITIES, value) ? value : "classic";
+    if (next === this.personality) return;
+    this.personality = next;
+    this.step = this.activity = 0;
+    this.routine = catRoutine(next, this.context);
+    this.pointer = null;
+    this.cooldown = this.scene.visible ? now + 2000 : 0;
+    this.relocate = this.scene.visible;
+    if (["pounce", "cling"].includes(this.scene.pose)) this.returnToRail(now);
+    else if (!this.motion && !this.queued)
+      this.enter("sit", now, this.reduced ? Infinity : 1000);
+  }
+
+  setContext(kind, key, now) {
+    if (key === this.contextKey && kind === this.context) return false;
+    this.context = kind;
+    this.contextKey = key;
+    this.routine = catRoutine(this.personality, kind);
+    // A new window is interesting once, not on every resize or progress update.
+    if (this.personality !== "classic")
+      this.cooldown = Math.max(this.cooldown, now + 2500);
+    return this.personality !== "classic";
+  }
+
+  preferred(rails, explore = false) {
+    if (this.personality === "classic") return rails[0];
+    const score = (rail) => {
+      const rank = this.profile.surfaces.indexOf(rail.kind);
+      return (
+        (rank < 0 ? 0 : this.profile.surfaces.length - rank) * 10 +
+        (explore && !this.visited.includes(rail.surface || rail.id) ? 80 : 0)
+      );
+    };
+    return [...rails].sort((a, b) => score(b) - score(a))[0];
   }
 
   enter(pose, now, duration) {
@@ -57,7 +110,7 @@ export class CatBehavior {
     if (
       this.reduced ||
       !this.pointer ||
-      !["sit", "hunt", "peek"].includes(this.scene.pose)
+      !["sit", "hunt", "peek", "watch", "inspect"].includes(this.scene.pose)
     )
       return { x: 0, y: 0 };
     const dx = this.pointer.x - (this.scene.x + 47);
@@ -88,16 +141,18 @@ export class CatBehavior {
   }
 
   setRails(rails, now, { width, height, priority = false } = {}) {
+    priority ||= this.relocate;
+    this.relocate = false;
     this.width = width ?? this.width;
     this.height = height ?? this.height;
     const previous = this.rails.find((r) => r.id === this.railId);
     this.rails = rails;
     if (!rails.length) return;
     if (!this.scene.visible) {
-      const rail = rails[0];
+      const rail = this.preferred(rails);
       this.railId = rail.id;
       Object.assign(this.scene, { x: rail.right, y: rail.y, visible: true });
-      this.enter("sit", now, 5000);
+      this.enter("sit", now, this.personality === "classic" ? 5000 : 1200);
       return;
     }
     if (!priority && ["pounce", "cling"].includes(this.scene.pose)) return;
@@ -141,7 +196,9 @@ export class CatBehavior {
       if (Math.abs(target.x - x) > 2) this.travel(current, x, now, true);
       return;
     }
-    const rail = priority ? rails[0] : current || this.nearest().rail;
+    const rail = priority
+      ? this.preferred(rails)
+      : current || this.nearest().rail;
     const target = this.motion?.target || this.queued?.target || this.scene;
     const x = clamp(target.x, rail.left, rail.right);
     if (
@@ -166,12 +223,17 @@ export class CatBehavior {
     }
   }
 
-  travel(rail, x, now, urgent = false) {
+  travel(rail, x, now, urgent = false, hop = false) {
     const target = this.bound({
       x: clamp(x, rail.left, rail.right),
       y: rail.y,
     });
     this.railId = rail.id;
+    const surface = rail.surface || rail.id;
+    this.visited = [
+      ...this.visited.filter((id) => id !== surface),
+      surface,
+    ].slice(-4);
     if (this.reduced) {
       Object.assign(this.scene, target);
       this.motion = this.queued = null;
@@ -185,10 +247,20 @@ export class CatBehavior {
       return;
     }
     const kind =
-      Math.abs(target.y - this.scene.y) > 8 || length > 230 ? "jump" : "walk";
+      hop || Math.abs(target.y - this.scene.y) > 8 || length > 230
+        ? "jump"
+        : "walk";
     const duration =
       kind === "walk"
-        ? clamp(length / 0.055, 600, urgent ? 1900 : 3000)
+        ? clamp(
+            length / (0.055 * this.profile.speed),
+            600,
+            urgent
+              ? 1900
+              : this.personality === "classic"
+                ? 3000
+                : 4000 / this.profile.speed,
+          )
         : clamp(length * 1.5, 650, 1900);
     const move = { target, kind, duration, after: "land" };
     // A layout change retargets from this exact frame, without hiding or snapping.
@@ -210,21 +282,45 @@ export class CatBehavior {
 
   point(point, now) {
     this.pointer = point;
-    if (!point || this.reduced || !this.scene.visible || now < this.cooldown)
+    if (
+      !point ||
+      this.reduced ||
+      !this.scene.visible ||
+      now < this.cooldown ||
+      !this.profile.cursor ||
+      now < this.workUntil ||
+      (this.personality !== "classic" &&
+        ["transfer", "backups"].includes(this.context))
+    )
       return;
-    if (!["sit", "groom", "peek"].includes(this.scene.pose)) return;
+    if (!["sit", "groom", "peek", "watch", "inspect"].includes(this.scene.pose))
+      return;
     const center = this.scene.x + 47;
     const above = this.scene.y + 20 - point.y;
-    if (Math.abs(point.x - center) <= 100 && above >= 10 && above <= 135) {
+    if (
+      Math.abs(point.x - center) <= this.profile.reach &&
+      above >= 10 &&
+      above <= 135
+    ) {
       this.scene.direction = point.x >= center ? 1 : -1;
-      this.enter("hunt", now, 650);
+      this.enter("hunt", now, this.profile.hunt);
     }
   }
 
   // Let typing, selection and dragging take priority over the cursor game.
-  yieldPointer(now) {
+  yieldPointer(now, { typing = false } = {}) {
     this.pointer = null;
     this.cooldown = Math.max(this.cooldown, now + 2000);
+    if (typing && !this.reduced && this.personality !== "classic") {
+      this.workUntil = now + (this.personality === "quiet" ? 12000 : 6000);
+      this.routine = [];
+      if (
+        !this.motion &&
+        !this.queued &&
+        !["sleep", "cling", "pounce"].includes(this.scene.pose)
+      )
+        this.enter("watch", now, this.workUntil - now);
+    }
     if (this.scene.pose === "hunt") this.enter("sit", now, 5000);
     else if (["pounce", "cling"].includes(this.scene.pose))
       this.returnToRail(now);
@@ -232,11 +328,66 @@ export class CatBehavior {
 
   returnToRail(now) {
     this.motion = this.queued = null;
-    this.cooldown = now + 9000;
+    this.cooldown = now + (this.profile.cooldown || 9000);
     const closest = this.nearest();
     if (closest && closest.score > 2)
       this.travel(closest.rail, closest.point.x, now, true);
     else this.enter("land", now, 450);
+  }
+
+  act(action, now) {
+    if (
+      this.personality !== "classic" &&
+      ["journal", "editor", "comments", "settings"].includes(this.context) &&
+      ["hop", "explore"].includes(action)
+    )
+      action = "watch";
+    if (
+      this.personality !== "classic" &&
+      ["transfer", "backups"].includes(this.context) &&
+      !["watch", "groom", "sleep"].includes(action)
+    )
+      action = "sleep";
+    if (action === "sleep") {
+      this.activity = 0;
+      this.enter(
+        "sleep",
+        now,
+        this.profile.sleep[0] + this.random() * this.profile.sleep[1],
+      );
+    } else if (["groom", "peek", "inspect", "paw", "watch"].includes(action)) {
+      const duration = {
+        groom: 4500,
+        peek: 3500,
+        inspect: 3200,
+        paw: 2200,
+        watch: this.personality === "quiet" ? 14000 : 5000,
+      }[action];
+      this.activity++;
+      this.enter(action, now, duration);
+    } else {
+      this.activity++;
+      const nearest = this.nearest();
+      const others = this.rails.filter((r) => r.id !== this.railId);
+      const exploring = ["explore", "hop"].includes(action) && others.length;
+      const rail = exploring
+        ? this.personality === "classic"
+          ? others[Math.floor(this.random() * others.length)]
+          : this.preferred(others, true)
+        : nearest?.rail;
+      if (!rail) this.enter("sit", now, 5000);
+      else {
+        const stride =
+          this.profile.stride[0] + this.random() * this.profile.stride[1];
+        let x = this.scene.x + (this.random() > 0.5 ? 1 : -1) * stride;
+        if (x > rail.right || x < rail.left)
+          x = this.scene.x + (x > rail.right ? -1 : 1) * stride;
+        x = clamp(x, rail.left, rail.right);
+        if (distance(this.scene, { x, y: rail.y }) < 5)
+          this.enter("groom", now, 4500);
+        else this.travel(rail, x, now, false, action === "hop");
+      }
+    }
   }
 
   tick(now) {
@@ -267,7 +418,7 @@ export class CatBehavior {
           y: this.scene.y + this.hand.y,
         };
         if (this.pointer && distance(hand, this.pointer) < 24)
-          this.enter("cling", now, 3000);
+          this.enter("cling", now, this.profile.cling);
         else this.returnToRail(now);
       } else this.enter("land", now, 400);
       return this.scene;
@@ -306,36 +457,20 @@ export class CatBehavior {
           now,
         );
       }
+    } else if (this.personality !== "classic" && now < this.workUntil) {
+      this.enter("watch", now, this.workUntil - now);
     } else if (this.scene.pose === "sleep") this.enter("wake", now, 1800);
-    else if (this.scene.pose !== "sit")
-      this.enter("sit", now, 4500 + this.random() * 1800);
-    else {
-      const action = ["walk", "groom", "explore", "peek", "sleep", "walk"][
-        this.step++ % 6
-      ];
-      if (action === "sleep")
-        this.enter("sleep", now, 18000 + this.random() * 14000);
-      else if (action === "groom") this.enter("groom", now, 4500);
-      else if (action === "peek") this.enter("peek", now, 3500);
-      else {
-        const nearest = this.nearest();
-        const others = this.rails.filter((r) => r.id !== this.railId);
-        const rail =
-          action === "explore" && others.length
-            ? others[Math.floor(this.random() * others.length)]
-            : nearest?.rail;
-        if (!rail) this.enter("sit", now, 5000);
-        else {
-          const stride = 75 + this.random() * 55;
-          let x = this.scene.x + (this.random() > 0.5 ? 1 : -1) * stride;
-          if (x > rail.right || x < rail.left)
-            x = this.scene.x + (x > rail.right ? -1 : 1) * stride;
-          x = clamp(x, rail.left, rail.right);
-          if (distance(this.scene, { x, y: rail.y }) < 5)
-            this.enter("groom", now, 4500);
-          else this.travel(rail, x, now);
-        }
-      }
+    else if (this.scene.pose !== "sit") {
+      if (this.routine.length && this.activity < this.profile.restAfter)
+        this.act(this.routine.shift(), now);
+      else this.enter("sit", now, this.idleDuration());
+    } else {
+      const action =
+        this.activity >= this.profile.restAfter
+          ? "sleep"
+          : this.routine.shift() ||
+            this.profile.cycle[this.step++ % this.profile.cycle.length];
+      this.act(action, now);
     }
     return this.scene;
   }

@@ -139,7 +139,7 @@ export function SpaceBar({ settings, onSettings }) {
                   ? "cat.sleeping"
                   : reduced
                     ? "cat.stillStatus"
-                    : "cat.roaming",
+                    : `cat.personality.${settings.catPersonality ?? "classic"}`,
               )}
             </small>
           </span>
@@ -200,6 +200,7 @@ function SpacesDialog({ mode, data, current, blocked, onChanged, onClose }) {
     <div className="modal-backdrop upper-modal">
       <section
         className="modal spaces-dialog"
+        data-cat-context="settings"
         role="dialog"
         aria-modal="true"
         aria-labelledby="spaces-title"

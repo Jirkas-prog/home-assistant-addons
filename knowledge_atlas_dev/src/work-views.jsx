@@ -212,7 +212,7 @@ export function Tasks({
     setTimelineStatuses(Object.keys(TASK_STATUS));
   }
   return (
-    <section className="collection-view tasks-view">
+    <section className="collection-view tasks-view" data-cat-context={mode}>
       <div className="tasks-toolbar">
         {searchControl}
         <div className="segmented">

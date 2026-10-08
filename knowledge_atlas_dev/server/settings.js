@@ -5,6 +5,7 @@ import { fail } from "./store.js";
 import { historyDirectory } from "./file-safety.js";
 import { validateLocationTree } from "../shared/locations.js";
 import { TASK_VIEWS, CALENDAR_VIEWS } from "../shared/task-workflow.js";
+import { CAT_PERSONALITIES } from "../shared/cat-personalities.js";
 export const digest = (value) =>
   createHash("sha256").update(value).digest("hex");
 export function locationId(resource) {
@@ -25,6 +26,7 @@ export class Settings {
       languageSelectionCompleted: true,
       catEnabled: true,
       catMotion: "full",
+      catPersonality: "classic",
       taskDefaultView: "timeline",
       taskCalendarView: "month",
       documentRoot:
@@ -123,6 +125,12 @@ export class Settings {
         !CALENDAR_VIEWS.includes(value.taskCalendarView))
     )
       fail("Invalid default task view.");
+    if (
+      value.catPersonality != null &&
+      (typeof value.catPersonality !== "string" ||
+        !Object.hasOwn(CAT_PERSONALITIES, value.catPersonality))
+    )
+      fail("Invalid cat companion preference.");
     if (value.catEnabled != null && typeof value.catEnabled !== "boolean")
       fail("Invalid cat companion preference.");
     if (
@@ -185,6 +193,7 @@ export class Settings {
         value.libraryId ?? digest(path.resolve(this.file)).slice(0, 32),
       language: value.language ?? "en",
       catMotion: value.catMotion ?? "full",
+      catPersonality: value.catPersonality ?? "classic",
       taskDefaultView: value.taskDefaultView ?? "timeline",
       taskCalendarView: value.taskCalendarView ?? "month",
       languageSelectionCompleted: value.languageSelectionCompleted ?? true,

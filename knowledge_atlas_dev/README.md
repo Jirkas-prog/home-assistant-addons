@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.37**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.38**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -97,3 +97,14 @@ Open **Settings and locations**, then expand **Restore recent changes**. The lis
 Each action asks for confirmation. Selecting an older applied entry undoes that entry and every newer applied entry together; the confirmation states the exact count. An undone entry restores the necessary steps in their original order. A new saved edit discards the redo branch. Save or discard unsaved settings before restoring history. Global Ctrl+Z no longer changes the atlas; text fields retain their native undo.
 
 The history is separate for each space and survives restarts. It retains up to 1,000 steps within a 256 MiB compressed storage budget. Full library replacement starts a new history boundary. Revision conflicts or externally edited target files prevent a restore from overwriting newer data.
+
+## Cat personalities
+
+Open **Settings and locations → Pet settings**. Choose a personality and save.
+The original **Explorer** is the default for new and existing spaces; its walking,
+grooming, sleeping and three-second cursor game remain unchanged. **Quiet companion**
+prefers long rests and never chases the pointer. **Curious researcher** investigates
+new windows and attachments. **Playful acrobat** favors tabs, hops and paw taps.
+Animation controls apply independently: Full animation, Follow system or No animation.
+Preferences are stored per atlas space, included in settings backups and described
+in recent-change history. See [the behavior guide](docs/CAT-PERSONALITIES.md).

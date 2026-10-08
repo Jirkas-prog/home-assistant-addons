@@ -452,6 +452,7 @@ export default function TaskDialog({
     <div className="modal-backdrop">
       <section
         className="modal task-dialog"
+        data-cat-context={tab === "details" ? "task" : tab}
         role="dialog"
         aria-modal="true"
         aria-label={t("task.card")}

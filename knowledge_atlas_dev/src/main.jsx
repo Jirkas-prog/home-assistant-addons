@@ -1138,6 +1138,7 @@ function App() {
           </div>
         </section>
         <section
+          data-cat-context={view}
           className={`workbench ${view === "backups" ? "backup-workbench" : ""} ${view === "map" && !mapRequested ? "map-locked" : ""}`}
         >
           {view !== "tasks" && (
@@ -1930,6 +1931,7 @@ function App() {
       <AtlasCat
         enabled={!!settings.revision && settings.catEnabled !== false}
         motion={settings.catMotion}
+        personality={settings.catPersonality}
       />
       {view !== "backups" && !showSettings && <BackupTransferPanel floating />}
       <UploadRecovery
@@ -2056,6 +2058,7 @@ function App() {
         >
           <section
             className="reader modal"
+            data-cat-context="document"
             role="dialog"
             aria-modal="true"
             aria-label={readerContent.title}
@@ -2253,6 +2256,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
     <div className="modal-backdrop">
       <form
         className="modal editor"
+        data-cat-context="editor"
         role="dialog"
         aria-modal="true"
         aria-label={title}

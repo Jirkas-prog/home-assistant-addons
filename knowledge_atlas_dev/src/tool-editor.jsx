@@ -157,6 +157,13 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
     <div className="modal-backdrop">
       <form
         className={`modal editor tool-editor ${kind === "journal" ? "journal-editor" : ""}`}
+        data-cat-context={
+          kind === "journal"
+            ? journalTab === "attachments"
+              ? "attachments"
+              : "journal"
+            : "editor"
+        }
         noValidate={kind === "journal"}
         role="dialog"
         aria-modal="true"

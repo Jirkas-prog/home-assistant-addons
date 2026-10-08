@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.38
+
+- Add a dedicated Pet settings section with four personalities: the original Explorer, Quiet companion, Curious researcher and Playful acrobat. Save per space, validate on the server and retain settings through backup/restore and updates.
+- Give new personalities distinct rhythms, preferred perches, short-term exploration memory, cursor games and rest cycles. React separately to task tabs, journal writing, document previews, calendar, board, map, settings and backup transfers.
+- Add sniffing, watching and paw-tapping poses. Keep the head in front of the collar and preserve continuous movement when personality changes mid-jump.
+- Let typing quiet new personalities, keep backup sessions calm, and respect disabled/reduced motion and hidden tabs. Pet behavior remains offline and cannot operate controls or edit records.
+
 ## 5.0.1-dev.37
 
 - Add a Combined calendar with blue tasks and purple journal entries, source icons and independent visibility checkboxes. Reuse month (default), week, day and year navigation, ranged entries and overflow lists.
