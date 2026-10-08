@@ -4,11 +4,11 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.43**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.44**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
-- A brighter sage and charcoal interface with lime actions, warm ambient gradients, readable secondary text and consistent cards, calendars and dialogs. Decorative effects use local CSS and existing icons.
+- Five selectable themes in **Settings and locations > Appearance**: Original, Lime, Paper, Graphite and Tide. Preview locally before saving; each atlas space remembers its own appearance. Themes use local CSS and existing icons.
 - Nested branches, cross-links, searchable records and live statistics.
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.
 - Dated record cards, editable and fixed list positions with automatic renumbering, and date/importance sorting.
@@ -40,6 +40,14 @@ This is the **development channel**, version **5.0.1-dev.43**. The add-on name a
 - Stable attachment IDs, browser drafts, concurrent-edit comparison and source repair tools.
 - English by default, with a persistent English/Czech switch in **Settings and locations**.
 - Home Assistant Ingress access and persistent storage under `/config`.
+
+## Choose an appearance
+
+Open **Settings and locations > Appearance** and select a preview card. Original retains the earlier dark interface; Lime keeps the illuminated green design. Paper pairs warm ivory with olive details and editorial headings. Graphite uses slate surfaces, lavender accents and tighter corners. Tide combines light blue, teal actions and rounded surfaces.
+
+The entire interface previews immediately. **Save settings** stores the choice for this atlas space and its other windows. **Cancel**, Escape or the close button restores the saved appearance; a theme-only preview needs no extra confirmation. Other unsaved settings still require discard confirmation. Theme changes appear in the existing settings history and full backups. Importing a partial record package does not replace the destination space's appearance.
+
+Maps use the selected canvas and label colors without changing coordinates or requesting a rebuild. Record colors and urgency meanings remain unchanged. Everything works offline, with no theme images, web fonts or dependencies added. See [Appearance design](docs/APPEARANCE.md) for the palette rationale and inspiration.
 
 ## Arrange the knowledge map
 

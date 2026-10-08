@@ -16,6 +16,7 @@ export default function Map3D({
   onDragEnd,
   dragDisabled,
   editingLinks,
+  palette,
 }) {
   const objects = useRef(new Map()),
     hover = useRef(null),
@@ -152,9 +153,9 @@ export default function Map3D({
             const label = new SpriteText(
               n.title.length > 32 ? n.title.slice(0, 30) + "…" : n.title,
               13,
-              "#e6eaf2",
+              palette.text,
             );
-            label.backgroundColor = "#222e29ed";
+            label.backgroundColor = `${palette.canvas}ed`;
             label.padding = [4, 2];
             label.material.depthTest = false;
             label.userData.atlasPart = "label";
@@ -164,6 +165,10 @@ export default function Map3D({
             object.group.add(label);
           }
           if (object.label) {
+            if (object.label.color !== palette.text)
+              object.label.color = palette.text;
+            if (object.label.backgroundColor !== `${palette.canvas}ed`)
+              object.label.backgroundColor = `${palette.canvas}ed`;
             const title =
               n.title.length > 32 ? n.title.slice(0, 30) + "…" : n.title;
             if (object.label.text !== title) {
@@ -188,7 +193,7 @@ export default function Map3D({
     };
     frame = requestAnimationFrame(update);
     return () => cancelAnimationFrame(frame);
-  }, [graph, graphRef, selected, size]);
+  }, [graph, graphRef, selected, size, palette]);
 
   const selectAtClick = (event, link) => {
     const instance = graphRef.current;
@@ -212,7 +217,7 @@ export default function Map3D({
       graphData={graph}
       width={size.width}
       height={size.height}
-      backgroundColor="#222e29"
+      backgroundColor={palette.canvas}
       showNavInfo={false}
       enableNodeDrag={!dragDisabled}
       onNodeDrag={(node) => {

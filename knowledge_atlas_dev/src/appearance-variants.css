@@ -1,0 +1,583 @@
+/* Additional palettes share the same layout; surfaces, depth and rhythm differ. */
+:root:is(
+  [data-appearance="paper"],
+  [data-appearance="graphite"],
+  [data-appearance="tide"]
+) {
+  --scrollbar-track: var(--canvas);
+  --scrollbar-thumb: var(--line-strong);
+  --scrollbar-thumb-hover: var(--accent);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .app {
+  background:
+    radial-gradient(
+      ellipse at 90% 0,
+      color-mix(in srgb, var(--warm) 10%, transparent),
+      transparent 50%
+    ),
+    var(--canvas);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.sidebar, .space-bar) {
+  background: var(--sidebar);
+  border-color: var(--line);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.space-emblem, .brand-icon) {
+  background: var(--accent-soft);
+  border-color: var(--line-strong);
+  box-shadow: none;
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(
+    .space-select > span,
+    .workspace-label,
+    .tree-heading,
+    .nav-button,
+    .stats strong,
+    .page-heading h1
+  ) {
+  color: var(--text);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .topbar {
+  background: var(--surface);
+  border-color: var(--line);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.toolbar, .map-toolbar-shell, .calendar-weekdays) {
+  background: var(--surface);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .workbench {
+  border-color: var(--line);
+  border-radius: var(--panel-radius);
+  box-shadow: 0 8px 24px #00000008;
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .primary-button {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+  border-radius: var(--control-radius);
+  box-shadow: 0 3px 9px #0000000c;
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .primary-button:hover {
+  background: color-mix(in srgb, var(--accent) 90%, var(--text));
+  color: var(--on-accent);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.secondary-button, .search, .segmented, input, textarea, .atlas-select) {
+  border-radius: var(--control-radius);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.secondary-button:hover, .icon-button:hover) {
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
+  color: var(--text);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .nav-button.active {
+  background: var(--accent-soft);
+  border-color: var(--line-strong);
+  color: var(--accent);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .segmented {
+  background: var(--field);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(
+    .segmented button.active,
+    .filter-bar button.selected,
+    .task-tabs button[aria-selected="true"]
+  ) {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .task-tabs
+  button[aria-selected="true"]::after {
+  background: var(--accent);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.record-card, .deck-card) {
+  background: var(--surface);
+  border-radius: var(--card-radius);
+  box-shadow: 0 3px 8px #00000007;
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(
+    .record-card:hover,
+    .record-card.chosen,
+    .deck-card:hover,
+    .deck-card:focus-within
+  ) {
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(.modal, .modal.task-dialog) {
+  background: var(--surface);
+  border-color: var(--line-strong);
+  border-radius: var(--panel-radius);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .modal-backdrop {
+  background: #11192466;
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .map-area {
+  background-image: radial-gradient(
+    color-mix(in srgb, var(--muted) 25%, transparent) 0.7px,
+    transparent 0.7px
+  );
+  background-size: 24px 24px;
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .map-download-gate {
+  background:
+    radial-gradient(
+      circle,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 60%
+    ),
+    var(--canvas);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(
+    .atlas-select-options [aria-selected="true"],
+    .atlas-select-options [data-active="true"]
+  ) {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  :is(
+    .cat-toggle,
+    .cat-personality-card,
+    .cat-personality-details,
+    .cat-yarn-settings
+  ) {
+  background: var(--field);
+  color: var(--text-secondary);
+  border-color: var(--line);
+}
+:root:is(
+    [data-appearance="paper"],
+    [data-appearance="graphite"],
+    [data-appearance="tide"]
+  )
+  .map-filter-chip {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--line-strong);
+}
+:root[data-appearance="paper"]
+  :is(.page-heading h1, .journal-record-dialog h2, .calendar-toolbar h2) {
+  font-family: Georgia, "Times New Roman", serif;
+  font-weight: 500;
+  letter-spacing: -0.5px;
+}
+:root:is([data-appearance="paper"], [data-appearance="graphite"])
+  .page-heading::after {
+  display: none;
+}
+:root[data-appearance="graphite"] .page-heading > div:first-child::before {
+  background: var(--accent);
+}
+:root[data-appearance="tide"] .space-bar {
+  background: linear-gradient(145deg, var(--sidebar), var(--surface));
+}
+:root[data-appearance="tide"] .page-heading::after {
+  border-color: var(--line);
+  background: var(--accent-soft);
+  box-shadow:
+    0 0 0 18px #096c8206,
+    0 0 0 38px #096c8204;
+}
+
+/* Light surfaces also need dark text in older secondary controls. Semantic
+   warning panels and user-colored event bars retain their contrasting colors. */
+:root[data-scheme="light"] button:hover {
+  color: var(--text);
+}
+:root[data-scheme="light"] :is(select, .atlas-select) {
+  color-scheme: light;
+}
+:root[data-scheme="light"]
+  :is(
+    .task-dialog label,
+    .record-stamp,
+    .task-locations,
+    .task-rating,
+    .metadata,
+    .card-meta,
+    .card-footer,
+    .calendar-more,
+    .map-download-button,
+    .resource,
+    .resource small,
+    .field-help,
+    .cat-toggle small,
+    .cat-personality-details p,
+    .tool-card p,
+    .task-filter-fields > label
+  ) {
+  color: var(--text-secondary);
+}
+:root[data-scheme="light"]
+  :is(
+    .status,
+    .tags button,
+    .detail-section-title,
+    .related-row,
+    .resource-actions button,
+    .resource-actions a,
+    .text-button,
+    .editor-label button,
+    .calendar-time-head .today strong
+  ) {
+  color: var(--accent);
+}
+:root[data-scheme="light"]
+  :is(
+    .editor-extra,
+    .task-formatting,
+    .note-preview,
+    .resource-form,
+    .resource-card,
+    .backup-section,
+    .data-panel,
+    .tool-card,
+    .stock-movements input
+  ) {
+  background-color: var(--field);
+  color: var(--text);
+  border-color: var(--line);
+}
+:root[data-scheme="light"]
+  :is(
+    .calendar-date.today,
+    .calendar-mini-grid .today,
+    .calendar-date.today:hover,
+    .calendar-mini-grid .today:hover
+  ) {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+:root[data-scheme="light"] :is(.calendar-entry, .deck-tags span) {
+  color: var(--text);
+}
+:root[data-scheme="light"] .calendar-entry:hover {
+  color: var(--text);
+  filter: brightness(0.96);
+}
+:root[data-scheme="light"] .calendar-entry.continues-before {
+  border-left-color: var(--line-strong);
+}
+:root[data-scheme="light"] .calendar-entry.continues-after {
+  border-right-color: var(--line-strong);
+}
+:root[data-scheme="light"] .importance-rating button {
+  color: #80681e;
+}
+:root[data-scheme="light"] .importance-rating button svg {
+  stroke: #80681e;
+}
+:root[data-scheme="light"] .importance-rating button[aria-checked="true"] {
+  color: #886118;
+}
+:root[data-scheme="light"] .journal-editor .primary-button {
+  color: var(--on-accent);
+}
+:root[data-scheme="light"] .appearance-mini {
+  color-scheme: normal;
+}
+:root[data-scheme="light"]
+  :is(
+    .markdown,
+    .markdown h2,
+    .checkpoint-entry strong,
+    .editor-extra summary,
+    .related-picker label,
+    .journal-editor .editor-body label,
+    .attachment-queue-controls > span,
+    .search-status,
+    .task-comment small,
+    .task-activity article p,
+    .task-activity time,
+    .checkpoint-heading > span,
+    .checkpoint-help,
+    .checkpoint-fields legend,
+    .checkpoint-entry small,
+    .timeline-tick span
+  ) {
+  color: var(--text-secondary);
+}
+:root[data-scheme="light"]
+  :is(
+    .task-project-new,
+    .tasks-filter-toggle.has-filters,
+    .markdown blockquote,
+    .checkpoint-entry em
+  ) {
+  color: var(--accent);
+}
+:root[data-scheme="light"] :is(.markdown pre, .markdown code) {
+  color: var(--text);
+  background: var(--surface-raised);
+  border-color: var(--line);
+}
+:root[data-scheme="light"] .timeline-tick {
+  border-color: var(--line);
+}
+:root[data-scheme="light"] :is(.timeline-now, .timeline-now span) {
+  color: #a02d57;
+  border-color: #a02d57;
+}
+:root[data-scheme="light"]
+  :is(.checkpoint-entry.overdue em, .task-checkpoint-progress strong) {
+  color: #9c2929;
+}
+/* Urgency bars deliberately keep their dark semantic backgrounds. */
+:root[data-scheme="light"] .timeline-task-bar button:hover {
+  color: #eff3f7;
+}
+:root[data-scheme="light"] .timeline-task-bar .importance-rating button,
+:root[data-scheme="light"] .timeline-task-bar .importance-rating button svg {
+  color: #edc664;
+  stroke: #edc664;
+}
+:root[data-scheme="light"] .map-download-button > span:last-child {
+  color: var(--muted);
+}
+:root[data-scheme="light"]
+  :is(
+    .backup-metrics strong,
+    .backup-transfer-numbers,
+    .document-view-modes button,
+    .document-preview pre,
+    .collection-toolbar > label,
+    .collection-toolbar > span,
+    .collection-summary,
+    .inventory-table th,
+    .kanban-column > header,
+    .kanban-column h3,
+    .task-card p,
+    .task-meta,
+    .priority,
+    .priority.high,
+    .priority.low,
+    .timeline-help,
+    .timeline-ruler > span,
+    .timeline-urgency-legend,
+    .unscheduled h3,
+    .unscheduled h3 span,
+    .timeline-name-heading,
+    .importance-header,
+    .journal-auto-file small,
+    .journal-exif p,
+    .photo-card,
+    .notebook-index h3,
+    .notebook-index button,
+    .notebook-index small,
+    .notebook-page > header small,
+    .notebook-summary,
+    .notebook-badge,
+    .record-properties > label,
+    .space-help,
+    .space-row a > svg,
+    .filter-bar button span,
+    .detail-section-title > button,
+    .editor footer > span,
+    .image-placeholder,
+    .timeline-range,
+    .timeline-no-tasks,
+    .task-undated summary,
+    .tool-tabs button,
+    .tool-metrics span,
+    .tool-records small,
+    .tool-record-type,
+    .tool-overline,
+    .tool-detail > header p:not(.tool-overline),
+    .tool-meta,
+    .tool-table th,
+    .tool-table td small,
+    .tool-section-title > span,
+    .tool-result small,
+    .tool-empty,
+    .tool-empty h2,
+    .tool-empty h3,
+    .tool-row-editor legend,
+    .tool-history summary,
+    .history-entry-details span,
+    .history-entry-details small
+  ) {
+  color: var(--text-secondary);
+}
+:root[data-scheme="light"]
+  :is(
+    .backup-transfer-numbers strong,
+    .package-record summary span,
+    .history-success,
+    .journal-places code
+  ) {
+  color: var(--accent);
+}
+:root[data-scheme="light"] :is(.location-name, .default-document) {
+  color: var(--accent) !important;
+}
+:root[data-scheme="light"]
+  :is(
+    .document-view-modes button[aria-pressed="true"],
+    .importance-filter button.selected,
+    .notebook-index button[aria-current],
+    .tool-records > button.active,
+    .tool-tabs button.active,
+    .map-hierarchy-buttons [aria-pressed="true"]
+  ) {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+:root[data-scheme="light"]
+  :is(
+    .journal-exif,
+    .photo-card,
+    .notebook-index,
+    .notebook-page,
+    .tool-metrics > div,
+    .tool-records > button,
+    .tool-detail,
+    .tool-table th,
+    .map-building
+  ) {
+  background: var(--surface);
+  border-color: var(--line);
+}
+:root[data-scheme="light"] .importance-filter button span {
+  color: #80681e;
+}
+:root[data-scheme="light"] .map-hierarchy-guide [role="alert"] {
+  color: #9c2929;
+}
+:root[data-scheme="light"] .error-banner {
+  color: #9c2929;
+  background: #fff0ee;
+  border-color: #b86464;
+}
+@media (forced-colors: active) {
+  :root:is([data-appearance])
+    :is(
+      .app,
+      .sidebar,
+      .space-bar,
+      .toolbar,
+      .map-toolbar-shell,
+      .map-area,
+      .record-card,
+      .deck-card,
+      .modal,
+      .primary-button,
+      .nav-button.active
+    ) {
+    background: Canvas;
+    color: CanvasText;
+  }
+}

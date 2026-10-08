@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.44
+
+- Add a dedicated Appearance section with five accessible preview cards: Original, Lime, Paper, Graphite and Tide. Preserve both previous designs alongside three distinct new palettes, surface treatments and corner styles.
+- Preview the whole interface immediately; save per atlas space or dismiss a theme-only preview without an extra confirmation. Retain preferences across restart, full backup/restore and settings undo/redo. Existing libraries keep Lime until another theme is saved.
+- Adapt light-theme calendar entries, editor text, Markdown, checkpoints and map labels for readable contrast. Keep urgency colors, record identities and map geometry unchanged.
+- Use bundled CSS and existing icons only, with no new dependencies or external assets. Validate migration, palette contrast, space isolation, stale writes, undo/redo and backup restoration.
+
 ## 5.0.1-dev.43
 
 - Brighten the atlas with shared sage and charcoal surfaces, lime action buttons, warm ambient light and subtle orbital accents. Apply the palette to navigation, map controls, record cards, task boards, calendars, settings, backups and dialogs.

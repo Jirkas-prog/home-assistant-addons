@@ -56,6 +56,10 @@ async function fixture(t) {
 test("full backup restores records, unlinked attachments, settings and history to a new path without overwriting the previous library", async (t) => {
   const f = await fixture(t),
     zip = path.join(f.root, "backup.zip");
+  await f.settings.save(
+    { ...(await f.settings.read()), appearance: "paper" },
+    (await f.store.read()).nodes,
+  );
   let node = (await f.store.read()).nodes[0];
   await f.store.save(
     { ...node, body: "Second version" },
@@ -63,6 +67,10 @@ test("full backup restores records, unlinked attachments, settings and history t
     node.revision,
   );
   await f.service.export(createWriteStream(zip));
+  await f.settings.save(
+    { ...(await f.settings.read()), appearance: "graphite" },
+    (await f.store.read()).nodes,
+  );
   node = (await f.store.read()).nodes[0];
   await f.store.save(
     { ...node, body: "Keep in rollback" },
@@ -79,6 +87,7 @@ test("full backup restores records, unlinked attachments, settings and history t
     "Keep in rollback",
   );
   const config = await f.settings.read();
+  assert.equal(config.appearance, "paper");
   assert.notEqual(config.documentRoot, f.config.documentRoot);
   assert.equal(
     await fs.readFile(
@@ -106,6 +115,7 @@ test("full backup restores records, unlinked attachments, settings and history t
     next = await fresh.prepare(createReadStream(zip));
   await fresh.restore(next.id, next.revision);
   assert.equal((await freshStore.read()).nodes[0].body, "Second version");
+  assert.equal((await freshSettings.read()).appearance, "paper");
 });
 test("restored attachments remain viewable and downloadable without exposing hidden relative paths", async (t) => {
   const f = await fixture(t);

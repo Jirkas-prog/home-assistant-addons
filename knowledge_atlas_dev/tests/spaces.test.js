@@ -104,7 +104,7 @@ test("spaces isolate identical record IDs, settings, documents, undo and uploads
   await f.request(
     work,
     "settings",
-    { ...workSettings, catEnabled: false, language: "cs" },
+    { ...workSettings, catEnabled: false, language: "cs", appearance: "tide" },
     "PUT",
   );
   await Promise.all([
@@ -127,6 +127,9 @@ test("spaces isolate identical record IDs, settings, documents, undo and uploads
   );
   assert.equal((await f.request("general", "settings")).language, "en");
   assert.equal((await f.request(work, "settings")).catEnabled, false);
+  assert.equal((await f.request(work, "settings")).appearance, "tide");
+  assert.equal((await f.request("general", "settings")).appearance, "sage");
+  assert.equal((await f.request(personal, "settings")).appearance, "sage");
   assert.equal((await f.request("general", "settings")).catEnabled, true);
   assert.ok(
     (await fs.readFile(path.join(f.directory, "same-id.md"), "utf8")).includes(

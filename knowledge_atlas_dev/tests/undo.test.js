@@ -114,7 +114,11 @@ test("ratings, task checkpoints, order, fixed positions, map moves and settings 
     revision: map.revision,
   });
   const config = await request("settings");
-  await request("settings", "PUT", { ...config, language: "cs" });
+  await request("settings", "PUT", {
+    ...config,
+    language: "cs",
+    appearance: "graphite",
+  });
   assert.equal((await request("undo")).undo, 6);
   assert.equal(
     (await new UndoHistory(directory).status()).undo,
@@ -123,6 +127,7 @@ test("ratings, task checkpoints, order, fixed positions, map moves and settings 
   );
   await travel("undo");
   assert.equal((await request("settings")).language, "en");
+  assert.equal((await request("settings")).appearance, "sage");
   await travel("undo");
   assert.deepEqual((await request("map-positions")).views, {});
   await travel("undo");
@@ -145,6 +150,7 @@ test("ratings, task checkpoints, order, fixed positions, map moves and settings 
     positions,
   );
   assert.equal((await request("settings")).language, "cs");
+  assert.equal((await request("settings")).appearance, "graphite");
   const atlas = await request("atlas");
   assert.equal(atlas.undo.undo, 6);
   assert.equal(atlas.undo.redo, 0);

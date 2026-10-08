@@ -57,6 +57,7 @@ export default function MapView({
   onParentChange,
   onClearFilters,
   resultsPending,
+  palette,
 }) {
   const [linkMode, setLinkMode] = useState("browse"),
     [linkParent, setLinkParent] = useState(null),
@@ -391,6 +392,7 @@ export default function MapView({
             }
           >
             <Graph3D
+              palette={palette}
               data={data}
               size={size}
               selected={selected}
@@ -529,13 +531,13 @@ export default function MapView({
               ctx.font = label.font;
               ctx.textAlign = label.align;
               ctx.textBaseline = "top";
-              ctx.fillStyle = "#222e29ed";
+              ctx.fillStyle = `${palette.canvas}ed`;
               ctx.fillRect(...label.box);
               ctx.fillStyle = active
-                ? "#ffffff"
+                ? palette.text
                 : node.depth <= 1
-                  ? "#e6eaf2"
-                  : "#a7afbe";
+                  ? palette.text
+                  : palette.secondary;
               ctx.fillText(label.title, label.x, label.y);
             }
             ctx.restore();

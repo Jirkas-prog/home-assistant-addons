@@ -6,6 +6,7 @@ import { historyDirectory } from "./file-safety.js";
 import { validateLocationTree } from "../shared/locations.js";
 import { TASK_VIEWS, CALENDAR_VIEWS } from "../shared/task-workflow.js";
 import { CAT_PERSONALITIES } from "../shared/cat-personalities.js";
+import { APPEARANCES, DEFAULT_APPEARANCE } from "../shared/appearance.js";
 export const digest = (value) =>
   createHash("sha256").update(value).digest("hex");
 export function locationId(resource) {
@@ -28,6 +29,7 @@ export class Settings {
       catMotion: "full",
       catPersonality: "classic",
       catYarnEnabled: true,
+      appearance: DEFAULT_APPEARANCE,
       taskDefaultView: "timeline",
       taskCalendarView: "month",
       documentRoot:
@@ -120,6 +122,12 @@ export class Settings {
   }
   validate(value) {
     if (
+      value.appearance != null &&
+      (typeof value.appearance !== "string" ||
+        !Object.hasOwn(APPEARANCES, value.appearance))
+    )
+      fail("Invalid appearance preference.");
+    if (
       (value.taskDefaultView != null &&
         !TASK_VIEWS.includes(value.taskDefaultView)) ||
       (value.taskCalendarView != null &&
@@ -198,6 +206,7 @@ export class Settings {
       libraryId:
         value.libraryId ?? digest(path.resolve(this.file)).slice(0, 32),
       language: value.language ?? "en",
+      appearance: value.appearance ?? DEFAULT_APPEARANCE,
       catMotion: value.catMotion ?? "full",
       catPersonality: value.catPersonality ?? "classic",
       catYarnEnabled: value.catYarnEnabled ?? true,

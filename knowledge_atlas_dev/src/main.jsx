@@ -14,6 +14,7 @@ import {
 import React, {
   useState,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   lazy,
@@ -115,6 +116,14 @@ import {
 import "./map-layout.css";
 import "./app-shell.css";
 import "./atmosphere.css";
+import "./classic-appearance.css";
+import "./appearance-variants.css";
+import { APPEARANCES, appearanceId } from "../shared/appearance.js";
+import {
+  applyAppearance,
+  readAppearance,
+  rememberAppearance,
+} from "./appearance.js";
 import { Inventory, Tasks } from "./work-views.jsx";
 import { TASK_STATUS, PRIORITIES, projectFor } from "./work-model.js";
 import {
@@ -197,11 +206,21 @@ function App() {
     document.documentElement.lang = language;
     document.title = `${release.name} · ${t("m099")}`;
   }, [language]);
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState(() => ({
       locations: [],
-    }),
+      appearance: readAppearance(),
+    })),
     [showSettings, setShowSettings] = useState(false),
     [openDocument, setDocument] = useState(null);
+  const [previewAppearance, setPreviewAppearance] = useState(null);
+  const activeAppearance = appearanceId(
+    previewAppearance ?? settings.appearance,
+  );
+  const palette = APPEARANCES[activeAppearance];
+  useLayoutEffect(() => applyAppearance(activeAppearance), [activeAppearance]);
+  useEffect(() => {
+    if (settings.revision) rememberAppearance(settings.appearance);
+  }, [settings.appearance, settings.revision]);
   const [nodes, setNodes] = useState([]),
     [errors, setErrors] = useState([]),
     [orderRevision, setOrderRevision] = useState(""),
@@ -1527,6 +1546,7 @@ function App() {
                         activeMapFilters.length ? clearMapFilters : null
                       }
                       resultsPending={search.pending || layoutState.building}
+                      palette={palette}
                       mode={mode}
                       selected={selected}
                       onSelect={choose}
@@ -2191,7 +2211,11 @@ function App() {
           <LocationsSettings
             initial={settings}
             nodes={nodes}
-            onHistoryChanged={load}
+            onHistoryChanged={() => {
+              setPreviewAppearance(null);
+              return load();
+            }}
+            onPreviewAppearance={setPreviewAppearance}
             historyDisabled={
               loading ||
               !!editing ||
@@ -2200,7 +2224,10 @@ function App() {
               manualMap.saving ||
               !!manualMap.error
             }
-            onClose={() => setShowSettings(false)}
+            onClose={() => {
+              setPreviewAppearance(null);
+              setShowSettings(false);
+            }}
             onSaved={(r) => {
               setSettings(r);
               setLanguage(r.language);

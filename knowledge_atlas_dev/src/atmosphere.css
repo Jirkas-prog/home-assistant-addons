@@ -1,46 +1,46 @@
 /* A warm, illuminated atlas. Decoration stays outside content and hit targets. */
-.app {
+:root:not([data-appearance="classic"]) .app {
   background:
     radial-gradient(ellipse at 88% 0, #e9bd8723, transparent 48%),
     radial-gradient(ellipse at 30% 85%, #b9e98110, transparent 55%),
     var(--canvas);
 }
-.sidebar {
+:root:not([data-appearance="classic"]) .sidebar {
   background: linear-gradient(165deg, #354333, #27362e 55%, #2e3830);
 }
-.space-bar {
+:root:not([data-appearance="classic"]) .space-bar {
   background:
     radial-gradient(ellipse at 100% 0, #e9bd8724, transparent 75%),
     linear-gradient(135deg, #465336, #303f34);
   border-bottom-color: #bcd39240;
 }
-.space-emblem,
-.brand-icon {
+:root:not([data-appearance="classic"]) .space-emblem,
+:root:not([data-appearance="classic"]) .brand-icon {
   color: var(--accent);
   border-color: #d2f87950;
   background: linear-gradient(145deg, #d2f87923, #d2f87908);
   box-shadow: inset 0 1px #eefdc51a;
 }
-.space-select > span,
-.workspace-label,
-.tree-heading {
+:root:not([data-appearance="classic"]) .space-select > span,
+:root:not([data-appearance="classic"]) .workspace-label,
+:root:not([data-appearance="classic"]) .tree-heading {
   color: #c7d6ac;
 }
-.topbar {
+:root:not([data-appearance="classic"]) .topbar {
   background: #25342c80;
   border-bottom-color: #abc3912b;
 }
-.page-heading h1 {
+:root:not([data-appearance="classic"]) .page-heading h1 {
   color: #f5f8e9;
   font-weight: 650;
   letter-spacing: -0.8px;
 }
-.page-heading {
+:root:not([data-appearance="classic"]) .page-heading {
   position: relative;
   isolation: isolate;
   overflow: hidden;
 }
-.page-heading::after {
+:root:not([data-appearance="classic"]) .page-heading::after {
   content: "";
   position: absolute;
   pointer-events: none;
@@ -51,14 +51,16 @@
   top: -105px;
   border-radius: 50%;
   border: 1px solid #e9bd8721;
-  box-shadow: 0 0 0 18px #e9bd8708, 0 0 0 38px #d2f87907;
+  box-shadow:
+    0 0 0 18px #e9bd8708,
+    0 0 0 38px #d2f87907;
   background: radial-gradient(circle, #e9bd871c, transparent 70%);
 }
-.page-heading > div:first-child {
+:root:not([data-appearance="classic"]) .page-heading > div:first-child {
   position: relative;
   padding-left: 16px;
 }
-.page-heading > div:first-child::before {
+:root:not([data-appearance="classic"]) .page-heading > div:first-child::before {
   content: "";
   position: absolute;
   left: 0;
@@ -68,34 +70,34 @@
   border-radius: 4px;
   background: linear-gradient(var(--accent), var(--warm));
 }
-.stats strong {
+:root:not([data-appearance="classic"]) .stats strong {
   color: #e5f7bb;
 }
-.workbench {
+:root:not([data-appearance="classic"]) .workbench {
   border-color: #a5bb8547;
   border-radius: 20px;
   box-shadow:
     0 12px 36px #0d1a1724,
     inset 0 1px #eff9da0b;
 }
-.toolbar,
-.map-toolbar-shell {
+:root:not([data-appearance="classic"]) .toolbar,
+:root:not([data-appearance="classic"]) .map-toolbar-shell {
   background: linear-gradient(110deg, #354535, #303d33 65%, #3c4031);
 }
-.nav-button {
+:root:not([data-appearance="classic"]) .nav-button {
   border-radius: 12px;
   color: #d1ddc8;
 }
-.nav-button.active {
+:root:not([data-appearance="classic"]) .nav-button.active {
   background: linear-gradient(110deg, #d2f87928, #d2f8790a);
   border-color: #c9ef794d;
   box-shadow: inset 3px 0 var(--accent);
   color: #e1ff9f;
 }
-.nav-button:hover {
+:root:not([data-appearance="classic"]) .nav-button:hover {
   background-color: #d2f8790c;
 }
-.primary-button {
+:root:not([data-appearance="classic"]) .primary-button {
   background: linear-gradient(110deg, #d9fb85, #b5e57d);
   border-color: #d0f397;
   color: var(--on-accent);
@@ -104,36 +106,36 @@
     0 4px 16px #b5e57d16,
     inset 0 1px #f7ffd94d;
 }
-.primary-button:hover {
+:root:not([data-appearance="classic"]) .primary-button:hover {
   background: linear-gradient(110deg, #e4ff9d, #c5ef95);
   color: var(--on-accent);
 }
-.secondary-button,
-.search,
-.segmented,
-input,
-textarea,
-.atlas-select {
+:root:not([data-appearance="classic"]) .secondary-button,
+:root:not([data-appearance="classic"]) .search,
+:root:not([data-appearance="classic"]) .segmented,
+:root:not([data-appearance="classic"]) input,
+:root:not([data-appearance="classic"]) textarea,
+:root:not([data-appearance="classic"]) .atlas-select {
   border-radius: 11px;
 }
-.secondary-button:hover,
-.icon-button:hover {
+:root:not([data-appearance="classic"]) .secondary-button:hover,
+:root:not([data-appearance="classic"]) .icon-button:hover {
   border-color: #9aaf81;
   background-color: #42533f;
 }
-.segmented {
+:root:not([data-appearance="classic"]) .segmented {
   background: #25332b;
 }
-.segmented button.active,
-.filter-bar button.selected {
+:root:not([data-appearance="classic"]) .segmented button.active,
+:root:not([data-appearance="classic"]) .filter-bar button.selected {
   background: #52653a;
   color: #ebffb5;
   box-shadow: inset 0 0 0 1px #cbe98142;
 }
-.search input {
+:root:not([data-appearance="classic"]) .search input {
   border-radius: 0;
 }
-.map-area {
+:root:not([data-appearance="classic"]) .map-area {
   background-image:
     radial-gradient(#c6dd9130 0.7px, transparent 0.7px),
     radial-gradient(ellipse at 95% 0, #e9bd8719, transparent 65%);
@@ -141,40 +143,40 @@ textarea,
     24px 24px,
     100% 100%;
 }
-.map-download-gate {
+:root:not([data-appearance="classic"]) .map-download-gate {
   background:
     radial-gradient(circle at 50% 50%, #cadf8021, transparent 60%),
     var(--canvas);
 }
-.map-options-panel,
-.atlas-select-popup,
-.breadcrumb-menu {
+:root:not([data-appearance="classic"]) .map-options-panel,
+:root:not([data-appearance="classic"]) .atlas-select-popup,
+:root:not([data-appearance="classic"]) .breadcrumb-menu {
   box-shadow:
     0 14px 36px #0b191952,
     inset 0 1px #eff9da14;
 }
-.record-card,
-.deck-card {
+:root:not([data-appearance="classic"]) .record-card,
+:root:not([data-appearance="classic"]) .deck-card {
   border-radius: 16px;
   background: linear-gradient(145deg, #3a493a, var(--surface));
   box-shadow:
     inset 0 1px #e6f1c918,
     0 4px 12px #15221a26;
 }
-.record-card:hover,
-.record-card.chosen,
-.deck-card:hover,
-.deck-card:focus-within {
+:root:not([data-appearance="classic"]) .record-card:hover,
+:root:not([data-appearance="classic"]) .record-card.chosen,
+:root:not([data-appearance="classic"]) .deck-card:hover,
+:root:not([data-appearance="classic"]) .deck-card:focus-within {
   background: linear-gradient(145deg, #46563e, #334336);
   border-color: #99b378;
 }
-.deck-workspace {
+:root:not([data-appearance="classic"]) .deck-workspace {
   --deck-bg: var(--canvas);
   --deck-surface: var(--surface-raised);
   --deck-accent: var(--accent);
 }
-.modal,
-.modal.task-dialog {
+:root:not([data-appearance="classic"]) .modal,
+:root:not([data-appearance="classic"]) .modal.task-dialog {
   background:
     radial-gradient(ellipse at 100% 0, #e9bd8717, transparent 48%),
     var(--surface);
@@ -184,59 +186,63 @@ textarea,
     0 28px 90px #08160f77,
     inset 0 1px #edfacb1a;
 }
-.modal-backdrop {
+:root:not([data-appearance="classic"]) .modal-backdrop {
   background: #101b16ad;
   backdrop-filter: blur(5px);
 }
-.task-tabs button[aria-selected="true"] {
+:root:not([data-appearance="classic"]) .task-tabs button[aria-selected="true"] {
   color: #e8ffb1;
   background: #d2f87915;
 }
-.task-tabs button[aria-selected="true"]::after {
+:root:not([data-appearance="classic"])
+  .task-tabs
+  button[aria-selected="true"]::after {
   background: linear-gradient(90deg, var(--accent), #a7d77c);
 }
-.calendar-weekdays {
+:root:not([data-appearance="classic"]) .calendar-weekdays {
   background: var(--surface);
   color: var(--text-secondary);
   letter-spacing: 0.8px;
 }
-.calendar-day:not(.outside) {
+:root:not([data-appearance="classic"]) .calendar-day:not(.outside) {
   background: #d9eec603;
 }
-.calendar-day:has(.calendar-date.today) {
+:root:not([data-appearance="classic"]) .calendar-day:has(.calendar-date.today) {
   background: #d2f8790a;
 }
-.calendar-date.today,
-.calendar-mini-grid .today {
+:root:not([data-appearance="classic"]) .calendar-date.today,
+:root:not([data-appearance="classic"]) .calendar-mini-grid .today {
   color: var(--on-accent);
   background: var(--accent);
   box-shadow: 0 0 0 3px #d2f87915;
 }
-.calendar-entry {
+:root:not([data-appearance="classic"]) .calendar-entry {
   box-shadow: inset 0 1px #ffffff15;
 }
 @media (prefers-reduced-motion: reduce) {
-  button {
+  :root:not([data-appearance="classic"]) button {
     transition: none;
   }
 }
 @media (forced-colors: active) {
-  .app,
-  .sidebar,
-  .space-bar,
-  .toolbar,
-  .map-toolbar-shell,
-  .map-area,
-  .record-card,
-  .deck-card,
-  .modal,
-  .modal.task-dialog,
-  .primary-button {
+  :root:not([data-appearance="classic"]) .app,
+  :root:not([data-appearance="classic"]) .sidebar,
+  :root:not([data-appearance="classic"]) .space-bar,
+  :root:not([data-appearance="classic"]) .toolbar,
+  :root:not([data-appearance="classic"]) .map-toolbar-shell,
+  :root:not([data-appearance="classic"]) .map-area,
+  :root:not([data-appearance="classic"]) .record-card,
+  :root:not([data-appearance="classic"]) .deck-card,
+  :root:not([data-appearance="classic"]) .modal,
+  :root:not([data-appearance="classic"]) .modal.task-dialog,
+  :root:not([data-appearance="classic"]) .primary-button {
     background: Canvas;
     color: CanvasText;
   }
-  .page-heading > div:first-child::before,
-  .page-heading::after {
+  :root:not([data-appearance="classic"])
+    .page-heading
+    > div:first-child::before,
+  :root:not([data-appearance="classic"]) .page-heading::after {
     display: none;
   }
 }

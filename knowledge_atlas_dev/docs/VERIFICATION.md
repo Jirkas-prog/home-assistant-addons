@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.43` on 2026-10-08.
+Validated for Knowledge Atlas Dev `5.0.1-dev.44` on 2026-10-08.
 
-- All 270 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 273 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, appearance and language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1411 matching translation keys.
+- English/Czech language audits pass with 1429 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -21,6 +21,14 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.43` on 2026-10-08.
 - English/Czech browser checks cover creating and editing entries, day/week/month/custom ranges, related-record links, saved-place lookup, multi-file uploads, EXIF suggestions, photo navigation, PDF/Markdown/DOCX viewing and custom-extension text previews. Saved language and the selected entry survive reloads; console checks found no errors. All fixtures are generic.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
+
+## Selectable appearance (5.0.1-dev.44)
+
+All 273 tests, production build, language audit (1429 keys), add-on and permanent-channel checks pass. New coverage verifies migration from settings without an appearance, every palette surviving restart, unchanged existing preferences, invalid/prototype values, stale writes, per-space browser hints and blocked browser storage. Extended integration tests check independent space preferences, settings undo/redo and full backup restoration to a new directory. New theme text/accent pairs meet 4.5:1 against core surfaces; arbitrary record colors are not an accessibility certification.
+
+Browser checks with a generic library exercised the five-card settings section, live Paper preview, saved Original/Graphite/Tide calendars, a task detail dialog and Graphite persistence after server restart. Visual review found and corrected pale event titles, helper links and legacy secondary text on light backgrounds. The Tide map loading screen stayed within a 390 x 844 document; the final Tide calendar was captured at 1440 x 1000. Styles add approximately 5.8 kB gzip over Dev 43, without new image requests or dependencies.
+
+The local browser automation became blocked on the existing native discard confirmation during an intermediate build. The final theme-only preview now closes directly while other edited settings retain confirmation. Interactive cancellation, mobile selection and the final themed 2D/3D canvas pass could not be completed in that browser session; their rendering/state paths were reviewed in source, with palette and persistence behavior covered by automated tests. No live Home Assistant or physical phone test was performed.
 
 ## Illuminated sage appearance (5.0.1-dev.43)
 

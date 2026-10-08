@@ -1,4 +1,5 @@
 import { CAT_PERSONALITIES } from "../shared/cat-personalities.js";
+import { AppearanceSettings } from "./appearance-settings.jsx";
 import { Select } from "./select.jsx";
 import { t, locale } from "../shared/i18n.js";
 import React, { useState, useRef } from "react";
@@ -42,15 +43,18 @@ export function LocationsSettings({
   onClose,
   onSaved,
   onHistoryChanged,
+  onPreviewAppearance,
   historyDisabled,
 }) {
   const [form, setForm] = useState(() => structuredClone(initial)),
     [error, setError] = useState(""),
     [busy, setBusy] = useState(false),
     [dirty, setDirty] = useState(false),
+    [otherSettingsDirty, setOtherSettingsDirty] = useState(false),
     [replacement, setReplacement] = useState({});
   const change = (key, value) => {
     setDirty(true);
+    if (key !== "appearance") setOtherSettingsDirty(true);
     setForm((f) => ({
       ...f,
       [key]: value,
@@ -58,7 +62,8 @@ export function LocationsSettings({
   };
   const close = () => {
     if (busy) return;
-    if (!dirty || confirm(t("m028"))) onClose();
+    // A visual preview can be dismissed immediately; protect other edited settings.
+    if (!otherSettingsDirty || confirm(t("m028"))) onClose();
   };
   useDialogKeys(React, close);
   const update = (id, key, value) =>
@@ -116,6 +121,13 @@ export function LocationsSettings({
         </header>
         <div className="editor-body">
           <fieldset className="draft-fields" disabled={busy}>
+            <AppearanceSettings
+              value={form.appearance}
+              onChange={(value) => {
+                change("appearance", value);
+                onPreviewAppearance(value);
+              }}
+            />
             <label>
               {t("settings.language")}
               <Select
