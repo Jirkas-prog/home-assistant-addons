@@ -22,6 +22,16 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.23` on 2026-10-06.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
 
+## Combined calendar (5.0.1-dev.37)
+
+All 247 tests pass. Production build, English/Czech language audit (1355 keys), add-on packaging checks and permanent-channel checks pass. New coverage verifies mixed date ranges, midnight endings, independent source filters, unchanged original colors and data, lightweight metadata, profile-specific ETags and 304 responses, rejected partial-record writes, and unchanged urgency from neighboring checkpoint dates.
+
+Browser checks used a generic library of more than 1500 records, directly and inside a same-origin frame with an Ingress-style prefix. They covered month/week/day/year views, distinct task/journal colors and icons, overflow lists, both visibility checkboxes, full-text search across both types, task and journal details, calendar-date-prefilled creation and saving of both record types, and returning to the same date after closing details. Saved test entries survived a server restart. The year view shows both source dots on mixed days.
+
+At 390 x 844, the document remained exactly viewport-sized with no horizontal or outer-page scrolling. Switching atlas spaces worked through the mobile menu; the second space contained only its own undated task. English and Czech interfaces rendered correctly, and browser console checks recorded no warnings or errors. On a 1440 x 1000 viewport, month rows fit two event lanes without overlapping the overflow controls. Opening a task renders zero related-record checkboxes until its organization section expands; the test then displayed 1570 choices and preserved the saved form.
+
+The compressed calendar metadata response was approximately 77 kB in this generic fixture; size depends on record count and metadata. Before opening a record, request logs contained only space metadata, backup-transfer recovery checks and calendar workspace requests, with unchanged polls returning 304. No attachment, full-record or map requests occurred during that browsing phase. Opening a journal fetched only that journal's attachment preview; automated tests also verify that listing and search never read attachment contents. Physical mobile hardware and a live Home Assistant installation were not part of this verification.
+
 ## Quick capture and writing-first editors (5.0.1-dev.36)
 
 The suite passes 243 tests, including localized journal starters, year-boundary weekly ranges, preserved custom ranges and appointment times, existing task links and protection against replacing saved or non-empty writing. Production build, language audit, add-on checks and permanent-channel checks pass.

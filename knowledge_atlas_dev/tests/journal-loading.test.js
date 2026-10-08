@@ -47,7 +47,12 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
   );
   await fs.writeFile(
     path.join(directory, "task.md"),
-    serialize(record("task", { type: "task", task: { start: "", due: "" } })),
+    serialize(
+      record("task", {
+        type: "task",
+        task: { start: "2026-10-01", due: "2026-10-03" },
+      }),
+    ),
   );
   const entry = record("journal", {
     projectId: "project",
@@ -128,6 +133,37 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
     ).status,
     304,
   );
+  const calendarResponse = await fetch(base + "workspace?content=calendar", {
+    headers: { "If-None-Match": response.headers.get("ETag") },
+  });
+  assert.equal(
+    calendarResponse.status,
+    200,
+    "Calendar has a separate response profile",
+  );
+  const calendar = await calendarResponse.json();
+  assert.equal(calendar.content, "calendar");
+  assert.ok(
+    calendar.nodes.every((n) => n.partial && !n.body && !n.resources.length),
+  );
+  const calendarTask = calendar.nodes.find((n) => n.id === "task");
+  assert.deepEqual(calendarTask.task, {
+    start: "2026-10-01",
+    due: "2026-10-03",
+  });
+  assert.equal(
+    calendar.nodes.find((n) => n.id === "journal").tool.date,
+    entry.tool.date,
+  );
+  assert.equal(calendar.mapPositions, undefined);
+  assert.equal(
+    (
+      await fetch(base + "workspace?content=calendar", {
+        headers: { "If-None-Match": calendarResponse.headers.get("ETag") },
+      })
+    ).status,
+    304,
+  );
   const completeResponse = await fetch(base + "workspace?content=records", {
     headers: { "If-None-Match": response.headers.get("ETag") },
   });
@@ -135,6 +171,9 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
   const complete = await completeResponse.json();
   assert.ok(
     JSON.stringify(light).length < JSON.stringify(complete).length / 100,
+  );
+  assert.ok(
+    JSON.stringify(calendar).length < JSON.stringify(complete).length / 100,
   );
   for (const query of ["copper", "Microscope", "Laboratory", "Workshop"]) {
     const matches = await (
@@ -169,6 +208,22 @@ test("journal navigation is lightweight, searchable and cannot overwrite complet
     "Content-Type": "application/json",
     "X-Knowledge-Client": "atlas",
   };
+  assert.equal(
+    (
+      await fetch(base + "nodes/task", {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({ ...calendarTask, schema: 2 }),
+      })
+    ).status,
+    400,
+    "A calendar summary must never overwrite the original task",
+  );
+  assert.ok(
+    (await (await fetch(base + "nodes/task")).json()).body.includes(
+      "Detailed reference",
+    ),
+  );
   const rejected = await fetch(base + "nodes/journal", {
     method: "PUT",
     headers,

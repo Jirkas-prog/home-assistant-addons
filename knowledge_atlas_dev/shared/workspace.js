@@ -8,7 +8,9 @@ export function workspaceNode(node, content) {
     return node;
   if (["overview", "map", "tools"].includes(content))
     return { ...node, body: "", partial: true };
-  const journal = content === "journal" && node.tool?.kind === "journal";
+  const journal =
+    ["journal", "calendar"].includes(content) && node.tool?.kind === "journal";
+  const task = content === "calendar" && node.type === "task";
   return {
     id: node.id,
     title: node.title,
@@ -24,6 +26,22 @@ export function workspaceNode(node, content) {
     date: node.date,
     revision: node.revision,
     projectId: node.projectId,
+    ...(task
+      ? {
+          task: {
+            start: node.task?.start,
+            due: node.task?.due,
+            // Other tasks' dates still contribute to urgency in an opened card.
+            ...(node.task?.checkpoints?.length
+              ? {
+                  checkpoints: node.task.checkpoints.map(
+                    ({ id, due, done }) => ({ id, due, done }),
+                  ),
+                }
+              : {}),
+          },
+        }
+      : {}),
     ...(node.tool
       ? {
           tool: journal
@@ -45,7 +63,7 @@ export function workspaceNode(node, content) {
     resources: [],
     summary: journal ? node.summary : "",
     tags: journal ? node.tags : [],
-    related: journal ? node.related : [],
+    related: journal || task ? node.related : [],
     ...(journal ? { resourceCount: node.resources.length } : {}),
   };
 }

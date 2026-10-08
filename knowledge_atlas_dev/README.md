@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.36**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.37**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -71,6 +71,14 @@ See [DOCS.md](DOCS.md) for operation and backups, [FORMAT.md](FORMAT.md) for man
 Use **Add** in the top bar, or the arrow beside the existing creation button, to start a task, journal entry, note or project from the current page. Press **Alt+N** outside text fields and dialogs to open the same chooser. Settings must be saved or closed first. New records belong to the active atlas space and current area, if filtered; choose a project in the editor when needed. New notes and projects put writing below the title, with optional fields under **Organization and details**. Importance remains at the top.
 
 A blank new journal entry offers **Daily reflection**, **Weekly review** and **Meeting / event** outlines. These are editable Markdown starters, not automatic or recurring entries. A weekly review spans seven days from the selected date, unless a custom range or appointment time has already been chosen. Existing writing and saved records are never replaced; title, task links and other properties stay intact. The usual draft recovery and Save entry action apply.
+
+### Combined calendar
+
+Open **Combined calendar** in the sidebar to see tasks in blue and journal entries in purple. Both have a source icon, and either type can be hidden with its checkbox. Month opens by default; Day, Week and Year are available in the same view picker. Year cells show dots in both source colors. Existing record colors are preserved.
+
+Click an entry to open its original detail, then close it to return to the same calendar period. Use **Add** above the calendar or a date/time slot to choose between a task and journal entry with the date prefilled. Tasks remain date-only; journals can retain an appointment time. Undated tasks stay in the collapsible list below the grid. The Filters button exposes area, importance and project selection; search also checks unloaded record text.
+
+The combined overview downloads lightweight, cached metadata only. Opening a record fetches that record, and automatic attachment previews follow the existing limit of 10 MB per file for the open journal entry only. No map, attachment contents or full library bodies are fetched just to browse dates. The view belongs to the current atlas space.
 
 ### Task planning and journal handoff
 

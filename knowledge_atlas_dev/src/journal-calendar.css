@@ -691,3 +691,61 @@
     padding: 10px;
   }
 }
+.combined-calendar-controls,
+.calendar-sources {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.combined-calendar-controls {
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.calendar-sources label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 5px 10px;
+  border: 1px solid color-mix(in srgb, var(--source-color) 45%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--source-color) 9%, transparent);
+  color: var(--source-color);
+  cursor: pointer;
+  font-size: 13px;
+}
+.calendar-sources label:has(input:not(:checked)) {
+  background: transparent;
+  color: var(--muted);
+  border-color: var(--border);
+}
+.calendar-sources input {
+  accent-color: var(--source-color);
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.calendar-entry-kind {
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+.calendar-entry.timed > .calendar-entry-kind {
+  float: right;
+}
+.calendar-mini-grid .has-typed-entries::after {
+  display: none;
+}
+.calendar-source-dots {
+  position: absolute;
+  display: flex;
+  gap: 3px;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+.calendar-source-dots i {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+}

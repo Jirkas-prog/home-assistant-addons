@@ -1,6 +1,13 @@
 import { Select } from "./select.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Plus,
+  X,
+  Check,
+  BookOpen,
+} from "lucide-react";
 import { useDialogKeys } from "./client.js";
 import { t, locale } from "../shared/i18n.js";
 import {
@@ -19,6 +26,17 @@ const stamp = (day, options) =>
   new Intl.DateTimeFormat(locale(), { ...options, timeZone: "UTC" }).format(
     new Date(day + "T12:00:00Z"),
   );
+function EntryKind({ entry }) {
+  if (!entry.calendarKind) return null;
+  const Icon = entry.calendarKind === "task" ? Check : BookOpen;
+  return (
+    <Icon
+      className="calendar-entry-kind"
+      size={13}
+      aria-label={t(`capture.${entry.calendarKind}`)}
+    />
+  );
+}
 function EntryButton({ segment, onOpen, style, timed = false }) {
   const n = segment.entry;
   return (
@@ -28,6 +46,7 @@ function EntryButton({ segment, onOpen, style, timed = false }) {
       onClick={() => onOpen(n)}
       title={`${n.title} · ${n.tool.date}${n.tool.startTime ? " " + n.tool.startTime : ""} — ${n.tool.endDate || n.tool.date}${n.tool.endTime ? " " + n.tool.endTime : ""}`}
     >
+      <EntryKind entry={n} />
       {timedEntry(n) && (
         <small>
           {n.tool.startTime}
@@ -72,7 +91,9 @@ function DayEntries({ day, entries, onOpen, onClose }) {
                 onOpen(n);
               }}
             >
-              <span style={{ color: n.color }}>●</span>
+              <span style={{ color: n.color }}>
+                {n.calendarKind ? <EntryKind entry={n} /> : "●"}
+              </span>
               <strong>{n.title}</strong>
               <small>{n.tool.startTime || t("calendar.allDay")}</small>
             </button>
@@ -118,7 +139,8 @@ function Month({ date, entries, onOpen, onDay, onCreate, dateOnly }) {
   const rowHeight = Math.max(100, Math.floor((height - 38) / weeks.length));
   const visibleLanes = Math.max(
     1,
-    Math.min(6, Math.floor((rowHeight - 74) / 28)),
+    // Reserve the date header (35px), overflow button (28px) and bottom gap.
+    Math.min(6, Math.floor((rowHeight - 68) / 28)),
   );
   return (
     <>
@@ -209,10 +231,8 @@ function Month({ date, entries, onOpen, onDay, onCreate, dateOnly }) {
       {overflowDay && (
         <DayEntries
           day={overflowDay}
-          entries={entries.filter(
-            (n) =>
-              n.tool.date <= overflowDay &&
-              (n.tool.endDate || n.tool.date) >= overflowDay,
+          entries={calendarSegments(entries, overflowDay, overflowDay).map(
+            (s) => s.entry,
           )}
           onOpen={onOpen}
           onClose={() => setOverflowDay(null)}
@@ -426,11 +446,19 @@ export function JournalCalendar({
                   ))}
                   {Array.from({ length: count }, (_, i) => {
                     const day = dayOffset(range.start, i),
-                      n = calendarSegments(entries, day, day).length;
+                      dayEntries = calendarSegments(entries, day, day),
+                      n = dayEntries.length;
+                    const colors = [
+                      ...new Set(
+                        dayEntries
+                          .filter((s) => s.entry.calendarKind)
+                          .map((s) => s.entry.color),
+                      ),
+                    ];
                     return (
                       <button
                         key={day}
-                        className={`${day.slice(0, 7) !== month.slice(0, 7) ? "outside" : ""} ${n ? "has-entries" : ""} ${day === localDate() ? "today" : ""}`}
+                        className={`${day.slice(0, 7) !== month.slice(0, 7) ? "outside" : ""} ${n ? "has-entries" : ""} ${colors.length ? "has-typed-entries" : ""} ${day === localDate() ? "today" : ""}`}
                         aria-label={`${stamp(day, { dateStyle: "full" })} · ${t(dateOnly ? "tasks.count" : "tools.entries", n)}`}
                         onClick={() => {
                           onDate(day);
@@ -438,6 +466,16 @@ export function JournalCalendar({
                         }}
                       >
                         {Number(day.slice(-2))}
+                        {!!colors.length && (
+                          <span
+                            className="calendar-source-dots"
+                            aria-hidden="true"
+                          >
+                            {colors.map((color) => (
+                              <i key={color} style={{ background: color }} />
+                            ))}
+                          </span>
+                        )}
                       </button>
                     );
                   })}

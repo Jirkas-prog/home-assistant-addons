@@ -297,7 +297,7 @@ export async function createApp({
   app.get(["/api/nodes", "/api/atlas", "/api/workspace"], async (req, res) => {
     const content =
       req.path === "/api/workspace"
-        ? ["records", "journal", "overview", "tools"].includes(
+        ? ["records", "journal", "calendar", "overview", "tools"].includes(
             req.query.content,
           )
           ? req.query.content

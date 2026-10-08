@@ -30,19 +30,24 @@ export function TaskCalendar({
         onOpen={(entry) => onEdit(tasks.find((n) => n.id === entry.id))}
         onCreate={onCreate}
       />
-      {!!undated.length && (
-        <details className="task-undated">
-          <summary>{t("tasks.undated", undated.length)}</summary>
-          <div>
-            {undated.map((n) => (
-              <button key={n.id} onClick={() => onEdit(n)}>
-                <strong>{n.title}</strong>
-                <RecordStamp node={n} importance />
-              </button>
-            ))}
-          </div>
-        </details>
-      )}
+      <UndatedTasks tasks={undated} onOpen={onEdit} />
     </div>
+  );
+}
+
+export function UndatedTasks({ tasks, onOpen }) {
+  if (!tasks.length) return null;
+  return (
+    <details className="task-undated">
+      <summary>{t("tasks.undated", tasks.length)}</summary>
+      <div>
+        {tasks.map((n) => (
+          <button key={n.id} onClick={() => onOpen(n)}>
+            <strong>{n.title}</strong>
+            <RecordStamp node={n} importance />
+          </button>
+        ))}
+      </div>
+    </details>
   );
 }

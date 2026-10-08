@@ -326,6 +326,7 @@ export default function TaskDialog({
   const [loading, setLoading] = useState(!!initial.partial),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
+  const [organizationOpen, setOrganizationOpen] = useState(false);
   const [dirty, setDirty] = useState(false),
     [leaving, setLeaving] = useState(false),
     [conflict, setConflict] = useState(null),
@@ -791,60 +792,71 @@ export default function TaskDialog({
                     onChange={(v) => set("body", v)}
                     label={t("m211")}
                   />
-                  <details>
+                  <details
+                    open={organizationOpen}
+                    onToggle={(e) => setOrganizationOpen(e.currentTarget.open)}
+                  >
                     <summary>{t("task.organization")}</summary>
-                    <label>
-                      {t("m201")}
-                      <Select
-                        value={form.parent || ""}
-                        onChange={(e) => set("parent", e.target.value || null)}
-                      >
-                        <option value="">{t("m202")}</option>
-                        {nodes
-                          .filter((n) => !excluded.has(n.id))
-                          .map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {n.title}
-                            </option>
-                          ))}
-                      </Select>
-                    </label>
-                    <label>
-                      {t("list.recordDate")}
-                      <input
-                        type="date"
-                        value={form.date || ""}
-                        onChange={(e) => set("date", e.target.value)}
-                      />
-                    </label>
-                    <div className="related-picker">
-                      {nodes
-                        .filter((n) => n.id !== form.id)
-                        .map((n) => (
-                          <label key={n.id}>
-                            <input
-                              type="checkbox"
-                              checked={form.related.includes(n.id)}
-                              onChange={(e) =>
-                                set(
-                                  "related",
-                                  e.target.checked
-                                    ? [...form.related, n.id]
-                                    : form.related.filter((id) => id !== n.id),
-                                )
-                              }
-                            />
-                            {n.title}
-                          </label>
-                        ))}
-                    </div>
-                    {form.id && (
-                      <RecordOrder
-                        node={nodes.find((n) => n.id === form.id) || form}
-                        count={nodes.length}
-                        revision={orderRevision}
-                        onSaved={onRefresh}
-                      />
+                    {organizationOpen && (
+                      <>
+                        <label>
+                          {t("m201")}
+                          <Select
+                            value={form.parent || ""}
+                            onChange={(e) =>
+                              set("parent", e.target.value || null)
+                            }
+                          >
+                            <option value="">{t("m202")}</option>
+                            {nodes
+                              .filter((n) => !excluded.has(n.id))
+                              .map((n) => (
+                                <option key={n.id} value={n.id}>
+                                  {n.title}
+                                </option>
+                              ))}
+                          </Select>
+                        </label>
+                        <label>
+                          {t("list.recordDate")}
+                          <input
+                            type="date"
+                            value={form.date || ""}
+                            onChange={(e) => set("date", e.target.value)}
+                          />
+                        </label>
+                        <div className="related-picker">
+                          {nodes
+                            .filter((n) => n.id !== form.id)
+                            .map((n) => (
+                              <label key={n.id}>
+                                <input
+                                  type="checkbox"
+                                  checked={form.related.includes(n.id)}
+                                  onChange={(e) =>
+                                    set(
+                                      "related",
+                                      e.target.checked
+                                        ? [...form.related, n.id]
+                                        : form.related.filter(
+                                            (id) => id !== n.id,
+                                          ),
+                                    )
+                                  }
+                                />
+                                {n.title}
+                              </label>
+                            ))}
+                        </div>
+                        {form.id && (
+                          <RecordOrder
+                            node={nodes.find((n) => n.id === form.id) || form}
+                            count={nodes.length}
+                            revision={orderRevision}
+                            onSaved={onRefresh}
+                          />
+                        )}
+                      </>
                     )}
                   </details>
                 </div>

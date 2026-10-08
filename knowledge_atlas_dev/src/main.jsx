@@ -24,6 +24,7 @@ import { MarkdownContent as Md } from "./markdown.jsx";
 import { useMapPositions } from "./use-map-positions.js";
 import { useRecord, useRecordSearch } from "./use-record.js";
 import {
+  CalendarDays,
   Network,
   Search,
   Plus,
@@ -235,6 +236,7 @@ function App() {
         "inventory",
         "tools",
         "journal",
+        "calendar",
         "backups",
       ].includes(chosen)
         ? chosen
@@ -254,10 +256,11 @@ function App() {
     [journalCreate, setJournalCreate] = useState(false);
   const [libraryPage, setLibraryPage] = useState(0);
   const [journalFilters, setJournalFilters] = useState(false);
+  const calendarView = ["journal", "calendar"].includes(view);
   const content = showSettings
     ? "overview"
-    : view === "journal"
-      ? "journal"
+    : calendarView
+      ? view
       : view === "map" && mapRequested
         ? "map"
         : ["library", "inventory"].includes(view)
@@ -268,7 +271,7 @@ function App() {
   const snapshotReady = snapshotContent === content;
   const mapActive = view === "map" && mapRequested && snapshotContent === "map";
   const showDetail =
-    view !== "journal" && detail && (view !== "map" || mapRequested);
+    !calendarView && detail && (view !== "map" || mapRequested);
   const graphRef = useRef(),
     importRef = useRef(),
     searchRef = useRef(),
@@ -571,6 +574,7 @@ function App() {
     ["inventory", t("m104")],
     ["tools", t("tools.title")],
     ["journal", t("journal.title")],
+    ["calendar", t("calendar.combined.title")],
     ["settings", t("m029")],
     ["backups", t("backup.title")],
   ].map(([id, label]) => ({
@@ -826,6 +830,17 @@ function App() {
           <span className="nav-badge">{stats.tasks}</span>
         </button>
         <button
+          className={`nav-button ${view === "calendar" ? "active" : ""}`}
+          onClick={() => {
+            setView("calendar");
+            setDetail(false);
+            setSidebar(false);
+          }}
+        >
+          <CalendarDays size={18} />
+          {t("calendar.combined.title")}
+        </button>
+        <button
           className={`nav-button ${view === "inventory" ? "active" : ""}`}
           onClick={() => {
             setView("inventory");
@@ -1027,7 +1042,7 @@ function App() {
                 else newNode(scope || homeId, kind);
               }}
             >
-              {!["tasks", "tools", "backups"].includes(view) &&
+              {!["tasks", "tools", "backups", "calendar"].includes(view) &&
                 !showSettings && (
                   <button
                     className="primary-button"
@@ -1071,6 +1086,7 @@ function App() {
                   inventory: t("m104"),
                   tools: t("tools.title"),
                   journal: t("journal.title"),
+                  calendar: t("calendar.combined.title"),
                   backups: t("backup.title"),
                 }[view]
               }
@@ -1084,6 +1100,7 @@ function App() {
                   inventory: t("m129"),
                   tools: t("tools.description"),
                   journal: t("journal.description"),
+                  calendar: t("calendar.combined.description"),
                   backups: t("backup.description"),
                 }[view]
               }
@@ -1125,10 +1142,10 @@ function App() {
         >
           {view !== "tasks" && (
             <div
-              className={`toolbar ${view === "journal" ? "journal-toolbar" : ""} ${journalFilters ? "filters-open" : ""}`}
+              className={`toolbar ${calendarView ? "journal-toolbar" : ""} ${journalFilters ? "filters-open" : ""}`}
             >
               {searchControl}
-              {view === "journal" && (
+              {calendarView && (
                 <button
                   className="secondary-button journal-filter-toggle"
                   aria-expanded={journalFilters}
@@ -1180,7 +1197,7 @@ function App() {
                   </button>
                 </div>
               )}
-              {view !== "journal" && (
+              {!calendarView && (
                 <button
                   className="icon-button"
                   disabled={view === "map" && !mapRequested}
@@ -1211,7 +1228,7 @@ function App() {
             </p>
           )}
           <div
-            className={`filter-bar ${["inventory", "tasks", "tools", "journal", "backups"].includes(view) ? "hidden-filter" : ""}`}
+            className={`filter-bar ${["inventory", "tasks", "tools", "journal", "calendar", "backups"].includes(view) ? "hidden-filter" : ""}`}
           >
             <button
               className={filter === "all" ? "selected" : ""}
@@ -1296,8 +1313,21 @@ function App() {
                 <div className="backup-page">
                   <DataTools backupOnly onChanged={load} />
                 </div>
-              ) : view === "journal" ? (
+              ) : calendarView ? (
                 <JournalNotebook
+                  key={view}
+                  combined={view === "calendar"}
+                  onOpenTask={choose}
+                  onCreateTask={(day, project) =>
+                    newNode(
+                      project || scope || homeId,
+                      "task",
+                      "draft",
+                      project,
+                      undefined,
+                      day,
+                    )
+                  }
                   filtersOpen={journalFilters}
                   nodes={nodes}
                   settings={settings}
@@ -1306,7 +1336,11 @@ function App() {
                   importance={importanceFilter}
                   homeId={homeId}
                   onRefresh={load}
-                  focusId={node?.tool?.kind === "journal" ? node.id : ""}
+                  focusId={
+                    view === "journal" && node?.tool?.kind === "journal"
+                      ? node.id
+                      : ""
+                  }
                   createRequested={journalCreate}
                   onCreated={() => setJournalCreate(false)}
                   onSelect={(n) => {

@@ -20,7 +20,7 @@ const TYPES = [
   ["project", Folder],
 ];
 
-function CaptureDialog({ onClose, onCreate }) {
+export function CaptureDialog({ onClose, onCreate, kinds, description }) {
   useDialogKeys(React, onClose);
   const first = useRef();
   useEffect(() => first.current?.focus(), []);
@@ -47,23 +47,27 @@ function CaptureDialog({ onClose, onCreate }) {
             <X size={20} />
           </button>
         </header>
-        <p>{t("capture.help")}</p>
+        <p>{description || t("capture.help")}</p>
         <div className="quick-create-options">
-          {TYPES.map(([kind, Icon], index) => (
-            <button
-              key={kind}
-              ref={index === 0 ? first : undefined}
-              onClick={() => onCreate(kind)}
-            >
-              <Icon size={22} aria-hidden="true" />
-              <span>
-                <strong>{t(`capture.${kind}`)}</strong>
-                <small>{t(`capture.${kind}Help`)}</small>
-              </span>
-            </button>
-          ))}
+          {TYPES.filter(([kind]) => !kinds || kinds.includes(kind)).map(
+            ([kind, Icon], index) => (
+              <button
+                key={kind}
+                ref={index === 0 ? first : undefined}
+                onClick={() => onCreate(kind)}
+              >
+                <Icon size={22} aria-hidden="true" />
+                <span>
+                  <strong>{t(`capture.${kind}`)}</strong>
+                  <small>{t(`capture.${kind}Help`)}</small>
+                </span>
+              </button>
+            ),
+          )}
         </div>
-        <small className="quick-create-hint">{t("capture.shortcut")}</small>
+        {!kinds && (
+          <small className="quick-create-hint">{t("capture.shortcut")}</small>
+        )}
       </section>
     </div>,
     document.body,

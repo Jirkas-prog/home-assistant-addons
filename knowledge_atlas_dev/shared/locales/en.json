@@ -1345,5 +1345,13 @@
   "journal.starter.meetingBody": "## Purpose and participants\n\n\n## Notes\n\n\n## Decisions\n\n\n## Follow-up actions\n\n- [ ] \n",
   "capture.properties": "Organization and details",
   "capture.new.knowledge": "New note",
-  "capture.new.project": "New project"
+  "capture.new.project": "New project",
+  "calendar.combined.title": "Combined calendar",
+  "calendar.combined.description": "Tasks and journal entries together, with a distinct color for each.",
+  "calendar.combined.sources": "Show in calendar",
+  "calendar.combined.task": "Tasks",
+  "calendar.combined.journal": "Journal entries",
+  "calendar.combined.searchResults": "Matching tasks and journal entries",
+  "calendar.combined.noMatches": "No dated entries match these filters. Undated tasks are listed below.",
+  "calendar.combined.createOn": "Add a task or journal entry for {0}."
 }

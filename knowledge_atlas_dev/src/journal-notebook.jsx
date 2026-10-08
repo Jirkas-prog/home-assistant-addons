@@ -1,15 +1,21 @@
 import { Select } from "./select.jsx";
 import React, { useMemo, useState, useEffect } from "react";
-import { Pencil, X, LoaderCircle } from "lucide-react";
-import { t } from "../shared/i18n.js";
+import { Pencil, X, LoaderCircle, Check, BookOpen, Plus } from "lucide-react";
+import { t, locale } from "../shared/i18n.js";
 import { journalEntries } from "../shared/journal.js";
+import {
+  combinedCalendarEntries,
+  CALENDAR_COLORS,
+} from "../shared/combined-calendar.js";
 import { filterNodes } from "./atlas-model.js";
 import { JournalEntry } from "./journal.jsx";
 import { ToolEditor, newTool } from "./tool-editor.jsx";
 import { RecordImportance } from "./importance.jsx";
 import { api, useDialogKeys } from "./client.js";
 import { JournalCalendar } from "./journal-calendar.jsx";
-import { localDate } from "./work-model.js";
+import { localDate, projectFor } from "./work-model.js";
+import { CaptureDialog } from "./quick-create.jsx";
+import { UndatedTasks } from "./task-calendar.jsx";
 
 export function JournalNotebook({
   nodes,
@@ -24,6 +30,9 @@ export function JournalNotebook({
   createRequested,
   onCreated,
   filtersOpen = false,
+  combined = false,
+  onOpenTask,
+  onCreateTask,
 }) {
   const [mode, setMode] = useState("month"),
     [date, setDate] = useState(localDate),
@@ -36,6 +45,9 @@ export function JournalNotebook({
     [loaded, setLoaded] = useState(null),
     [entryError, setEntryError] = useState(""),
     [retry, setRetry] = useState(0);
+  const [showTasks, setShowTasks] = useState(true);
+  const [showJournals, setShowJournals] = useState(true);
+  const [captureSlot, setCaptureSlot] = useState(null);
   const searchQuery = query.trim();
   useEffect(() => {
     setSearchError("");
@@ -52,9 +64,12 @@ export function JournalNotebook({
       60000,
     );
     const timer = setTimeout(() => {
-      api(`journal/search?q=${encodeURIComponent(searchQuery)}`, {
-        signal: abort.signal,
-      })
+      api(
+        `${combined ? "search" : "journal/search"}?q=${encodeURIComponent(searchQuery)}`,
+        {
+          signal: abort.signal,
+        },
+      )
         .then((result) => {
           if (!abort.signal.aborted)
             setSearch({ query: searchQuery, ids: new Set(result.ids) });
@@ -77,26 +92,24 @@ export function JournalNotebook({
       clearTimeout(timeout);
       abort.abort();
     };
-  }, [searchQuery, nodes, settings.revision, retry]);
+  }, [searchQuery, nodes, settings.revision, retry, combined]);
   const searching =
     !!searchQuery && search?.query !== searchQuery && !searchError;
-  const entries = useMemo(
+  const filtered = useMemo(
     () =>
-      journalEntries(
-        filterNodes(nodes, {
-          query: "",
-          scope,
-          importance,
-          type: experienceOnly ? "experience" : "all",
-          locations: settings.locations,
-        }).filter(
-          (n) =>
-            (!project ||
-              n.projectId === project ||
-              n.related.includes(project)) &&
-            (!searchQuery ||
-              (search?.query === searchQuery && search.ids.has(n.id))),
-        ),
+      filterNodes(nodes, {
+        query: "",
+        scope,
+        importance,
+        type: !combined && experienceOnly ? "experience" : "all",
+        locations: settings.locations,
+      }).filter(
+        (n) =>
+          (!project ||
+            projectFor(n, nodes)?.id === project ||
+            n.related.includes(project)) &&
+          (!searchQuery ||
+            (search?.query === searchQuery && search.ids.has(n.id))),
       ),
     [
       nodes,
@@ -107,12 +120,30 @@ export function JournalNotebook({
       settings,
       experienceOnly,
       project,
+      combined,
     ],
   );
+  const journals = useMemo(() => journalEntries(filtered), [filtered]);
+  const entries = useMemo(
+    () =>
+      combined
+        ? combinedCalendarEntries(filtered, {
+            tasks: showTasks,
+            journals: showJournals,
+          })
+        : journals,
+    [combined, filtered, journals, showTasks, showJournals],
+  );
+  const undated =
+    combined && showTasks
+      ? filtered.filter(
+          (n) => n.type === "task" && !n.task?.start && !n.task?.due,
+        )
+      : [];
   useEffect(() => {
     if (focusId) setActiveId(focusId);
   }, [focusId]);
-  const summary = entries.find((n) => n.id === activeId);
+  const summary = journals.find((n) => n.id === activeId);
   const active =
     loaded &&
     summary &&
@@ -173,13 +204,49 @@ export function JournalNotebook({
       onCreated();
     }
   }, [createRequested]);
-  const open = (n) => {
-    setDate(n.tool.date);
-    setActiveId(n.id);
+  const open = (entry) => {
+    // Never pass a color/date projection to an editor.
+    const original = nodes.find((n) => n.id === entry.id);
+    if (combined && original?.type === "task") onOpenTask(original);
+    else if (original) setActiveId(original.id);
   };
   return (
     <section className="collection-view journal-calendar-view">
-      {(filtersOpen || project || experienceOnly) && (
+      {combined && (
+        <div className="combined-calendar-controls">
+          <div
+            className="calendar-sources"
+            role="group"
+            aria-label={t("calendar.combined.sources")}
+          >
+            {[
+              ["task", showTasks, setShowTasks, Check],
+              ["journal", showJournals, setShowJournals, BookOpen],
+            ].map(([kind, checked, setChecked, Icon]) => (
+              <label
+                key={kind}
+                style={{ "--source-color": CALENDAR_COLORS[kind] }}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={(e) => setChecked(e.target.checked)}
+                />
+                <Icon size={16} aria-hidden="true" />
+                {t(`calendar.combined.${kind}`)}
+              </label>
+            ))}
+          </div>
+          <button
+            className="secondary-button"
+            onClick={() => setCaptureSlot({ day: date })}
+          >
+            <Plus size={16} />
+            {t("capture.add")}
+          </button>
+        </div>
+      )}
+      {(filtersOpen || project || (!combined && experienceOnly)) && (
         <div className="collection-toolbar">
           <label>
             {t("tools.project")}
@@ -197,14 +264,16 @@ export function JournalNotebook({
                 ))}
             </Select>
           </label>
-          <label className="journal-experience-filter">
-            <input
-              type="checkbox"
-              checked={experienceOnly}
-              onChange={(e) => setExperienceOnly(e.target.checked)}
-            />
-            {t("journal.experiencesOnly")}
-          </label>
+          {!combined && (
+            <label className="journal-experience-filter">
+              <input
+                type="checkbox"
+                checked={experienceOnly}
+                onChange={(e) => setExperienceOnly(e.target.checked)}
+              />
+              {t("journal.experiencesOnly")}
+            </label>
+          )}
           <span>{t("tools.entries", entries.length)}</span>
         </div>
       )}
@@ -217,26 +286,44 @@ export function JournalNotebook({
       {searching && (
         <p className="journal-loading" role="status">
           <LoaderCircle size={18} className="spin" />
-          {t("journal.searching")}
+          {t(combined ? "workspace.searching" : "journal.searching")}
         </p>
       )}
       {searchQuery && !searching && !searchError && (
         <div
           className="calendar-search-results"
-          aria-label={t("calendar.searchResults")}
+          aria-label={t(
+            combined
+              ? "calendar.combined.searchResults"
+              : "calendar.searchResults",
+          )}
         >
           {entries.length ? (
             entries.map((n) => (
               <button
                 key={n.id}
                 className="secondary-button"
-                onClick={() => open(n)}
+                onClick={() => {
+                  setDate(n.tool.date);
+                  open(n);
+                }}
               >
+                {n.calendarKind && (
+                  <span style={{ color: n.color }}>
+                    {t(`capture.${n.calendarKind}`)} ·{" "}
+                  </span>
+                )}
                 {n.tool.date} · {n.title}
               </button>
             ))
           ) : (
-            <p>{t("tools.empty.journal")}</p>
+            <p>
+              {t(
+                combined
+                  ? "calendar.combined.noMatches"
+                  : "tools.empty.journal",
+              )}
+            </p>
           )}
         </div>
       )}
@@ -246,9 +333,30 @@ export function JournalNotebook({
         entries={entries}
         onDate={setDate}
         onMode={setMode}
-        onOpen={(n) => setActiveId(n.id)}
-        onCreate={create}
+        onOpen={open}
+        onCreate={
+          combined ? (day, time) => setCaptureSlot({ day, time }) : create
+        }
       />
+      {combined && <UndatedTasks tasks={undated} onOpen={onOpenTask} />}
+      {captureSlot && (
+        <CaptureDialog
+          kinds={["task", "journal"]}
+          description={t(
+            "calendar.combined.createOn",
+            new Intl.DateTimeFormat(locale(), { dateStyle: "long" }).format(
+              new Date(captureSlot.day + "T12:00:00"),
+            ),
+          )}
+          onClose={() => setCaptureSlot(null)}
+          onCreate={(kind) => {
+            const { day, time } = captureSlot;
+            setCaptureSlot(null);
+            if (kind === "task") onCreateTask(day, project);
+            else create(day, time);
+          }}
+        />
+      )}
       {active && !editing && (
         <JournalRecordDialog
           node={active}
@@ -263,7 +371,7 @@ export function JournalNotebook({
               key={active.id}
               autoPreview
               node={active}
-              entries={entries}
+              entries={journals}
               settings={settings}
               nodes={nodes}
               onSelect={onSelect}

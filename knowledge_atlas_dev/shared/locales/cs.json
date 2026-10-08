@@ -1345,5 +1345,13 @@
   "journal.starter.meetingBody": "## Cíl a účastníci\n\n\n## Poznámky\n\n\n## Rozhodnutí\n\n\n## Navazující kroky\n\n- [ ] \n",
   "capture.properties": "Zařazení a podrobnosti",
   "capture.new.knowledge": "Nová poznámka",
-  "capture.new.project": "Nový projekt"
+  "capture.new.project": "Nový projekt",
+  "calendar.combined.title": "Souhrnný kalendář",
+  "calendar.combined.description": "Úkoly a deníkové zápisy společně, každý typ vlastní barvou.",
+  "calendar.combined.sources": "Zobrazit v kalendáři",
+  "calendar.combined.task": "Úkoly",
+  "calendar.combined.journal": "Deníkové zápisy",
+  "calendar.combined.searchResults": "Nalezené úkoly a deníkové zápisy",
+  "calendar.combined.noMatches": "Žádné datované záznamy neodpovídají filtrům. Úkoly bez termínu najdete níže.",
+  "calendar.combined.createOn": "Přidat úkol nebo deníkový zápis pro {0}."
 }

@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.0.1-dev.37
+
+- Add a Combined calendar with blue tasks and purple journal entries, source icons and independent visibility checkboxes. Reuse month (default), week, day and year navigation, ranged entries and overflow lists.
+- Open original task or journal details without leaving the calendar. Adding on a chosen date offers both record types and prefills the date; journal time slots also preserve the chosen hour. Keep undated tasks accessible below the calendar.
+- Serve a cached calendar metadata profile without record bodies, attachment lists, checkpoint descriptions or map positions. Fetch full records only on open, preserve the existing per-entry preview policy, and reject incomplete summary writes.
+- Render task organization controls and large related-record checklists only after expansion.
+- Reuse project, area, importance and full-text search filters. Keep existing journal and task views, record colors and storage unchanged.
+
 ## 5.0.1-dev.36
 
 - Add Quick capture to the top bar: create a task, journal entry, note or project without switching pages. Existing direct creation actions remain one click away; Alt+N opens the chooser outside editors.
