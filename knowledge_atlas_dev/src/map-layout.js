@@ -1,17 +1,24 @@
 import { filterNodes } from "./atlas-model.js";
 import { mapNodeRadius } from "./map-node-geometry.js";
 import { recordImportance } from "../shared/importance.js";
+import { recordMapSize } from "../shared/record-appearance.js";
 
 export { MAP_LAYOUTS } from "../shared/map-layouts.js";
 
 // Content, translations and filters do not invalidate geometric positions.
 export function layoutKey(nodes, layout, dimensions) {
   return JSON.stringify([
-    7,
+    8,
     layout,
     dimensions,
     nodes
-      .map((n) => [n.id, n.parent, n.type, recordImportance(n)])
+      .map((n) => [
+        n.id,
+        n.parent,
+        n.type,
+        recordImportance(n),
+        recordMapSize(n),
+      ])
       .sort((a, b) => a[0].localeCompare(b[0])),
   ]);
 }
@@ -96,7 +103,7 @@ function classicLayout(nodes) {
       id: n.id,
       depth,
       childCount: (children.get(n.id) || []).length,
-      r: radii.get(n.id),
+      r: radii.get(n.id) * recordMapSize(n),
       x: Math.cos(angle) * radius,
       y: Math.sin(angle) * radius,
       z: depth ? Math.sin(angle * 2 + depth) * 90 * depth : 0,
@@ -324,6 +331,9 @@ function terraces({ roots, ordered, children }, geometry, dimensions) {
       ...packed.get(child.id),
     }));
     const group = pack(items);
+    const diameter = geometry.get(n.id).r * 2 + 56;
+    group.size[0] = Math.max(group.size[0], diameter);
+    group.size[1] = Math.max(group.size[1], diameter);
     group.levels = items.reduce(
       (levels, item) => Math.max(levels, item.levels + 1),
       0,
@@ -340,10 +350,17 @@ function terraces({ roots, ordered, children }, geometry, dimensions) {
     0,
   );
   // Wide 3D trees need taller levels to make their depth readable from an angle.
+  const bubbleGap = Math.max(
+    200,
+    ...[...geometry.values()].map((p) => p.r * 2 + 72),
+  );
   const levelGap =
     dimensions === 3
-      ? Math.max(200, Math.min(forest.size[0], forest.size[1]) / (maxDepth + 1))
-      : 200;
+      ? Math.max(
+          bubbleGap,
+          Math.min(forest.size[0], forest.size[1]) / (maxDepth + 1),
+        )
+      : bubbleGap;
   const middle = (maxDepth * levelGap) / 2;
   const positions = [];
   for (let i = 0; i < queue.length; i++) {
@@ -374,23 +391,31 @@ export function computeLayout(nodes, layout = "classic", dimensions = 2) {
   if (!nodes.length) return [];
   if (layout === "classic") return classicLayout(nodes);
   const { roots, ordered, children } = hierarchy(nodes);
-  const geometry = new Map();
-  for (const { n, depth } of ordered)
+  const geometry = new Map(),
+    automaticRadii = new Map();
+  for (const { n, depth } of ordered) {
+    // A manual size belongs only to this bubble, not to its descendants.
+    const radius = hierarchyRadius(
+      Math.max(11, 32 / (1 + depth * 0.45)) *
+        (0.6 + recordImportance(n) * 0.14),
+      automaticRadii.get(n.parent),
+    );
+    automaticRadii.set(n.id, radius);
     geometry.set(n.id, {
       id: n.id,
       depth,
       childCount: (children.get(n.id) || []).length,
-      r: hierarchyRadius(
-        Math.max(11, 32 / (1 + depth * 0.45)) *
-          (0.6 + recordImportance(n) * 0.14),
-        geometry.get(n.parent)?.r,
-      ),
+      r: radius * recordMapSize(n),
     });
+  }
   if (layout === "terraces")
     return terraces({ roots, ordered, children }, geometry, dimensions);
   if (layout === "grid") {
     const width = Math.ceil(nodes.length ** (1 / dimensions)),
-      spacing = 160;
+      spacing = Math.max(
+        160,
+        ...[...geometry.values()].map((p) => p.r * 2 + 72),
+      );
     const traversal = [],
       stack = [...roots].reverse();
     while (stack.length) {

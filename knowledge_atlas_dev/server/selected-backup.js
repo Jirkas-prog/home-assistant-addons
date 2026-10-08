@@ -40,6 +40,7 @@ export async function exportSelected(backups, output, parts, signal) {
         type: source.type,
         status: source.status,
         color: source.color,
+        ...(source.mapSize != null ? { mapSize: source.mapSize } : {}),
         body: "",
         summary: "",
         tags: [],

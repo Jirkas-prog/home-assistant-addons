@@ -71,6 +71,8 @@ export default function MapView({
     fitted = useRef(false),
     visibleLabels = useRef(new Set());
   const drag = useRef(null),
+    pointerDrag = useRef(null),
+    suppressNativeClick = useRef(0),
     suppressClick = useRef(0);
   callbacks.current = { onSelect, onOpen, viewerOpen };
   const activation = useMemo(
@@ -176,10 +178,19 @@ export default function MapView({
     return () => observer.disconnect();
   }, []);
   useEffect(() => {
-    if (callbacks.current.viewerOpen || fitted.current || !data.nodes.length)
+    if (
+      mode !== "2d" ||
+      callbacks.current.viewerOpen ||
+      fitted.current ||
+      !data.nodes.length
+    )
       return;
     const timer = setTimeout(() => {
-      if (!callbacks.current.viewerOpen && graphRef.current) {
+      if (
+        !fitted.current &&
+        !callbacks.current.viewerOpen &&
+        graphRef.current
+      ) {
         graphRef.current.zoomToFit(0, 65);
         fitted.current = true;
       }
@@ -194,8 +205,11 @@ export default function MapView({
       const graph = graphRef.current;
       const canvas = host.querySelector("canvas");
       if (!graph || !canvas || !event.deltaY) return;
+      clearTimeout(fitTimer.current);
+      fitted.current = true;
       event.preventDefault();
       event.stopPropagation();
+      if (pointerDrag.current) return;
       const rect = canvas.getBoundingClientRect();
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
@@ -252,7 +266,7 @@ export default function MapView({
     drag.current = null;
     onPositions(next);
   };
-  const select2DAtClick = (event, link) => {
+  const pick2D = (event) => {
     const canvas = ref.current?.querySelector("canvas");
     const instance = graphRef.current;
     if (!canvas || !instance) return;
@@ -260,7 +274,7 @@ export default function MapView({
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     if (x < 0 || y < 0 || x > rect.width || y > rect.height) return;
-    const node = pickMapNode2D(
+    return pickMapNode2D(
       data.nodes,
       canvas.getContext("2d"),
       instance.zoom(),
@@ -269,12 +283,102 @@ export default function MapView({
       hover,
       visibleLabels.current,
     );
-    click(node, event, link);
+  };
+  const select2DAtClick = (event, link) => click(pick2D(event), event, link);
+  const graphPoint = (event) => {
+    const rect = ref.current.querySelector("canvas").getBoundingClientRect();
+    return graphRef.current.screen2GraphCoords(
+      event.clientX - rect.left,
+      event.clientY - rect.top,
+    );
+  };
+  const pointerDown = (event) => {
+    if (mode !== "2d" || event.target.tagName !== "CANVAS") return;
+    // Any manual interaction takes ownership of the camera, even before first fit.
+    clearTimeout(fitTimer.current);
+    fitted.current = true;
+    if (
+      dragDisabled ||
+      linkMode !== "browse" ||
+      event.button !== 0 ||
+      !event.isPrimary ||
+      pointerDrag.current
+    )
+      return;
+    const node = pick2D(event);
+    if (!node) return;
+    // Use the same visible geometry for clicks and drags. Shadow-canvas hit tests
+    // can lag behind the frame and turn a bubble drag into a pan of every island.
+    pointerDrag.current = {
+      id: event.pointerId,
+      node,
+      origin: { ...node },
+      point: graphPoint(event),
+      screen: [event.clientX, event.clientY],
+      moved: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  };
+  const pointerMove = (event) => {
+    const gesture = pointerDrag.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    gesture.moved ||=
+      Math.hypot(
+        event.clientX - gesture.screen[0],
+        event.clientY - gesture.screen[1],
+      ) >= 4;
+    if (!gesture.moved) return;
+    const point = graphPoint(event);
+    dragNode(
+      {
+        ...gesture.origin,
+        x: gesture.origin.x + point.x - gesture.point.x,
+        y: gesture.origin.y + point.y - gesture.point.y,
+      },
+      data.nodes,
+    );
+    graphRef.current.d3ReheatSimulation();
+  };
+  const pointerEnd = (event, cancelled = false) => {
+    const gesture = pointerDrag.current;
+    if (!gesture || gesture.id !== event.pointerId) return;
+    if (!cancelled) pointerMove(event);
+    event.preventDefault();
+    event.stopPropagation();
+    pointerDrag.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId))
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    if (gesture.moved) {
+      if (cancelled) {
+        dragNode(gesture.origin, data.nodes);
+        drag.current = null;
+      } else endDrag(gesture.node, data.nodes);
+      graphRef.current.d3ReheatSimulation();
+    } else if (!cancelled) click(gesture.node, event.nativeEvent);
+    suppressNativeClick.current = performance.now() + 500;
   };
   return (
     <div
       className="map-canvas"
       ref={ref}
+      onPointerDownCapture={pointerDown}
+      onPointerMoveCapture={pointerMove}
+      onPointerUpCapture={pointerEnd}
+      onPointerCancelCapture={(event) => pointerEnd(event, true)}
+      onLostPointerCapture={(event) => pointerEnd(event, true)}
+      onClickCapture={(event) => {
+        if (
+          event.target.tagName === "CANVAS" &&
+          performance.now() < suppressNativeClick.current
+        ) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
       onDoubleClickCapture={(event) => {
         // Keep the canvas library from zooming on native double-click.
         event.preventDefault();
@@ -415,9 +519,8 @@ export default function MapView({
           backgroundColor="#11151c00"
           nodeLabel={label}
           cooldownTicks={0}
-          enableNodeDrag={!dragDisabled && linkMode === "browse"}
-          onNodeDrag={(node) => dragNode(node, data.nodes)}
-          onNodeDragEnd={(node) => endDrag(node, data.nodes)}
+          enableNodeDrag={false}
+          enablePanInteraction={() => !pointerDrag.current}
           minZoom={0.002}
           maxZoom={20}
           onRenderFramePre={(ctx, scale) => {

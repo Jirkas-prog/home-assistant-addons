@@ -1,3 +1,4 @@
+import { randomRecordColor } from "../shared/record-appearance.js";
 import { fail } from "./store.js";
 import { validDate, cardState, nextReview, bomModel } from "../shared/tools.js";
 
@@ -67,7 +68,7 @@ export function registerTools(app, store, mutate) {
           projectId: source.projectId || "",
           status: "active",
           summary: source.summary,
-          color: source.color,
+          color: randomRecordColor(),
           tags: [...source.tags],
           related: [],
           resources: [],

@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.46
+
+- Drag only the selected bubble and descendants reached through outgoing hierarchy arrows. Use visible bubble geometry consistently for 2D clicks and drags; prevent delayed initial fitting or a stale shadow hit area from moving the entire map during a bubble gesture. Preserve 3D branch dragging, unrelated islands and saved positions.
+- Give newly created records independent random colors, stored once with the record. Add Bubble appearance to record, task and journal/tool editors, with palette/custom/random colors and a 50–300% size adjustment.
+- Persist appearance in Markdown, lightweight indexes, undo history and backups. Include custom sizes in cached geometry and packed layout spacing without resizing descendants or replacing saved centers. Keep existing record colors and automatic sizes.
+
 ## 5.0.1-dev.45
 
 - Make the cat and yarn directly draggable with mouse, pen and touch. Preserve grab offsets; distinguish clicks, slow placement and velocity-based throws. Apply gravity, wall reflection, surface bounces and rolling friction using visible control edges.

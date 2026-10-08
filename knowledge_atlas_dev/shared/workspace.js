@@ -17,6 +17,7 @@ export function workspaceNode(node, content) {
     parent: node.parent,
     type: node.type,
     color: node.color,
+    ...(node.mapSize != null ? { mapSize: node.mapSize } : {}),
     status: node.status,
     importance: node.importance,
     position: node.position,

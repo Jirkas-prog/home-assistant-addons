@@ -1006,7 +1006,7 @@
   "list.invalidOrderFile": "Soubor pořadí musí být běžný soubor JSON menší než 16 MB.",
   "map.reset": "Resetovat pohled",
   "map.resetHint": "Obnovit automatické rozmístění a zobrazit celek pro aktuální režim a rozměr mapy.",
-  "map.dragHelp": "Tažením bubliny přesunete větev · tažením pozadí se pohybujete · kolečkem přibližujete",
+  "map.dragHelp": "Tažením bubliny přesunete ji a její potomky propojené šipkami · tažením pozadí se pohybujete · kolečkem přibližujete",
   "map.saving": "Ukládání rozmístění mapy…",
   "map.saveFailed": "Rozmístění mapy se nepodařilo uložit. Nezavírejte stránku a zkuste to znovu.",
   "map.retrySave": "Znovu uložit",
@@ -1434,5 +1434,13 @@
   "cat.yarn.layer": "Umístění klubíčka vůči kočce",
   "cat.yarn.front": "Před kočkou (výchozí)",
   "cat.yarn.behind": "Za kočkou",
-  "undo.field.catYarnLayer": "Vrstvení klubíčka"
+  "undo.field.catYarnLayer": "Vrstvení klubíčka",
+  "appearance.bubble": "Vzhled bubliny",
+  "appearance.randomColor": "Náhodná barva",
+  "appearance.size": "Velikost bubliny",
+  "appearance.sizeHelp": "100 % odpovídá automatické velikosti podle hierarchie. Úprava ovlivní pouze tuto bublinu.",
+  "appearance.resetSize": "Vrátit velikost na 100 %",
+  "appearance.invalidSize": "Velikost bubliny musí být mezi 50 % a 300 %.",
+  "undo.field.mapSize": "Velikost bubliny",
+  "appearance.color": "Barva bubliny"
 }

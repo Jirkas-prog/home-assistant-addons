@@ -1,3 +1,5 @@
+import { RecordAppearance } from "./record-appearance.jsx";
+import { randomRecordColor } from "../shared/record-appearance.js";
 import { Select } from "./select.jsx";
 import { QuickCreate } from "./quick-create.jsx";
 import { SpaceBar } from "./spaces.jsx";
@@ -188,14 +190,6 @@ const ICONS = {
   item: Box,
   task: Check,
 };
-const COLORS = [
-  "#a7e87b",
-  "#73c8ed",
-  "#c3a0f3",
-  "#f1bb73",
-  "#f090b2",
-  "#93a9fd",
-];
 function Glyph({ type, ...props }) {
   const Icon = ICONS[type] || Circle;
   return <Icon size={17} {...props} />;
@@ -537,7 +531,7 @@ function App() {
       type,
       status,
       parent: parent || null,
-      color: nodes.find((n) => n.id === parent)?.color || COLORS[0],
+      color: randomRecordColor(),
       summary: "",
       tags: [],
       related: [],
@@ -1018,7 +1012,7 @@ function App() {
                 type: "category",
                 status: "draft",
                 parent: structure.container?.id || null,
-                color: COLORS[groups.length % 6],
+                color: randomRecordColor(),
                 summary: "",
                 tags: [],
                 related: [],
@@ -2635,32 +2629,8 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                     placeholder={t("m206")}
                   />
                 </label>
-                <label>
-                  {t("m207")}
-                  <div className="colors">
-                    {COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        aria-label={t("m401", c)}
-                        className={form.color === c ? "chosen" : ""}
-                        style={{
-                          background: c,
-                        }}
-                        onClick={() => set("color", c)}
-                      >
-                        {form.color === c && <Check size={15} />}
-                      </button>
-                    ))}
-                    <input
-                      type="color"
-                      aria-label={t("m208")}
-                      value={form.color}
-                      onChange={(e) => set("color", e.target.value)}
-                    />
-                  </div>
-                </label>
               </div>
+              <RecordAppearance record={form} onChange={set} />
             </Properties>
             {!writingFirst && bodyEditor}
             <details

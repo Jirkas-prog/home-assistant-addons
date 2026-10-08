@@ -1006,7 +1006,7 @@
   "list.invalidOrderFile": "The list order file must be a regular JSON file under 16 MB.",
   "map.reset": "Reset view",
   "map.resetHint": "Restore automatic positions and fit the current layout and dimension.",
-  "map.dragHelp": "Drag a bubble to move its branch · drag background to navigate · scroll to zoom",
+  "map.dragHelp": "Drag a bubble to move it and its descendants connected by arrows · drag the background to pan · scroll to zoom",
   "map.saving": "Saving map positions…",
   "map.saveFailed": "Map positions have not been saved. Keep this page open and retry.",
   "map.retrySave": "Retry saving",
@@ -1434,5 +1434,13 @@
   "cat.yarn.layer": "Ball position relative to the cat",
   "cat.yarn.front": "In front of the cat (default)",
   "cat.yarn.behind": "Behind the cat",
-  "undo.field.catYarnLayer": "Yarn layering"
+  "undo.field.catYarnLayer": "Yarn layering",
+  "appearance.bubble": "Bubble appearance",
+  "appearance.randomColor": "Random color",
+  "appearance.size": "Bubble size",
+  "appearance.sizeHelp": "100% uses the automatic hierarchy size. This adjustment affects only this bubble.",
+  "appearance.resetSize": "Reset size to 100%",
+  "appearance.invalidSize": "Bubble size must be between 50% and 300%.",
+  "undo.field.mapSize": "Bubble size",
+  "appearance.color": "Bubble color"
 }

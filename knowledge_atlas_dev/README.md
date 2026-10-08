@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.45**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.46**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing. Click her to send her away, or drag and throw her or her yarn with inertia. Click yarn to remove it; choose whether it appears in front of or behind the cat.
@@ -12,7 +12,7 @@ This is the **development channel**, version **5.0.1-dev.45**. The add-on name a
 - Nested branches, cross-links, searchable records and live statistics.
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.
 - Dated record cards, editable and fixed list positions with automatic renumbering, and date/importance sorting.
-- Drag entire branches in 2D/3D, save their positions with the library, and reset each layout independently.
+- Drag only a bubble and its arrow-connected descendants in 2D/3D, save their positions with the library, and reset each layout independently.
 - Connect bubbles parent-first, detach branches into separate islands and follow hierarchy arrows in every map layout.
 - Persistent history in **Settings and locations > Restore recent changes**, with dated descriptions and confirmed Undo/Redo for saved edits, ratings, ordering and map arrangements.
 - Full breadcrumb paths wrap onto multiple lines.
@@ -53,7 +53,9 @@ Maps use the selected canvas and label colors without changing coordinates or re
 
 Search and 2D/3D switching remain on the compact map toolbar. Open **Filters and layout** for area, record type, importance and layout choices. Active filters appear as removable chips beside the result count; **Clear filters** restores the complete map, including from an empty result. Closing options leaves the current map view in place.
 
-Open the map and choose **Connect**. Click the parent bubble first, then the child: its previous parent is replaced and all descendants stay attached. The branch keeps its coordinates; parent bubbles are larger and arrows point toward children. Each record has one hierarchical parent; other record relationships remain separate cross-links.
+Open a record for editing and expand **Bubble appearance** to change its color or size (50–300%). New records receive a random color once; existing colors remain unchanged. At 100%, size follows the automatic hierarchy and importance rules. Custom size affects only that bubble, persists with the record and retains saved map positions.
+
+Open the map and choose **Connect**. Click the parent bubble first, then the child: its previous parent is replaced and all descendants stay attached. The branch keeps its coordinates; automatic sizes distinguish parents from children, and arrows point toward children. Each record has one hierarchical parent; other record relationships remain separate cross-links.
 
 Choose **Disconnect**, then click a hierarchy line or child bubble to turn that whole branch into a separate island. No record is deleted. To insert an existing bubble between two others, connect the new intermediate bubble under the parent, then connect the child under it. Cycles are rejected.
 

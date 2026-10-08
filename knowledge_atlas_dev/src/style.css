@@ -629,6 +629,9 @@ button:hover {
   height: 100%;
   overflow: hidden;
 }
+.map-canvas canvas {
+  touch-action: none;
+}
 .map-caption {
   position: absolute;
   top: 22px;

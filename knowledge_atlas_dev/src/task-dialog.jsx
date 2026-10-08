@@ -1,3 +1,4 @@
+import { RecordAppearance } from "./record-appearance.jsx";
 import { Select } from "./select.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import {
@@ -607,6 +608,7 @@ export default function TaskDialog({
                       onChange={(e) => set("title", e.target.value)}
                     />
                   </label>
+                  <RecordAppearance record={form} onChange={set} />
                   <div className="form-grid">
                     <div className="task-project-field">
                       <label>
@@ -671,7 +673,6 @@ export default function TaskDialog({
                                     parent?.type === "task"
                                       ? parent.parent
                                       : form.parent,
-                                  color: form.color,
                                 });
                                 const created = await api("nodes", {
                                   method: "POST",

@@ -3,6 +3,7 @@ import { validateTool, toolReferences, validDate } from "./tools.js";
 import { validImportance } from "./importance.js";
 import { validateCheckpoints } from "./checkpoints.js";
 import { validateBoard } from "./boards.js";
+import { validMapSize } from "./record-appearance.js";
 export const TYPES = [
   "category",
   "project",
@@ -47,6 +48,8 @@ export function validateNode(n) {
     fail("Invalid short description.", 400, "summary");
   if (typeof n.color !== "string" || !/^#[0-9a-f]{6}$/i.test(n.color))
     fail("Invalid color.");
+  if (n.mapSize != null && !validMapSize(n.mapSize))
+    fail("Bubble size must be between 50% and 300%.", 400, "mapSize");
   for (const field of ["tags", "related"]) {
     if (
       !Array.isArray(n[field]) ||

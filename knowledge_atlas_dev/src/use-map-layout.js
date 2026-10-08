@@ -94,12 +94,15 @@ export function useMapLayout(nodes, layout, mode, enabled = true) {
         if (!stopped) setState({ key, positions: [], error: "layout" });
         worker.terminate();
       };
-      const rows = JSON.parse(key)[3].map(([id, parent, type, importance]) => ({
-        id,
-        parent,
-        type,
-        importance,
-      }));
+      const rows = JSON.parse(key)[3].map(
+        ([id, parent, type, importance, mapSize]) => ({
+          id,
+          parent,
+          type,
+          importance,
+          mapSize,
+        }),
+      );
       worker.postMessage({ nodes: rows, layout, dimensions });
     }
     build().catch(() => {

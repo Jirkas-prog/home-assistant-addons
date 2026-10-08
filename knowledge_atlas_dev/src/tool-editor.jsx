@@ -1,3 +1,5 @@
+import { RecordAppearance } from "./record-appearance.jsx";
+import { randomRecordColor } from "../shared/record-appearance.js";
 import { Select } from "./select.jsx";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -75,7 +77,7 @@ export function newTool(kind, projectId, parent) {
     parent: projectId || parent || null,
     projectId: projectId || "",
     summary: "",
-    color: "#b0ef88",
+    color: randomRecordColor(),
     tags: [],
     related: [],
     resources: [],
@@ -285,6 +287,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                 onChange={(value) => set("importance", value)}
               />
             </div>
+            <RecordAppearance record={form} onChange={set} />
             <Panel
               {...(kind === "journal"
                 ? {

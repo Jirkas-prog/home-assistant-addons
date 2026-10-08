@@ -1,0 +1,31 @@
+.record-appearance {
+  width: 100%;
+  min-width: 0;
+}
+.record-appearance-fields {
+  display: grid;
+  gap: 16px;
+  padding: 14px;
+}
+.record-appearance-label {
+  display: block;
+  margin-bottom: 8px;
+}
+.record-appearance .colors {
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.record-appearance-fields > button {
+  justify-self: start;
+}
+.record-appearance input[type="range"] {
+  width: 100%;
+  padding: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+.record-appearance-help {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: normal;
+}

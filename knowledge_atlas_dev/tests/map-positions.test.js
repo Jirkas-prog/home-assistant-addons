@@ -41,6 +41,59 @@ const tree = [
 ];
 const byId = (positions, id) => positions.find((p) => p.id === id);
 const coords = (p) => [p.x, p.y, p.z];
+test("arrow direction alone defines a drag: roots, incoming arrows, peers and related links stay independent", () => {
+  const nodes = [
+    node("a"),
+    node("b"),
+    node("child", "a"),
+    node("leaf", "child"),
+    node("peer", "a"),
+  ];
+  nodes[0].related = ["b"];
+  nodes[1].projectId = "a";
+  for (const dimensions of [2, 3]) {
+    let positions = computeLayout(nodes, "constellations", dimensions);
+    const move = (id, expected) => {
+      const before = positionSnapshot(positions);
+      const rendered = mapGraph(nodes, positions).nodes;
+      const origin = byId(positions, id);
+      positions = createBranchDrag(
+        nodes,
+        positions,
+        id,
+      )(
+        {
+          ...origin,
+          x: origin.x + 37,
+          y: origin.y - 23,
+          z: origin.z + (dimensions === 3 ? 11 : 0),
+        },
+        rendered,
+      );
+      for (const p of before) {
+        const delta = expected.includes(p.id)
+          ? [37, -23, dimensions === 3 ? 11 : 0]
+          : [0, 0, 0];
+        assert.deepEqual(
+          coords(byId(positions, p.id)),
+          coords(p).map((v, i) => v + delta[i]),
+        );
+        assert.deepEqual(
+          coords(byId(rendered, p.id)),
+          coords(byId(positions, p.id)),
+        );
+      }
+    };
+    move("b", ["b"]);
+    move("child", ["child", "leaf"]);
+    move("leaf", ["leaf"]);
+    move("a", ["a", "child", "leaf", "peer"]);
+    nodes.find((n) => n.id === "child").parent = null;
+    move("a", ["a", "peer"]);
+    move("child", ["child", "leaf"]);
+    nodes.find((n) => n.id === "child").parent = "a";
+  }
+});
 async function fixture(t) {
   const directory = await fs.mkdtemp(
     path.join(os.tmpdir(), "atlas-map-positions-"),
@@ -238,7 +291,7 @@ test("full backup restores custom positions alongside records and rejects corrup
   await store.init();
   const settings = new Settings(library, false);
   await settings.init();
-  await store.save(node("root"));
+  await store.save({ ...node("root"), color: "#7799ee", mapSize: 2.25 });
   const file = new MapPositions(library),
     initial = await file.read();
   let saved = await file.save(
@@ -261,6 +314,9 @@ test("full backup restores custom positions alongside records and rejects corrup
   const preview = await backups.prepare(createReadStream(zip));
   await backups.restore(preview.id, preview.revision);
   assert.deepEqual(await file.read(), saved);
+  const restored = await new Store(library).readNode("root");
+  assert.equal(restored.color, "#7799ee");
+  assert.equal(restored.mapSize, 2.25);
   const reset = await file.save("constellations:3", null, saved.revision);
   assert.equal(reset.views["constellations:3"], undefined);
   assert.deepEqual(reset.views["terraces:3"], saved.views["terraces:3"]);

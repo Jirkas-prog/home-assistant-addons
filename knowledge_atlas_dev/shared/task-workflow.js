@@ -1,4 +1,5 @@
 import { recordImportance } from "./importance.js";
+import { randomRecordColor } from "./record-appearance.js";
 
 export const TASK_VIEWS = ["timeline", "board", "calendar"];
 export const CALENDAR_VIEWS = ["day", "week", "month", "year"];
@@ -20,7 +21,7 @@ export function journalFromTask(task, { id, date, projectId = "" }) {
     parent: projectId || task.parent || null,
     projectId,
     importance: recordImportance(task),
-    color: task.color,
+    color: randomRecordColor(),
     summary: "",
     body: "",
     tags: [...task.tags],
@@ -39,7 +40,10 @@ export function journalFromTask(task, { id, date, projectId = "" }) {
   };
 }
 
-export function projectForTask(title, { id, parent, color }) {
+export function projectForTask(
+  title,
+  { id, parent, color = randomRecordColor() },
+) {
   return {
     schema: 2,
     id,
