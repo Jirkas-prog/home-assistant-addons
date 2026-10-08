@@ -31,6 +31,7 @@ import { columnsFor, columnFor, validateBoard } from "../shared/boards.js";
 import { projectIdFor } from "../shared/tools.js";
 import { workspaceNode } from "../shared/workspace.js";
 import { JOURNAL_PREVIEW_LIMIT } from "../shared/preview-limits.js";
+import { parentChangeIssue } from "../shared/map-hierarchy.js";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const compress = promisify(gzip);
 export async function createApp({
@@ -244,7 +245,10 @@ export async function createApp({
   const app = express();
   app.disable("x-powered-by");
   app.use(accessGuard(ingress));
-  app.use("/api/map-positions", express.json({ limit: "16mb" }));
+  app.use(
+    ["/api/map-positions", "/api/nodes/:id/parent"],
+    express.json({ limit: "16mb" }),
+  );
   app.use(
     express.json({
       limit: "2mb",
@@ -523,6 +527,43 @@ export async function createApp({
     res.json({
       ok: true,
     });
+  });
+  app.put("/api/nodes/:id/parent", async (req, res) => {
+    res.json(
+      await mutate(async () => {
+        const { parent, revision, slot, positions, mapRevision } = req.body;
+        const { nodes } = await store.read();
+        const node = nodes.find((n) => n.id === req.params.id);
+        if (!node) fail("The record does not exist.", 404);
+        if (revision !== node.revision)
+          fail(
+            "The record has changed. Refresh the map and load the current text.",
+            409,
+          );
+        const issue = parentChangeIssue(nodes, node.id, parent);
+        if (issue === "missing")
+          fail("The parent record no longer exists. Refresh the map.", 409);
+        if (issue === "self" || issue === "cycle")
+          fail("A branch cannot be moved into itself or its descendants.");
+        if (
+          !Array.isArray(positions) ||
+          !positions.some((p) => p?.id === node.id)
+        )
+          fail("Load the complete map before changing its hierarchy.", 409);
+        validateMapPositions({ schema: 1, views: { [slot]: positions } });
+        const ids = new Set(nodes.map((n) => n.id));
+        if (positions.some((p) => !ids.has(p.id)))
+          fail("The map records have changed. Refresh the map.", 409);
+        // Read full server-side data: map summaries never overwrite record bodies.
+        // The existing mutation history rolls both writes back if either fails.
+        const saved =
+          issue === "unchanged"
+            ? node
+            : await store.save({ ...node, parent }, node.id, revision);
+        const placed = await mapPositions.save(slot, positions, mapRevision);
+        return { node: workspaceNode(saved, "map"), mapPositions: placed };
+      }),
+    );
   });
   app.put("/api/nodes/:id/position", async (req, res) => {
     const snapshot = await mutate(() =>

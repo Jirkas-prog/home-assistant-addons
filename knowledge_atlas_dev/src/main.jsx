@@ -22,6 +22,7 @@ import React, {
 import { createRoot } from "react-dom/client";
 import { MarkdownContent as Md } from "./markdown.jsx";
 import { useMapPositions } from "./use-map-positions.js";
+import { positionSnapshot } from "./map-positions.js";
 import { useRecord, useRecordSearch } from "./use-record.js";
 import {
   CalendarDays,
@@ -414,6 +415,34 @@ function App() {
     `${mapLayout}:${mode === "3d" ? 3 : 2}`,
     load,
   );
+  const [hierarchyBusy, setHierarchyBusy] = useState(false);
+  const hierarchySaving = useRef(false);
+  async function changeMapParent(childId, parent) {
+    if (hierarchySaving.current || manualMap.disabled || layoutState.building)
+      throw new Error(t("map.hierarchy.wait"));
+    const child = nodes.find((n) => n.id === childId);
+    if (!child) throw new Error(t("map.hierarchy.missing"));
+    hierarchySaving.current = true;
+    setHierarchyBusy(true);
+    try {
+      const result = await api(`nodes/${encodeURIComponent(childId)}/parent`, {
+        method: "PUT",
+        body: JSON.stringify({
+          parent,
+          revision: child.revision,
+          slot: `${mapLayout}:${mode === "3d" ? 3 : 2}`,
+          positions: positionSnapshot(manualMap.positions),
+          mapRevision: mapPositions.revision,
+        }),
+      });
+      setMapPositions(result.mapPositions);
+      setNodes((old) => old.map((n) => (n.id === childId ? result.node : n)));
+      load();
+    } finally {
+      hierarchySaving.current = false;
+      setHierarchyBusy(false);
+    }
+  }
   const graph = useMemo(
     () =>
       mapActive
@@ -1168,6 +1197,7 @@ function App() {
                   className="map-layout-select"
                   title={t("map.layoutHelp")}
                   value={mapLayout}
+                  disabled={hierarchyBusy}
                   onChange={(e) => {
                     setMapLayout(e.target.value);
                     saveMapLayout(e.target.value);
@@ -1184,6 +1214,7 @@ function App() {
                 <div className="segmented">
                   <button
                     className={mode === "2d" ? "active" : ""}
+                    disabled={hierarchyBusy}
                     onClick={() => setMode("2d")}
                   >
                     <Network size={15} />
@@ -1191,6 +1222,7 @@ function App() {
                   </button>
                   <button
                     className={mode === "3d" ? "active" : ""}
+                    disabled={hierarchyBusy}
                     onClick={() => setMode("3d")}
                   >
                     <Box size={15} />
@@ -1478,7 +1510,12 @@ function App() {
                       allNodes={nodes}
                       positions={manualMap.positions}
                       onPositions={manualMap.save}
-                      dragDisabled={manualMap.disabled || layoutState.building}
+                      dragDisabled={
+                        manualMap.disabled ||
+                        layoutState.building ||
+                        hierarchyBusy
+                      }
+                      onParentChange={changeMapParent}
                       mode={mode}
                       selected={selected}
                       onSelect={choose}
@@ -1503,6 +1540,7 @@ function App() {
                       className="secondary-button"
                       disabled={
                         manualMap.saving ||
+                        hierarchyBusy ||
                         mapPositions.invalid ||
                         !mapPositions.revision ||
                         layoutState.building

@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.40**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.41**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -12,6 +12,7 @@ This is the **development channel**, version **5.0.1-dev.40**. The add-on name a
 - Open directly on the task timeline; load the knowledge map only through its central **Download knowledge map** button.
 - Dated record cards, editable and fixed list positions with automatic renumbering, and date/importance sorting.
 - Drag entire branches in 2D/3D, save their positions with the library, and reset each layout independently.
+- Connect bubbles parent-first, detach branches into separate islands and follow hierarchy arrows in every map layout.
 - Persistent history in **Settings and locations > Restore recent changes**, with dated descriptions and confirmed Undo/Redo for saved edits, ratings, ordering and map arrangements.
 - Full breadcrumb paths wrap onto multiple lines.
 - Six retained map layouts in 2D and 3D, cached geometry and readable labels with progressive detail.
@@ -38,6 +39,14 @@ This is the **development channel**, version **5.0.1-dev.40**. The add-on name a
 - Stable attachment IDs, browser drafts, concurrent-edit comparison and source repair tools.
 - English by default, with a persistent English/Czech switch in **Settings and locations**.
 - Home Assistant Ingress access and persistent storage under `/config`.
+
+## Arrange the knowledge map
+
+Open the map and choose **Connect**. Click the parent bubble first, then the child: its previous parent is replaced and all descendants stay attached. The branch keeps its coordinates; parent bubbles are larger and arrows point toward children. Each record has one hierarchical parent; other record relationships remain separate cross-links.
+
+Choose **Disconnect**, then click a hierarchy line or child bubble to turn that whole branch into a separate island. No record is deleted. To insert an existing bubble between two others, connect the new intermediate bubble under the parent, then connect the child under it. Cycles are rejected.
+
+Close the mode with its X button or Escape to drag branches again. Escape first clears a selected parent. Positions are saved per layout and dimension and survive rebuilds; **Reset view** restores computed positions without undoing the hierarchy. **Settings and locations > Restore recent changes** can undo a hierarchy edit and its saved arrangement together, after confirmation.
 
 ## First launch
 

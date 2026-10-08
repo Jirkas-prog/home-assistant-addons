@@ -7,13 +7,21 @@ export { MAP_LAYOUTS } from "../shared/map-layouts.js";
 // Content, translations and filters do not invalidate geometric positions.
 export function layoutKey(nodes, layout, dimensions) {
   return JSON.stringify([
-    6,
+    7,
     layout,
     dimensions,
     nodes
       .map((n) => [n.id, n.parent, n.type, recordImportance(n)])
       .sort((a, b) => a[0].localeCompare(b[0])),
   ]);
+}
+
+// Importance still distinguishes peers; a descendant never outgrows its parent.
+// The smooth cap keeps even very deep trees positive rather than underflowing.
+function hierarchyRadius(radius, parentRadius) {
+  return parentRadius == null
+    ? radius
+    : Math.min(radius, parentRadius / (1 + parentRadius * 0.006));
 }
 
 function hierarchy(nodes) {
@@ -59,7 +67,8 @@ function hierarchy(nodes) {
 
 function classicLayout(nodes) {
   const { roots, ordered, children } = hierarchy(nodes),
-    weights = new Map();
+    weights = new Map(),
+    radii = new Map();
   for (const { n } of [...ordered].reverse())
     weights.set(
       n.id,
@@ -79,11 +88,15 @@ function classicLayout(nodes) {
     const { n, depth, start, end } = queue[i];
     const angle = (start + end) / 2 - Math.PI / 2,
       radius = depth * 145 + (roots.length > 1 ? 90 : 0);
+    radii.set(
+      n.id,
+      hierarchyRadius(mapNodeRadius(n, depth), radii.get(n.parent)),
+    );
     positions.push({
       id: n.id,
       depth,
       childCount: (children.get(n.id) || []).length,
-      r: mapNodeRadius(n, depth),
+      r: radii.get(n.id),
       x: Math.cos(angle) * radius,
       y: Math.sin(angle) * radius,
       z: depth ? Math.sin(angle * 2 + depth) * 90 * depth : 0,
@@ -361,19 +374,18 @@ export function computeLayout(nodes, layout = "classic", dimensions = 2) {
   if (!nodes.length) return [];
   if (layout === "classic") return classicLayout(nodes);
   const { roots, ordered, children } = hierarchy(nodes);
-  const geometry = new Map(
-    ordered.map(({ n, depth }) => [
-      n.id,
-      {
-        id: n.id,
-        depth,
-        childCount: (children.get(n.id) || []).length,
-        r:
-          Math.max(11, 32 / (1 + depth * 0.45)) *
+  const geometry = new Map();
+  for (const { n, depth } of ordered)
+    geometry.set(n.id, {
+      id: n.id,
+      depth,
+      childCount: (children.get(n.id) || []).length,
+      r: hierarchyRadius(
+        Math.max(11, 32 / (1 + depth * 0.45)) *
           (0.6 + recordImportance(n) * 0.14),
-      },
-    ]),
-  );
+        geometry.get(n.parent)?.r,
+      ),
+    });
   if (layout === "terraces")
     return terraces({ roots, ordered, children }, geometry, dimensions);
   if (layout === "grid") {

@@ -15,6 +15,7 @@ export default function Map3D({
   onDrag,
   onDragEnd,
   dragDisabled,
+  editingLinks,
 }) {
   const objects = useRef(new Map()),
     hover = useRef(null),
@@ -189,7 +190,7 @@ export default function Map3D({
     return () => cancelAnimationFrame(frame);
   }, [graph, graphRef, selected, size]);
 
-  const selectAtClick = (event) => {
+  const selectAtClick = (event, link) => {
     const instance = graphRef.current;
     if (!instance) return;
     onSelect(
@@ -202,6 +203,7 @@ export default function Map3D({
         clientY: event.clientY,
       }),
       event,
+      link,
     );
   };
   return (
@@ -226,7 +228,7 @@ export default function Map3D({
         return el;
       }}
       onNodeClick={(_, event) => selectAtClick(event)}
-      onLinkClick={(_, event) => selectAtClick(event)}
+      onLinkClick={(link, event) => selectAtClick(event, link)}
       onBackgroundClick={selectAtClick}
       onNodeHover={(n) => {
         hover.current = n?.id;
@@ -237,6 +239,10 @@ export default function Map3D({
       linkColor={(l) => (l.kind === "tree" ? l.color : "#72829c")}
       linkOpacity={0.25}
       linkWidth={0}
+      linkHoverPrecision={editingLinks ? 4 : 1}
+      linkDirectionalArrowLength={(l) => (l.kind === "tree" ? 18 : 0)}
+      linkDirectionalArrowRelPos={0.5}
+      linkDirectionalArrowColor={(l) => l.color}
     />
   );
 }

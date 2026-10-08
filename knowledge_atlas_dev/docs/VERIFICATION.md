@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.23` on 2026-10-06.
+Validated for Knowledge Atlas Dev `5.0.1-dev.41` on 2026-10-08.
 
-- All 206 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
+- All 270 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1183 matching translation keys.
+- English/Czech language audits pass with 1402 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -21,6 +21,14 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.23` on 2026-10-06.
 - English/Czech browser checks cover creating and editing entries, day/week/month/custom ranges, related-record links, saved-place lookup, multi-file uploads, EXIF suggestions, photo navigation, PDF/Markdown/DOCX viewing and custom-extension text previews. Saved language and the selected entry survive reloads; console checks found no errors. All fixtures are generic.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
+
+## Manual map hierarchy (5.0.1-dev.41)
+
+Four new tests cover self-links, cycles, missing records, reparenting and detaching whole branches, insertion of intermediate records, complete content preservation, one-step persistent undo/redo, coordinate conflicts with rollback, and idempotent retries. Every layout is checked in both dimensions for parent/child radius ordering and stable saved coordinates after topology changes, branch dragging and rebuilds. A fresh store and position reader recover the saved state. Resetting coordinates retains the edited hierarchy.
+
+Browser checks with a generic six-record library covered parent-first selection, replacement of an existing parent, detaching by clicking a line in both 2D and 3D, cycle rejection, branch dragging, mobile linking, and retained edits after reload and server restart. Arrows appear in the middle of hierarchical connections. The 390 x 844 layout keeps both document dimensions equal to the viewport; compact tools and prompts leave room for bubbles. Production build, add-on configuration, language and permanent-channel checks pass.
+
+One unattributed MutationObserver error was recorded during page navigation, similar to earlier local browser checks; its source was not established. The tested map interactions completed successfully. Physical touchscreen gestures and a live Home Assistant installation were not tested.
 
 ## Combined calendar (5.0.1-dev.37)
 

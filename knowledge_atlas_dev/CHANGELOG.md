@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.41
+
+- Edit the hierarchy directly in every 2D/3D map layout: choose Connect, then the parent bubble and the child. Replace the previous parent while retaining the child's entire subtree and the current arrangement.
+- Choose Disconnect and click a hierarchy line or child bubble to create an independent island. Add direction arrows in the middle of hierarchy links and keep parent bubbles larger than their children, including when importance differs.
+- Save topology and coordinates together in one persistent history step. Reject cycles and stale edits without leaving partial changes; preserve full record content, attachments and cross-links. Existing saved positions survive rebuilds and updates.
+- Provide step-by-step feedback, Escape cancellation and compact mobile controls. Retain branch dragging, independent layout resets and on-demand map loading.
+
 ## 5.0.1-dev.40
 
 - Add an independent per-space Yarn game setting. A short click on empty background drops a yarn ball onto the usable edge below, without interfering with controls, text selection or map/timeline gestures.

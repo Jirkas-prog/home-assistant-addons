@@ -7,7 +7,8 @@ import React, {
   Suspense,
 } from "react";
 import ForceGraph2D from "react-force-graph-2d";
-import { Box, Search, LoaderCircle } from "lucide-react";
+import { Box, Search, LoaderCircle, GitBranch, Unlink2, X } from "lucide-react";
+import { parentChangeIssue, mapLinkId } from "../shared/map-hierarchy.js";
 import { t } from "../shared/i18n.js";
 import { createMapActivation } from "./map-activation.js";
 import { preserveMapCamera } from "./map-camera.js";
@@ -43,7 +44,7 @@ class MapBoundary extends React.Component {
 export default function MapView({
   data,
   mode,
-  selected,
+  selected: selectedId,
   onSelect,
   onOpen,
   viewerOpen,
@@ -53,7 +54,15 @@ export default function MapView({
   positions,
   onPositions,
   dragDisabled,
+  onParentChange,
 }) {
+  const [linkMode, setLinkMode] = useState("browse"),
+    [linkParent, setLinkParent] = useState(null),
+    [linkSaving, setLinkSaving] = useState(false),
+    [linkMessage, setLinkMessage] = useState(""),
+    [linkError, setLinkError] = useState("");
+  const mutation = useRef(false);
+  const selected = linkParent || selectedId;
   const callbacks = useRef(),
     fitTimer = useRef(),
     fitted = useRef(false),
@@ -85,6 +94,66 @@ export default function MapView({
     height: 600,
   });
   const [hover, setHover] = useState(null);
+  const setEditingMode = (next) => {
+    if (mutation.current) return;
+    activation.cancel();
+    setLinkMode(next);
+    setLinkParent(null);
+    setLinkMessage("");
+    setLinkError("");
+  };
+  useEffect(() => {
+    if (linkParent && !allNodes.some((n) => n.id === linkParent))
+      setLinkParent(null);
+  }, [allNodes, linkParent]);
+  useEffect(() => {
+    if (viewerOpen) setEditingMode("browse");
+  }, [viewerOpen]);
+  useEffect(() => {
+    if (linkMode === "browse") return;
+    const cancel = (event) => {
+      if (
+        mutation.current ||
+        event.key !== "Escape" ||
+        document.querySelector('[role="dialog"]')
+      )
+        return;
+      if (linkParent) setLinkParent(null);
+      else setEditingMode("browse");
+    };
+    document.addEventListener("keydown", cancel);
+    return () => document.removeEventListener("keydown", cancel);
+  }, [linkMode, linkParent]);
+  async function reparent(childId, parentId) {
+    if (mutation.current || dragDisabled) return;
+    const issue = parentChangeIssue(allNodes, childId, parentId);
+    if (issue) {
+      setLinkError(t(`map.hierarchy.${issue}`));
+      return;
+    }
+    mutation.current = true;
+    setLinkSaving(true);
+    setLinkError("");
+    setLinkMessage("");
+    const child = allNodes.find((n) => n.id === childId);
+    const parent = allNodes.find((n) => n.id === parentId);
+    try {
+      await onParentChange(childId, parentId);
+      setLinkParent(null);
+      setLinkMessage(
+        t(
+          parentId === null ? "map.hierarchy.detached" : "map.hierarchy.linked",
+          child.title,
+          parent?.title,
+        ),
+      );
+    } catch (error) {
+      setLinkError(error.message);
+    } finally {
+      mutation.current = false;
+      setLinkSaving(false);
+    }
+  }
   useEffect(() => {
     const observer = new ResizeObserver(([entry]) =>
       setSize({
@@ -139,9 +208,24 @@ export default function MapView({
     el.textContent = n.title;
     return el;
   };
-  const click = (node, event) => {
-    if (performance.now() >= suppressClick.current)
+  const click = (node, event, link) => {
+    if (performance.now() < suppressClick.current || mutation.current) return;
+    if (linkMode === "browse") {
       activation.click(node, event);
+      return;
+    }
+    if (dragDisabled) return;
+    activation.cancel();
+    setLinkMessage("");
+    setLinkError("");
+    if (linkMode === "unlink") {
+      if (node) reparent(node.id, null);
+      else if (link?.kind === "tree") reparent(mapLinkId(link.target), null);
+    } else if (node) {
+      if (!linkParent) setLinkParent(node.id);
+      else if (node.id === linkParent) setLinkParent(null);
+      else reparent(node.id, linkParent);
+    } else setLinkParent(null);
   };
   const dragNode = (node, rendered) => {
     activation.cancel();
@@ -157,7 +241,7 @@ export default function MapView({
     drag.current = null;
     onPositions(next);
   };
-  const select2DAtClick = (event) => {
+  const select2DAtClick = (event, link) => {
     const canvas = ref.current?.querySelector("canvas");
     const instance = graphRef.current;
     if (!canvas || !instance) return;
@@ -174,7 +258,7 @@ export default function MapView({
       hover,
       visibleLabels.current,
     );
-    click(node, event);
+    click(node, event, link);
   };
   return (
     <div
@@ -186,6 +270,94 @@ export default function MapView({
         event.stopPropagation();
       }}
     >
+      <div className="map-hierarchy-controls" data-map-editor>
+        <div
+          className="map-hierarchy-buttons"
+          role="group"
+          aria-label={t("map.hierarchy.tools")}
+        >
+          <button
+            type="button"
+            className="secondary-button"
+            aria-pressed={linkMode === "link"}
+            title={t("map.hierarchy.linkHint")}
+            disabled={dragDisabled || viewerOpen}
+            onClick={() =>
+              setEditingMode(linkMode === "link" ? "browse" : "link")
+            }
+          >
+            <GitBranch size={16} />
+            {t("map.hierarchy.link")}
+          </button>
+          <button
+            type="button"
+            className="secondary-button"
+            aria-pressed={linkMode === "unlink"}
+            title={t("map.hierarchy.unlinkHint")}
+            disabled={dragDisabled || viewerOpen}
+            onClick={() =>
+              setEditingMode(linkMode === "unlink" ? "browse" : "unlink")
+            }
+          >
+            <Unlink2 size={16} />
+            {t("map.hierarchy.unlink")}
+          </button>
+          {linkMode !== "browse" && (
+            <button
+              type="button"
+              className="icon-button"
+              disabled={linkSaving}
+              aria-label={t("map.hierarchy.finish")}
+              title={t("map.hierarchy.finish")}
+              onClick={() => setEditingMode("browse")}
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+        {linkMode !== "browse" && (
+          <div className="map-hierarchy-guide">
+            <p role="status" className="map-hierarchy-prompt-full">
+              {linkSaving
+                ? t("map.hierarchy.saving")
+                : linkMode === "unlink"
+                  ? t("map.hierarchy.unlinkHint")
+                  : linkParent
+                    ? t(
+                        "map.hierarchy.childPrompt",
+                        allNodes.find((n) => n.id === linkParent)?.title || "",
+                      )
+                    : t("map.hierarchy.parentPrompt")}
+            </p>
+            <p role="status" className="map-hierarchy-prompt-short">
+              {linkSaving
+                ? t("map.hierarchy.saving")
+                : linkMode === "unlink"
+                  ? t("map.hierarchy.unlinkShort")
+                  : linkParent
+                    ? t(
+                        "map.hierarchy.childShort",
+                        allNodes.find((n) => n.id === linkParent)?.title || "",
+                      )
+                    : t("map.hierarchy.parentShort")}
+            </p>
+            {linkParent && !linkSaving && (
+              <button
+                type="button"
+                className="map-hierarchy-reselect"
+                onClick={() => {
+                  setLinkParent(null);
+                  setLinkError("");
+                }}
+              >
+                {t("map.hierarchy.changeParent")}
+              </button>
+            )}
+            {linkMessage && <p role="status">{linkMessage}</p>}
+            {linkError && <p role="alert">{linkError}</p>}
+          </div>
+        )}
+      </div>
       {data.nodes.length === 0 && (
         <div className="empty map-empty">
           <Search />
@@ -210,8 +382,9 @@ export default function MapView({
               onSelect={click}
               onDrag={dragNode}
               onDragEnd={endDrag}
-              dragDisabled={dragDisabled}
-              relations={relations}
+              dragDisabled={dragDisabled || linkMode !== "browse"}
+              relations={relations && linkMode !== "unlink"}
+              editingLinks={linkMode !== "browse"}
               graphRef={graphRef}
             />
           </Suspense>
@@ -225,7 +398,7 @@ export default function MapView({
           backgroundColor="#11151c00"
           nodeLabel={label}
           cooldownTicks={0}
-          enableNodeDrag={!dragDisabled}
+          enableNodeDrag={!dragDisabled && linkMode === "browse"}
           onNodeDrag={(node) => dragNode(node, data.nodes)}
           onNodeDragEnd={(node) => endDrag(node, data.nodes)}
           minZoom={0.002}
@@ -265,11 +438,21 @@ export default function MapView({
             );
           }}
           onNodeClick={(_, event) => select2DAtClick(event)}
-          onLinkClick={(_, event) => select2DAtClick(event)}
+          onLinkClick={(link, event) => select2DAtClick(event, link)}
           onBackgroundClick={select2DAtClick}
-          showPointerCursor={(node) => !!node?.id}
+          showPointerCursor={(node) =>
+            !!node?.id || (linkMode === "unlink" && node?.kind === "tree")
+          }
           onNodeHover={(n) => setHover(n?.id)}
-          linkVisibility={(l) => relations || l.kind === "tree"}
+          linkVisibility={(l) =>
+            (relations && linkMode !== "unlink") || l.kind === "tree"
+          }
+          linkHoverPrecision={linkMode === "unlink" ? 10 : 4}
+          linkDirectionalArrowLength={(l) =>
+            l.kind === "tree" ? 8 / (graphRef.current?.zoom() || 1) : 0
+          }
+          linkDirectionalArrowRelPos={0.5}
+          linkDirectionalArrowColor={(l) => l.color}
           linkColor={(l) =>
             l.kind === "related" ? "#7686a060" : `${l.color}60`
           }
