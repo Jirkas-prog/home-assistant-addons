@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.36
+
+- Add Quick capture to the top bar: create a task, journal entry, note or project without switching pages. Existing direct creation actions remain one click away; Alt+N opens the chooser outside editors.
+- Offer daily reflection, weekly review and meeting/event outlines in empty new journal entries. Keep chosen titles, task links and content; weekly reviews extend a date-only single-day range to seven days.
+- Put writing directly below the title for new notes and projects, keep importance at the top, and collapse optional organization fields. Render the related-record checklist only when expanded.
+- Reuse existing editors, draft recovery and per-space storage. Choosing a creation action requests no map or attachment files and introduces no dependency or schema migration.
+
 ## 5.0.1-dev.35
 
 - Move Undo and Redo from ordinary pages into a dedicated Restore recent changes section in Settings. Global history shortcuts no longer perform edits outside this section; native text undo remains available.

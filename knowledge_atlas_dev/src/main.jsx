@@ -1,4 +1,5 @@
 import { Select } from "./select.jsx";
+import { QuickCreate } from "./quick-create.jsx";
 import { SpaceBar } from "./spaces.jsx";
 import { AtlasCat } from "./atlas-cat.jsx";
 import { release } from "../shared/release.js";
@@ -98,7 +99,7 @@ import {
 } from "./locations.jsx";
 import { DocumentViewer } from "./documents.jsx";
 import { AttachmentGallery } from "./journal.jsx";
-import { ToolEditor } from "./tool-editor.jsx";
+import { ToolEditor, newTool } from "./tool-editor.jsx";
 import { journalFromTask } from "../shared/task-workflow.js";
 import { localDate } from "./work-model.js";
 import { JournalNotebook } from "./journal-notebook.jsx";
@@ -242,7 +243,7 @@ function App() {
     [relations, setRelations] = useState(true),
     [expanded, setExpanded] = useState(new Set()),
     [sidebar, setSidebar] = useState(false),
-    [taskJournal, setTaskJournal] = useState(null),
+    [journalDraft, setJournalDraft] = useState(null),
     [detail, setDetail] = useState(
       () => new URLSearchParams(location.search).get("view") === "library",
     ),
@@ -1018,32 +1019,43 @@ function App() {
             >
               <RefreshCw size={17} />
             </button>
-            {!["tasks", "tools", "backups"].includes(view) && (
-              <button
-                className="primary-button"
-                onClick={() =>
-                  view === "journal"
-                    ? setJournalCreate(true)
-                    : newNode(
-                        selected || homeId,
-                        view === "tasks"
-                          ? "task"
-                          : view === "inventory"
-                            ? "item"
-                            : "knowledge",
-                      )
-                }
-              >
-                <Plus size={17} />
-                {view === "journal"
-                  ? t("tools.new.journal")
-                  : view === "tasks"
-                    ? t("m255")
-                    : view === "inventory"
-                      ? t("workspace.newItem")
-                      : t("m120")}
-              </button>
-            )}
+            <QuickCreate
+              disabled={loading || !snapshotReady || showSettings}
+              onCreate={(kind) => {
+                if (kind === "journal")
+                  setJournalDraft(newTool("journal", "", scope || homeId));
+                else newNode(scope || homeId, kind);
+              }}
+            >
+              {!["tasks", "tools", "backups"].includes(view) &&
+                !showSettings && (
+                  <button
+                    className="primary-button"
+                    disabled={loading || !snapshotReady}
+                    onClick={() =>
+                      view === "journal"
+                        ? setJournalCreate(true)
+                        : newNode(
+                            selected || homeId,
+                            view === "tasks"
+                              ? "task"
+                              : view === "inventory"
+                                ? "item"
+                                : "knowledge",
+                          )
+                    }
+                  >
+                    <Plus size={17} />
+                    {view === "journal"
+                      ? t("tools.new.journal")
+                      : view === "tasks"
+                        ? t("m255")
+                        : view === "inventory"
+                          ? t("workspace.newItem")
+                          : t("m120")}
+                  </button>
+                )}
+            </QuickCreate>
           </div>
         </header>
         <section
@@ -1935,7 +1947,7 @@ function App() {
             onClose={() => setEditing(null)}
             onRefresh={load}
             onJournal={(task) =>
-              setTaskJournal(
+              setJournalDraft(
                 journalFromTask(task, {
                   id: crypto.randomUUID(),
                   date: localDate(),
@@ -1981,15 +1993,23 @@ function App() {
           />
         )
       )}
-      {taskJournal && (
+      {journalDraft && (
         <ToolEditor
-          key={taskJournal.id}
-          initial={taskJournal}
+          key={journalDraft.id}
+          initial={journalDraft}
           nodes={nodes}
-          onClose={() => setTaskJournal(null)}
+          onClose={() => setJournalDraft(null)}
           onSaved={async () => {
             await load();
-            notify(t("tasks.journalSaved"));
+            notify(
+              t(
+                journalDraft.related.some((id) =>
+                  nodes.some((n) => n.id === id && n.type === "task"),
+                )
+                  ? "tasks.journalSaved"
+                  : "m181",
+              ),
+            );
           }}
         />
       )}
@@ -2119,6 +2139,12 @@ function App() {
   );
 }
 function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
+  const titleInput = useRef();
+  const writingFirst =
+    !initial.id && ["knowledge", "project"].includes(initial.type);
+  const Properties = writingFirst ? "details" : React.Fragment;
+  const [propertiesOpen, setPropertiesOpen] = useState(false);
+  const [linksOpen, setLinksOpen] = useState(false);
   const [form, setForm] = useState({
       ...initial,
     }),
@@ -2135,6 +2161,9 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
     original,
     dirty,
   );
+  useEffect(() => {
+    if (!draft.available) titleInput.current?.focus();
+  }, [!!draft.available]);
   const set = (key, value) => {
     setDirty(true);
     setForm((f) => ({
@@ -2142,6 +2171,11 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
       [key]: value,
     }));
   };
+  const title = initial.id
+    ? t("m160")
+    : ["knowledge", "project"].includes(form.type)
+      ? t(`capture.new.${form.type}`)
+      : t("m120");
   const excluded = descendants(nodes, initial.id);
   const close = () => {
     if (dirty) setLeaving(true);
@@ -2157,13 +2191,37 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
+  const bodyEditor = (
+    <>
+      <div className="editor-label">
+        <span>{t("m209")}</span>
+        <button type="button" onClick={() => setPreview(!preview)}>
+          {preview ? t("m400") : t("m210")}
+        </button>
+      </div>
+      {preview ? (
+        <div className="edit-preview">
+          <Md>{form.body}</Md>
+        </div>
+      ) : (
+        <textarea
+          className="code-input"
+          rows={12}
+          value={form.body}
+          onChange={(e) => set("body", e.target.value)}
+          aria-label={t("m211")}
+          spellCheck={false}
+        />
+      )}
+    </>
+  );
   return (
     <div className="modal-backdrop">
       <form
         className="modal editor"
         role="dialog"
         aria-modal="true"
-        aria-label={initial.id ? t("m160") : t("m120")}
+        aria-label={title}
         onSubmit={async (e) => {
           e.preventDefault();
           if (busy || draft.available) return;
@@ -2188,6 +2246,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
             draft.clear();
           } catch (e) {
             setError(localizeMessage(e.message));
+            setPropertiesOpen(true);
             if (e.status === 409 && initial.id) {
               try {
                 setConflict(await api(`nodes/${initial.id}`));
@@ -2200,7 +2259,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
       >
         <header>
           <div>
-            <h2>{initial.id ? t("m160") : t("m120")}</h2>
+            <h2>{title}</h2>
           </div>
           <button
             type="button"
@@ -2246,10 +2305,26 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
             className="draft-fields"
             disabled={busy || !!draft.available}
           >
+            <div className="importance-field">
+              <span>{t("importance.label")}</span>
+              <ImportanceStars
+                value={recordImportance(form)}
+                onChange={(importance) => set("importance", importance)}
+              />
+              {!writingFirst && (
+                <p className="field-help">
+                  {t(
+                    form.type === "task"
+                      ? "importance.taskHelp"
+                      : "importance.help",
+                  )}
+                </p>
+              )}
+            </div>
             <label>
               {t("m189")}
               <input
-                autoFocus
+                ref={titleInput}
                 required
                 maxLength={180}
                 value={form.title}
@@ -2257,264 +2332,254 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                 placeholder={t("m190")}
               />
             </label>
-            <div className="form-grid">
-              <label>
-                {t("m191")}
-                <Select
-                  value={form.type}
-                  onChange={(e) => set("type", e.target.value)}
-                >
-                  {Object.entries(TYPES).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-              <label>
-                {t("m192")}
-                <Select
-                  value={form.status}
-                  onChange={(e) => set("status", e.target.value)}
-                >
-                  {Object.entries(
-                    form.type === "task" ? TASK_STATUS : STATUS,
-                  ).map(([k, v]) => (
-                    <option key={k} value={k}>
-                      {v}
-                    </option>
-                  ))}
-                </Select>
-              </label>
-            </div>
-            <label>
-              {t("list.recordDate")}
-              <input
-                type="date"
-                value={form.date || ""}
-                onInput={(event) => set("date", event.currentTarget.value)}
-              />
-              <span className="field-help">{t("list.dateHelp")}</span>
-            </label>
-            <div className="importance-field">
-              <span>{t("importance.label")}</span>
-              <ImportanceStars
-                value={recordImportance(form)}
-                onChange={(importance) => set("importance", importance)}
-              />
-              <p className="field-help">
-                {t(
-                  form.type === "task"
-                    ? "importance.taskHelp"
-                    : "importance.help",
-                )}
-              </p>
-            </div>
-            {form.type === "item" && (
-              <InventoryEditor
-                node={form}
-                settings={settings}
-                onManage={onManage}
-                onChange={(next) => {
-                  setForm(next);
-                  setDirty(true);
-                }}
-              />
-            )}
-            {form.type === "task" && (
-              <>
-                <div className="form-grid">
-                  <label>
-                    {t("m194")}
-                    <input
-                      type="date"
-                      value={form.task?.start || ""}
-                      onInput={(e) =>
-                        set("task", {
-                          ...form.task,
-                          start: e.currentTarget.value,
-                        })
-                      }
-                      onChange={(e) =>
-                        set("task", {
-                          ...form.task,
-                          start: e.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    {t("m195")}
-                    <input
-                      type="date"
-                      min={form.task?.start || undefined}
-                      value={form.task?.due || ""}
-                      onInput={(e) =>
-                        set("task", {
-                          ...form.task,
-                          due: e.currentTarget.value,
-                        })
-                      }
-                      onChange={(e) =>
-                        set("task", {
-                          ...form.task,
-                          due: e.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                  <label>
-                    {t("m197")}
-                    <input
-                      maxLength={120}
-                      placeholder={t("m198")}
-                      value={form.task?.assignee || ""}
-                      onChange={(e) =>
-                        set("task", {
-                          ...form.task,
-                          assignee: e.target.value,
-                        })
-                      }
-                    />
-                  </label>
-                </div>
-                <CheckpointEditor
-                  node={form}
-                  onChange={(checkpoints) =>
-                    set("task", { ...form.task, checkpoints })
+            {writingFirst && bodyEditor}
+            <Properties
+              {...(writingFirst
+                ? {
+                    className: "editor-extra record-properties",
+                    open: propertiesOpen,
+                    onToggle: (e) => setPropertiesOpen(e.currentTarget.open),
                   }
-                />
+                : {})}
+            >
+              {writingFirst && (
+                <summary>
+                  <ChevronRight size={16} />
+                  {t("capture.properties")}
+                </summary>
+              )}
+              <div className="form-grid">
                 <label>
-                  {t("m199")}
+                  {t("m191")}
                   <Select
-                    value={form.projectId || ""}
-                    onChange={(e) => set("projectId", e.target.value)}
+                    value={form.type}
+                    onChange={(e) => set("type", e.target.value)}
                   >
-                    <option value="">{t("m200")}</option>
-                    {nodes
-                      .filter((n) => n.type === "project")
-                      .map((n) => (
-                        <option value={n.id} key={n.id}>
-                          {n.title}
-                        </option>
-                      ))}
+                    {Object.entries(TYPES).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
                   </Select>
                 </label>
-              </>
-            )}
-            <label>
-              {t("m201")}
-              <Select
-                value={form.parent || ""}
-                onChange={(e) => set("parent", e.target.value || null)}
-              >
-                <option value="">{t("m202")}</option>
-                {nodes
-                  .filter((n) => !excluded.has(n.id))
-                  .map((n) => (
-                    <option key={n.id} value={n.id}>
-                      {n.title} · {TYPES[n.type]}
-                    </option>
-                  ))}
-              </Select>
-            </label>
-            <label>
-              {t("m203")}
-              <textarea
-                rows={2}
-                maxLength={2000}
-                value={form.summary}
-                onChange={(e) => set("summary", e.target.value)}
-                placeholder={t("m204")}
-              />
-            </label>
-            <div className="form-grid">
+                <label>
+                  {t("m192")}
+                  <Select
+                    value={form.status}
+                    onChange={(e) => set("status", e.target.value)}
+                  >
+                    {Object.entries(
+                      form.type === "task" ? TASK_STATUS : STATUS,
+                    ).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              </div>
               <label>
-                {t("m205")}
+                {t("list.recordDate")}
                 <input
-                  value={form.tags.join(", ")}
-                  onChange={(e) =>
-                    set(
-                      "tags",
-                      e.target.value.split(",").map((x) => x.trim()),
-                    )
-                  }
-                  placeholder={t("m206")}
+                  type="date"
+                  value={form.date || ""}
+                  onInput={(event) => set("date", event.currentTarget.value)}
+                />
+                <span className="field-help">{t("list.dateHelp")}</span>
+              </label>
+              {form.type === "item" && (
+                <InventoryEditor
+                  node={form}
+                  settings={settings}
+                  onManage={onManage}
+                  onChange={(next) => {
+                    setForm(next);
+                    setDirty(true);
+                  }}
+                />
+              )}
+              {form.type === "task" && (
+                <>
+                  <div className="form-grid">
+                    <label>
+                      {t("m194")}
+                      <input
+                        type="date"
+                        value={form.task?.start || ""}
+                        onInput={(e) =>
+                          set("task", {
+                            ...form.task,
+                            start: e.currentTarget.value,
+                          })
+                        }
+                        onChange={(e) =>
+                          set("task", {
+                            ...form.task,
+                            start: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      {t("m195")}
+                      <input
+                        type="date"
+                        min={form.task?.start || undefined}
+                        value={form.task?.due || ""}
+                        onInput={(e) =>
+                          set("task", {
+                            ...form.task,
+                            due: e.currentTarget.value,
+                          })
+                        }
+                        onChange={(e) =>
+                          set("task", {
+                            ...form.task,
+                            due: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                    <label>
+                      {t("m197")}
+                      <input
+                        maxLength={120}
+                        placeholder={t("m198")}
+                        value={form.task?.assignee || ""}
+                        onChange={(e) =>
+                          set("task", {
+                            ...form.task,
+                            assignee: e.target.value,
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                  <CheckpointEditor
+                    node={form}
+                    onChange={(checkpoints) =>
+                      set("task", { ...form.task, checkpoints })
+                    }
+                  />
+                  <label>
+                    {t("m199")}
+                    <Select
+                      value={form.projectId || ""}
+                      onChange={(e) => set("projectId", e.target.value)}
+                    >
+                      <option value="">{t("m200")}</option>
+                      {nodes
+                        .filter((n) => n.type === "project")
+                        .map((n) => (
+                          <option value={n.id} key={n.id}>
+                            {n.title}
+                          </option>
+                        ))}
+                    </Select>
+                  </label>
+                </>
+              )}
+              <label>
+                {t("m201")}
+                <Select
+                  value={form.parent || ""}
+                  onChange={(e) => set("parent", e.target.value || null)}
+                >
+                  <option value="">{t("m202")}</option>
+                  {nodes
+                    .filter((n) => !excluded.has(n.id))
+                    .map((n) => (
+                      <option key={n.id} value={n.id}>
+                        {n.title} · {TYPES[n.type]}
+                      </option>
+                    ))}
+                </Select>
+              </label>
+              <label>
+                {t("m203")}
+                <textarea
+                  rows={2}
+                  maxLength={2000}
+                  value={form.summary}
+                  onChange={(e) => set("summary", e.target.value)}
+                  placeholder={t("m204")}
                 />
               </label>
-              <label>
-                {t("m207")}
-                <div className="colors">
-                  {COLORS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      aria-label={t("m401", c)}
-                      className={form.color === c ? "chosen" : ""}
-                      style={{
-                        background: c,
-                      }}
-                      onClick={() => set("color", c)}
-                    >
-                      {form.color === c && <Check size={15} />}
-                    </button>
-                  ))}
+              <div className="form-grid">
+                <label>
+                  {t("m205")}
                   <input
-                    type="color"
-                    aria-label={t("m208")}
-                    value={form.color}
-                    onChange={(e) => set("color", e.target.value)}
+                    value={form.tags.join(", ")}
+                    onChange={(e) =>
+                      set(
+                        "tags",
+                        e.target.value.split(",").map((x) => x.trim()),
+                      )
+                    }
+                    placeholder={t("m206")}
                   />
-                </div>
-              </label>
-            </div>
-            <div className="editor-label">
-              <span>{t("m209")}</span>
-              <button type="button" onClick={() => setPreview(!preview)}>
-                {preview ? t("m400") : t("m210")}
-              </button>
-            </div>
-            {preview ? (
-              <div className="edit-preview">
-                <Md>{form.body}</Md>
+                </label>
+                <label>
+                  {t("m207")}
+                  <div className="colors">
+                    {COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        aria-label={t("m401", c)}
+                        className={form.color === c ? "chosen" : ""}
+                        style={{
+                          background: c,
+                        }}
+                        onClick={() => set("color", c)}
+                      >
+                        {form.color === c && <Check size={15} />}
+                      </button>
+                    ))}
+                    <input
+                      type="color"
+                      aria-label={t("m208")}
+                      value={form.color}
+                      onChange={(e) => set("color", e.target.value)}
+                    />
+                  </div>
+                </label>
               </div>
-            ) : (
-              <textarea
-                className="code-input"
-                rows={12}
-                value={form.body}
-                onChange={(e) => set("body", e.target.value)}
-                aria-label={t("m211")}
-                spellCheck={false}
-              />
-            )}
-            <details className="editor-extra">
+            </Properties>
+            {!writingFirst && bodyEditor}
+            <details
+              className="editor-extra"
+              open={linksOpen}
+              onToggle={(e) => setLinksOpen(e.currentTarget.open)}
+            >
               <summary>
                 <Link2 size={16} />
                 {t("m212") + " "}
                 <span>{form.related.length}</span>
               </summary>
-              <div className="related-picker">
-                {nodes
-                  .filter((n) => n.id !== form.id)
-                  .map((n) => (
-                    <label key={n.id}>
-                      <input
-                        type="checkbox"
-                        checked={form.related.includes(n.id)}
-                        onChange={(e) =>
-                          set(
-                            "related",
-                            e.target.checked
-                              ? [...form.related, n.id]
-                              : form.related.filter((id) => id !== n.id),
-                          )
-                        }
-                      />
-                      {n.title}
-                    </label>
-                  ))}
-              </div>
+              {linksOpen && (
+                <div className="related-picker">
+                  {nodes
+                    .filter((n) => n.id !== form.id)
+                    .map((n) => (
+                      <label key={n.id}>
+                        <input
+                          type="checkbox"
+                          checked={form.related.includes(n.id)}
+                          onChange={(e) =>
+                            set(
+                              "related",
+                              e.target.checked
+                                ? [...form.related, n.id]
+                                : form.related.filter((id) => id !== n.id),
+                            )
+                          }
+                        />
+                        {n.title}
+                      </label>
+                    ))}
+                </div>
+              )}
             </details>
             <ResourceEditor
               resources={form.resources}

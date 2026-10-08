@@ -58,3 +58,24 @@ Verification includes draft recovery after closing and reloading, disabled edits
 ## Next improvements, not included in this release
 
 Prioritize measured costs: thumbnail derivatives and a bounded cache; selected-backup size estimates; project-local graph focus; adaptive idle polling; paged server metadata for substantially larger libraries. Each needs its own before/after measurement and failure-path checks. Adding an entire NAS stack or a second database solely to imitate its appearance would increase deployment cost without addressing the observed bottlenecks.
+
+
+## Evidence-led capture iteration: 5.0.1-dev.36
+
+Reviewed on 2026-10-08. Community comments below are individual experiences, not a representative survey or a claim that every user prefers these workflows. Product documentation verifies the interaction; Atlas implementation choices remain our judgment.
+
+| Evidence | Useful principle | Applied in Atlas |
+| --- | --- | --- |
+| [Todoist users discussing favorite features](https://www.reddit.com/r/todoist/comments/1kgrbpg/) repeatedly mention quick entry and capturing metadata immediately. [Official Quick Add documentation](https://www.todoist.com/help/todoist/features/use-task-quick-add-in-todoist-va4Lhpzz) describes task capture. | Capture an intention without first changing screens. | A compact top-bar chooser opens existing task, journal, note or project editors above the current page. Direct context-specific creation stays available. Alt+N opens the chooser outside editing controls and dialogs. No natural-language date parser is introduced. |
+| A [Notion user describing review cycles](https://www.reddit.com/r/Notion/comments/ydpx88/) values daily entries and structured weekly reviews. [Notion database templates](https://www.notion.com/help/database-templates) reuse page structure and properties. | Reduce the effort of starting a repeated kind of writing. | Three optional outlines for empty new journal entries: daily reflection, weekly review and meeting/event. The selected date anchors the week; deliberate ranges and appointment times survive. These are built-in starters, not user-managed or scheduled templates. |
+| [Obsidian Templates](https://obsidian.md/help/plugins/templates) inserts reusable text into the current note. | Keep the resulting content ordinary and editable. | Starter text becomes ordinary Markdown in the existing journal record, with its normal backup, draft recovery and task links. No template engine, cloud service or separate data store is added. |
+
+### Iteration boundaries and checks
+
+The browser pass exposed a second obstacle: the generic new-record form placed many properties above the writing area, and its native autofocus was lost when launched from another dialog. New notes and projects now put title and writing first, retain the top importance control, and collapse optional organization fields. Explicit focus runs after dialog handoff. The related-record checklist mounts only when expanded, avoiding thousands of hidden checkbox elements. Existing record and inventory workflows keep their property controls expanded.
+
+- The chooser does not navigate to another workspace profile, load map positions or fetch attachment originals. Only normal editor code and subsequent save/refresh requests are needed.
+- New records inherit the active space and current area, rather than silently becoming children of whichever unrelated record was last selected.
+- Starting from a linked task retains that link and the chosen title. Applying an outline cannot replace a saved record or non-empty draft body.
+- Weekly date arithmetic uses calendar dates, including year boundaries. Existing custom ranges and appointment times are preserved.
+- Candidate follow-ups: user-defined reusable templates and project-scoped saved filters. Validate their demand and backup behavior separately instead of adding settings and hidden persistence preemptively.

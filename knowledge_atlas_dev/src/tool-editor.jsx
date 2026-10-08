@@ -15,6 +15,7 @@ import {
 import { t } from "../shared/i18n.js";
 import { validateNode } from "../shared/schema.js";
 import { VIEW_RULES } from "../shared/tools.js";
+import { JOURNAL_STARTERS, startJournal } from "../shared/journal-starters.js";
 import { api, useDialogKeys } from "./client.js";
 import { useDraft, DraftNotice, DraftExit, ConflictReview } from "./drafts.jsx";
 import { localDate } from "./work-model.js";
@@ -306,16 +307,43 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                 </label>
               )}
               {kind === "journal" && journalTab === "entry" && (
-                <label className="tool-notes journal-entry-text">
-                  {t("journal.entryText")}
-                  <textarea
-                    rows={7}
-                    value={form.body}
-                    maxLength={1_000_000}
-                    placeholder={t("journal.writePlaceholder")}
-                    onChange={(e) => set("body", e.target.value)}
-                  />
-                </label>
+                <>
+                  <label className="tool-notes journal-entry-text">
+                    {t("journal.entryText")}
+                    <textarea
+                      rows={7}
+                      value={form.body}
+                      maxLength={1_000_000}
+                      placeholder={t("journal.writePlaceholder")}
+                      onChange={(e) => set("body", e.target.value)}
+                    />
+                  </label>
+                  {!initial.revision && !form.body.trim() && (
+                    <div
+                      className="journal-starters"
+                      role="group"
+                      aria-label={t("journal.starter.label")}
+                    >
+                      <span>{t("journal.starter.label")}</span>
+                      {JOURNAL_STARTERS.map((kind) => (
+                        <button
+                          key={kind}
+                          type="button"
+                          title={t(`journal.starter.${kind}Help`)}
+                          onClick={() => {
+                            setForm((old) => startJournal(old, kind, t));
+                            titleInput.current
+                              ?.closest('[role="tabpanel"]')
+                              ?.querySelector("textarea")
+                              ?.focus();
+                          }}
+                        >
+                          {t(`journal.starter.${kind}`)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
               {(kind !== "journal" || journalTab === "organization") && (
                 <>

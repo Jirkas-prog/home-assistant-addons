@@ -22,6 +22,14 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.23` on 2026-10-06.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
 
+## Quick capture and writing-first editors (5.0.1-dev.36)
+
+The suite passes 243 tests, including localized journal starters, year-boundary weekly ranges, preserved custom ranges and appointment times, existing task links and protection against replacing saved or non-empty writing. Production build, language audit, add-on checks and permanent-channel checks pass.
+
+Browser checks used generic records at desktop and 390-pixel widths, both directly and inside a same-origin frame with an Ingress-style prefix. They covered Alt+N, suppressing that shortcut while editing, opening all four creation actions, focus on the note title after dialog handoff, optional organization controls, saving note text and tags, journal draft recovery, a saved seven-day journal and English/Czech outlines. Space switching on the mobile viewport reached the separate English test space. The related-record list had zero checkbox inputs while collapsed and 1,568 after expansion. No atlas, map-renderer or attachment-file request was recorded during these capture workflows; normal metadata refreshes and selected-record Markdown retrieval remain.
+
+A browser pass caught and fixed an editor render error before publication. One unlocalized MutationObserver error was recorded during an embedded space navigation, without a source URL; the navigation completed and the new-space editor worked. Its origin was not established. These local browser and fixture checks are not a real Supervisor update or a physical-phone test.
+
 ## Timeline startup and deferred map
 
 Three additional tests cover lightweight task snapshots, distinct conditional-response validators for each content profile, absence of saved-position reads until a map request, complete record retrieval, rejection of partial-record saves, automatic Markdown updates, cancellation of obsolete requests, and gzip asset negotiation with original MIME types and uncompressed fallback.

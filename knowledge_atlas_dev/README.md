@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.35**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.36**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -65,6 +65,12 @@ Home Assistant builds the image locally from the Dockerfile. Supported architect
 Fresh installations start with an empty library. Existing libraries are preserved. No personal library or machine-specific settings are included in this repository.
 
 See [DOCS.md](DOCS.md) for operation and backups, [FORMAT.md](FORMAT.md) for manual records, and [CHANGELOG.md](CHANGELOG.md) for releases.
+
+### Quick capture and journal outlines
+
+Use **Add** in the top bar, or the arrow beside the existing creation button, to start a task, journal entry, note or project from the current page. Press **Alt+N** outside text fields and dialogs to open the same chooser. Settings must be saved or closed first. New records belong to the active atlas space and current area, if filtered; choose a project in the editor when needed. New notes and projects put writing below the title, with optional fields under **Organization and details**. Importance remains at the top.
+
+A blank new journal entry offers **Daily reflection**, **Weekly review** and **Meeting / event** outlines. These are editable Markdown starters, not automatic or recurring entries. A weekly review spans seven days from the selected date, unless a custom range or appointment time has already been chosen. Existing writing and saved records are never replaced; title, task links and other properties stay intact. The usual draft recovery and Save entry action apply.
 
 ### Task planning and journal handoff
 
