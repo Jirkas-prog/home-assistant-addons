@@ -68,3 +68,26 @@ does not wake an ordinary nap. Clicking or dragging always releases a cursor gam
 - Automated checks cover legacy behavior, context transitions, continuous
   retargeting, cursor timing, typing, backup restraint, ten-minute bounded runs,
   reduced motion, validation, space isolation, restart and backup restoration.
+
+## Carrying and landing
+
+In cursor-playing personalities, hold the pointer just above the cat until she
+catches it, then move her above the desired control. At the end of the catch
+(or when a click/keystroke releases her), she drops onto the first usable upper
+edge beneath her paws. Buttons, fields, links, tabs and disclosure controls can
+support her, including narrow buttons where the tail hangs over the edge. This
+never dispatches a click or changes the control. Normal user clicks retain their
+usual meaning; simply waiting for release does not activate the target.
+
+Landing checks the current visible controls only at release, with clipping,
+headroom and occlusion checks. Directly underlying edges win over nearby edges;
+if none is usable she may nudge sideways by up to 48 px, then uses the viewport
+floor as a last resort. She never jumps upward to return to the original panel.
+The drop accelerates with gravity, stretches the legs, and ends with a soft
+landing pose. She stays on the chosen perch for roughly eight seconds before
+resuming her personality's routine. The position is temporary, not a saved pin.
+
+Only the occupied control joins normal geometry tracking. Scrolling carries the
+resting cat with it; scrolling during a fall updates the destination without
+restarting gravity. A removed or raised target triggers a fresh downward landing.
+Hidden tabs pause the clock, and disabled/reduced animation still overrides play.

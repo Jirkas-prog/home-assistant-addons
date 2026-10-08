@@ -182,6 +182,9 @@ export function LocationsSettings({
                     `cat.personality.${form.catPersonality ?? "classic"}.pointer`,
                   )}
                 </p>
+                {(form.catPersonality ?? "classic") !== "quiet" && (
+                  <p>{t("cat.carryHelp")}</p>
+                )}
               </div>
               <label>
                 {t("cat.motion")}

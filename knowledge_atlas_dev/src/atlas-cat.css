@@ -114,10 +114,29 @@
   translate: -5px -3px;
   rotate: 25deg;
 }
+.cat-fall .cat-shadow,
 .cat-jump .cat-shadow,
 .cat-pounce .cat-shadow,
 .cat-cling .cat-shadow {
   opacity: 0;
+}
+.cat-fall .cat-shape {
+  scale: 0.97 1.03;
+  rotate: 0deg;
+}
+.cat-fall .cat-head {
+  rotate: 7deg;
+}
+.cat-fall .cat-front-leg {
+  translate: 1px 3px;
+  rotate: -8deg;
+}
+.cat-fall .cat-back-leg {
+  translate: -1px 2px;
+  rotate: 8deg;
+}
+.cat-fall .cat-tail {
+  animation-duration: 1.3s;
 }
 .cat-land .cat-shape {
   scale: 1.08 0.87;

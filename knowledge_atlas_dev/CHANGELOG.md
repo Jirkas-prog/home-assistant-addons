@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.39
+
+- Let the cat land on the nearest usable control or panel edge underneath after releasing the cursor. Carry her onto buttons, fields and tabs without activating them.
+- Add a gravity-driven fall, landing pose and short settling pause. Support narrow controls and keep occupied perches attached while scrolling.
+- Resolve visible, unclipped and unobscured control tops at release time; follow moving targets and find a new landing below if a target disappears. Retain all personality and reduced-motion preferences.
+
 ## 5.0.1-dev.38
 
 - Add a dedicated Pet settings section with four personalities: the original Explorer, Quiet companion, Curious researcher and Playful acrobat. Save per space, validate on the server and retain settings through backup/restore and updates.

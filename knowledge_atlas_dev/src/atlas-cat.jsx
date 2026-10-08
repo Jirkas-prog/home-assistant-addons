@@ -1,7 +1,49 @@
 import React, { useEffect, useRef } from "react";
-import { CatBehavior, catFreeIntervals } from "./cat-behavior.js";
+import {
+  CatBehavior,
+  catFreeIntervals,
+  catLanding,
+  catControlInterval,
+} from "./cat-behavior.js";
 import "./atlas-cat.css";
 import { useCatMotion } from "./cat-motion.js";
+
+function clippedBounds() {
+  const clips = new Map();
+  return (element, rect = element.getBoundingClientRect()) => {
+    let { left, right, top, bottom } = rect;
+    for (
+      let parent = element.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      if (!clips.has(parent)) {
+        const style = getComputedStyle(parent);
+        clips.set(parent, {
+          rect: parent.getBoundingClientRect(),
+          x: /auto|scroll|hidden|clip/.test(style.overflowX),
+          y: /auto|scroll|hidden|clip/.test(style.overflowY),
+        });
+      }
+      const clip = clips.get(parent);
+      if (clip.x) {
+        left = Math.max(left, clip.rect.left);
+        right = Math.min(right, clip.rect.right);
+      }
+      if (clip.y) {
+        top = Math.max(top, clip.rect.top);
+        bottom = Math.min(bottom, clip.rect.bottom);
+      }
+    }
+    return {
+      left,
+      right,
+      top,
+      bottom,
+      width: bottom > top ? Math.max(0, right - left) : 0,
+    };
+  };
+}
 
 // The decoration never captures clicks, keyboard focus or the actual cursor.
 export function AtlasCat({ enabled, motion, personality = "classic" }) {
@@ -18,6 +60,7 @@ export function AtlasCat({ enabled, motion, personality = "classic" }) {
       measureFrame,
       dialog,
       focusedField,
+      placedElement,
       disposed = false;
     const observed = new Set();
     let pausedAt = document.hidden ? performance.now() : null,
@@ -56,44 +99,104 @@ export function AtlasCat({ enabled, motion, personality = "classic" }) {
       else if (!cat.reduced && Number.isFinite(cat.deadline))
         timer = setTimeout(run, Math.max(16, cat.deadline - time));
     }
+    const controls =
+      'button, input:not([type="hidden"]), textarea, select, a[href], summary, [role="button"], [role="combobox"], [role="tab"], [contenteditable="true"]';
+    function controlRails(item, bounds, blocks) {
+      const raw = item.getBoundingClientRect(),
+        r = bounds(item, raw);
+      if (
+        !item.isConnected ||
+        !item.getClientRects().length ||
+        r.width < 28 ||
+        r.bottom - r.top < 12 ||
+        raw.top < 70 ||
+        raw.top > innerHeight - 8 ||
+        Math.abs(raw.top - r.top) > 1 ||
+        getComputedStyle(item).visibility !== "visible"
+      )
+        return [];
+      const [a, z] = catControlInterval(r, innerWidth);
+      return catFreeIntervals(
+        a,
+        z,
+        r.top - 67,
+        blocks
+          .filter(
+            ({ element: e }) =>
+              e !== item && !(e.contains(item) && e.tagName !== "LABEL"),
+          )
+          .map(({ rect }) => rect),
+      )
+        .map(([left, right], index) => ({
+          id: `drop:${id(item)}:${index}`,
+          surface: `drop:${id(item)}`,
+          kind: "control",
+          anchorX: raw.left,
+          left,
+          right,
+          y: r.top - 67,
+          supportLeft: Math.max(r.left, left + 47 - 48),
+          supportRight: Math.min(r.right, right + 47 + 48),
+        }))
+        .filter((rail) => {
+          const x = Math.max(
+            r.left + 1,
+            Math.min(r.right - 1, (rail.left + rail.right) / 2 + 47),
+          );
+          const hit = document.elementFromPoint(x, r.top + 2);
+          return hit === item || item.contains(hit);
+        });
+    }
+    cat.findLanding = () => {
+      // Resolve controls only when released, not on every animation frame.
+      const scope =
+        [...document.querySelectorAll('[role="dialog"]')]
+          .filter((d) => d.getClientRects().length)
+          .at(-1) || document.body;
+      const bounds = clippedBounds();
+      const items = [...scope.querySelectorAll(controls)];
+      const blocks = [
+        ...items,
+        ...scope.querySelectorAll("h2, h3, .field-help, .markdown-toolbar"),
+      ].map((item) => ({ element: item, rect: bounds(item) }));
+      for (const label of scope.querySelectorAll("label")) {
+        for (const child of label.childNodes)
+          if (child.nodeType === 3 && child.textContent.trim()) {
+            const range = document.createRange();
+            range.selectNode(child);
+            blocks.push({
+              element: label,
+              rect: bounds(label, range.getBoundingClientRect()),
+            });
+          }
+      }
+      const candidates = items.flatMap((item) =>
+        controlRails(item, bounds, blocks).map((rail) => ({
+          ...rail,
+          element: item,
+        })),
+      );
+      const landing = catLanding(
+        cat.scene,
+        [
+          ...candidates,
+          ...cat.rails.filter(
+            (r) => !r.id.startsWith("drop:") && r.id !== "drop-floor",
+          ),
+        ],
+        innerWidth,
+        innerHeight,
+      );
+      placedElement = landing.rail.element || null;
+      const { element: ignored, ...rail } = landing.rail;
+      if (placedElement) requestMeasure();
+      return { ...landing, rail };
+    };
     function measure() {
       cancelAnimationFrame(measureFrame);
       measureFrame = null;
       if (disposed || pausedAt !== null || !element.current) return;
-      const clips = new Map();
-      const bounds = (element, rect = element.getBoundingClientRect()) => {
-        let { left, right, top, bottom } = rect;
-        for (
-          let parent = element.parentElement;
-          parent;
-          parent = parent.parentElement
-        ) {
-          if (!clips.has(parent)) {
-            const style = getComputedStyle(parent);
-            clips.set(parent, {
-              rect: parent.getBoundingClientRect(),
-              x: /auto|scroll|hidden|clip/.test(style.overflowX),
-              y: /auto|scroll|hidden|clip/.test(style.overflowY),
-            });
-          }
-          const clip = clips.get(parent);
-          if (clip.x) {
-            left = Math.max(left, clip.rect.left);
-            right = Math.min(right, clip.rect.right);
-          }
-          if (clip.y) {
-            top = Math.max(top, clip.rect.top);
-            bottom = Math.min(bottom, clip.rect.bottom);
-          }
-        }
-        return {
-          left,
-          right,
-          top,
-          bottom,
-          width: bottom > top ? Math.max(0, right - left) : 0,
-        };
-      };
+      const bounds = clippedBounds();
       const nextDialog = [...document.querySelectorAll('[role="dialog"]')]
         .filter((d) => d.getClientRects().length)
         .at(-1);
@@ -139,6 +242,14 @@ export function AtlasCat({ enabled, motion, personality = "classic" }) {
           ) || [];
         panels = [...new Set([...panels, ...extra])];
       }
+      if (
+        placedElement &&
+        (!placedElement.isConnected ||
+          !cat.railId?.startsWith("drop:") ||
+          (dialog && !dialog.contains(placedElement)))
+      )
+        placedElement = null;
+      if (placedElement) panels.push(placedElement);
       const kind = (item) => {
         if (item.matches('textarea, [contenteditable="true"]'))
           return "writing";
@@ -204,6 +315,7 @@ export function AtlasCat({ enabled, motion, personality = "classic" }) {
             }
         }
       const rails = panels.flatMap((item) => {
+        if (item === placedElement) return controlRails(item, bounds, blocks);
         const r = item.getBoundingClientRect();
         if (
           !item.getClientRects().length ||

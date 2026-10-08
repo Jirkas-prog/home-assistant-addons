@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   CatBehavior,
   catFreeIntervals,
+  catLanding,
+  catControlInterval,
   catReducedMotion,
 } from "../src/cat-behavior.js";
 
@@ -240,7 +242,11 @@ test("a reachable cursor is caught for three seconds, followed, then released wi
     cat.tick(caughtAt + 3000);
     assert.notEqual(cat.scene.pose, "cling");
     advance(cat, caughtAt + 3000, 7500);
-    assert.equal(cat.scene.y, rails[0].y);
+    assert.equal(
+      cat.scene.y,
+      728,
+      "carrying beyond the panel drops to the viewport floor",
+    );
     cat.point({ x: cat.scene.x + 47, y: cat.scene.y - 20 }, 7501);
     assert.notEqual(cat.scene.pose, "hunt");
   }
@@ -496,5 +502,150 @@ test("reduced motion overrides personality switches, window routines and typing"
       assert.equal(cat.scene.pose, "sit");
       assert.equal(cat.animated, false);
     }
+  }
+});
+
+test("releasing chooses the first edge below the paws, ahead of higher and side edges", () => {
+  const scene = { x: 300, y: 100 };
+  const below = { id: "button", left: 280, right: 330, y: 220 };
+  const edges = [
+    { id: "above", left: 300, right: 500, y: 90 },
+    { id: "side", left: 340, right: 380, y: 130 },
+    { id: "lower", left: 280, right: 500, y: 350 },
+    below,
+  ];
+  assert.equal(catLanding(scene, edges, 1000, 800).rail.id, "button");
+  assert.equal(catLanding(scene, [edges[0]], 1000, 800).rail.id, "drop-floor");
+  const narrow = {
+    id: "icon",
+    left: 295,
+    right: 295,
+    y: 180,
+    supportLeft: 330,
+    supportRight: 355,
+  };
+  assert.equal(catLanding(scene, [below, narrow], 1000, 800).rail.id, "icon");
+  assert.equal(catLanding(scene, [narrow], 1000, 800).point.x, 295);
+  assert.deepEqual(catControlInterval({ left: 5, right: 37 }, 390), [0, 0]);
+  assert.deepEqual(
+    catControlInterval({ left: 355, right: 389 }, 390),
+    [296, 296],
+  );
+  assert.deepEqual(
+    catControlInterval({ left: 100, right: 300 }, 390),
+    [100, 206],
+  );
+});
+
+const dropButton = {
+  id: "drop:button",
+  surface: "button",
+  anchorX: 300,
+  left: 300,
+  right: 390,
+  y: 340,
+};
+function carried() {
+  const cat = create();
+  Object.assign(cat.scene, { x: 320, y: 80, pose: "cling" });
+  cat.lastTick = 100;
+  cat.findLanding = () =>
+    catLanding(cat.scene, [dropButton, ...cat.rails], 1100, 800);
+  return cat;
+}
+
+test("a carried cat falls with increasing speed, settles on the button and stays there", () => {
+  const cat = carried();
+  cat.rails = [];
+  cat.returnToRail(5000);
+  assert.equal(cat.scene.pose, "fall");
+  assert.equal(cat.railId, "drop:button");
+  const positions = [];
+  for (let time = 5000; time <= 5250; time += 50) {
+    cat.tick(time);
+    positions.push(cat.scene.y);
+  }
+  assert.equal(positions[0], 80, "idle time before release is not fall time");
+  assert.ok(positions[2] - positions[1] > positions[1] - positions[0]);
+  advance(cat, 5250, 6800, 10);
+  assert.equal(cat.scene.y, 340);
+  assert.equal(cat.scene.x, 320);
+  assert.equal(cat.scene.pose, "sit");
+  cat.setRails([dropButton, ...rails], 7000);
+  cat.point({ x: 367, y: 270 }, 8000);
+  cat.tick(12000);
+  assert.equal(cat.railId, "drop:button");
+  assert.equal(cat.scene.pose, "sit");
+});
+
+test("a falling cat follows scrolling without restarting gravity or snapping its takeoff", () => {
+  const cat = carried();
+  cat.rails = [];
+  cat.returnToRail(100);
+  let previousY = cat.scene.y;
+  for (let i = 1; i <= 25; i++) {
+    const before = { x: cat.scene.x, y: cat.scene.y };
+    cat.setRails(
+      [
+        {
+          ...dropButton,
+          y: 340 + i,
+          left: 300 + i,
+          right: 390 + i,
+          anchorX: 300 + i,
+        },
+      ],
+      100 + i * 16,
+    );
+    assert.deepEqual({ x: cat.scene.x, y: cat.scene.y }, before);
+    cat.tick(100 + i * 16);
+    assert.ok(cat.scene.y >= previousY);
+    previousY = cat.scene.y;
+  }
+  advance(cat, 500, 1900, 10);
+  assert.equal(cat.scene.y, 365);
+  assert.equal(cat.scene.x, 345);
+  assert.equal(cat.scene.pose, "sit");
+});
+
+test("a removed or raised landing target is replaced below, including an empty viewport", () => {
+  for (const raised of [true, false]) {
+    const cat = carried();
+    cat.rails = [];
+    cat.returnToRail(100);
+    cat.tick(200);
+    cat.findLanding = null;
+    const before = { x: cat.scene.x, y: cat.scene.y };
+    cat.setRails(raised ? [{ ...dropButton, y: 10 }] : [], 200);
+    assert.deepEqual({ x: cat.scene.x, y: cat.scene.y }, before);
+    assert.equal(cat.railId, "drop-floor");
+    advance(cat, 200, 1900, 10);
+    assert.equal(cat.scene.y, 728);
+    assert.equal(cat.scene.visible, true);
+  }
+});
+
+test("click and automatic timeout both release onto the surface underneath without DOM actions", () => {
+  for (const timeout of [false, true]) {
+    const cat = carried();
+    cat.rails = [];
+    cat.deadline = 150;
+    cat.pointer = { x: 367, y: 70 };
+    let calls = 0;
+    cat.findLanding = () => {
+      calls++;
+      return catLanding(cat.scene, [dropButton], 1100, 800);
+    };
+    if (timeout) cat.tick(150);
+    else cat.yieldPointer(150);
+    assert.equal(cat.scene.pose, "fall");
+    advance(cat, 150, 2500, 10);
+    assert.equal(cat.railId, "drop:button");
+    assert.equal(cat.scene.y, 340);
+    assert.equal(
+      calls,
+      1,
+      "landing geometry is requested once, not on every animation frame",
+    );
   }
 });

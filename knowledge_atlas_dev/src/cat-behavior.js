@@ -26,6 +26,49 @@ export function catFreeIntervals(left, right, y, obstacles) {
   return intervals;
 }
 
+// Prefer the first edge below the paws, never a closer edge above or beside them.
+export function catLanding(scene, rails, width, height) {
+  const below = rails.filter((r) => r.y >= scene.y);
+  const center = scene.x + 47;
+  const direct = below.filter(
+    (r) =>
+      center >= (r.supportLeft ?? r.left + 47) &&
+      center <= (r.supportRight ?? r.right + 47),
+  );
+  const nearby = below.filter(
+    (r) => Math.abs(clamp(scene.x, r.left, r.right) - scene.x) <= 48,
+  );
+  const rail = [...(direct.length ? direct : nearby)].sort(
+    (a, b) =>
+      a.y - b.y ||
+      Math.abs(clamp(scene.x, a.left, a.right) - scene.x) -
+        Math.abs(clamp(scene.x, b.left, b.right) - scene.x),
+  )[0] || {
+    id: "drop-floor",
+    left: 0,
+    right: Math.max(0, width - 94),
+    y: Math.max(0, height - 72),
+    anchorX: 0,
+  };
+  return {
+    rail,
+    point: {
+      x: clamp(scene.x, rail.left, rail.right),
+      y: Math.max(scene.y, rail.y),
+    },
+  };
+}
+
+// A narrow button can support the paws while the tail hangs over its edge.
+export function catControlInterval(rect, width) {
+  const edge = Math.max(0, width - 94);
+  if (rect.right - rect.left < 94) {
+    const x = clamp((rect.left + rect.right) / 2 - 47, 0, edge);
+    return [x, x];
+  }
+  return [clamp(rect.left, 0, edge), clamp(rect.right - 94, 0, edge)];
+}
+
 // Time is supplied by the host so a hidden tab can pause the whole scene.
 // Positions always describe the current frame, never the end of a CSS transition.
 export class CatBehavior {
@@ -146,8 +189,22 @@ export class CatBehavior {
     this.width = width ?? this.width;
     this.height = height ?? this.height;
     const previous = this.rails.find((r) => r.id === this.railId);
+    if (this.railId === "drop-floor")
+      rails = [
+        ...rails,
+        {
+          id: "drop-floor",
+          left: 0,
+          right: Math.max(0, this.width - 94),
+          y: Math.max(0, this.height - 72),
+          anchorX: 0,
+        },
+      ];
     this.rails = rails;
-    if (!rails.length) return;
+    if (!rails.length) {
+      if (this.motion?.kind === "fall") this.returnToRail(now);
+      return;
+    }
     if (!this.scene.visible) {
       const rail = this.preferred(rails);
       this.railId = rail.id;
@@ -167,6 +224,14 @@ export class CatBehavior {
       });
       if (containing) current = containing;
     }
+    if (
+      !priority &&
+      this.motion?.kind === "fall" &&
+      (!current || current.y < this.scene.y)
+    ) {
+      this.returnToRail(now);
+      return;
+    }
     // A perch moving with its scroll container is not a new journey. Preserve
     // pose, deadlines and walking progress, including during a held scrollbar.
     if (!priority && current && previous) {
@@ -175,7 +240,7 @@ export class CatBehavior {
         (current.anchorX ?? current.left) - (previous.anchorX ?? previous.left);
       const dy = current.y - previous.y;
       const move = this.motion || this.queued;
-      if (move && move.kind === "jump") {
+      if (move && ["jump", "fall"].includes(move.kind)) {
         // Keep takeoff fixed while following a moving landing edge.
         move.target.x = clamp(move.target.x + dx, current.left, current.right);
         move.target.y = current.y;
@@ -274,7 +339,7 @@ export class CatBehavior {
   start(move, now) {
     const from = { x: this.scene.x, y: this.scene.y };
     this.queued = null;
-    if (move.kind !== "pounce")
+    if (!["pounce", "fall"].includes(move.kind))
       this.scene.direction = move.target.x >= from.x ? 1 : -1;
     this.motion = { ...move, from, began: now };
     this.enter(move.kind, now, move.duration);
@@ -329,10 +394,33 @@ export class CatBehavior {
   returnToRail(now) {
     this.motion = this.queued = null;
     this.cooldown = now + (this.profile.cooldown || 9000);
-    const closest = this.nearest();
-    if (closest && closest.score > 2)
-      this.travel(closest.rail, closest.point.x, now, true);
-    else this.enter("land", now, 450);
+    const landing =
+      this.findLanding?.() ||
+      catLanding(this.scene, this.rails, this.width, this.height);
+    this.railId = landing.rail.id;
+    // Keep a newly selected control until the host's next geometry refresh.
+    this.rails = [
+      ...this.rails.filter((r) => r.id !== landing.rail.id),
+      landing.rail,
+    ];
+    this.routine = [];
+    this.placedUntil = now + 8000;
+    this.lastTick = now;
+    this.cooldown = Math.max(this.cooldown, this.placedUntil + 1000);
+    if (this.reduced) {
+      Object.assign(this.scene, landing.point);
+      this.enter("sit", now, Infinity);
+    } else
+      this.start(
+        {
+          target: landing.point,
+          kind: "fall",
+          duration: 1000,
+          after: "place",
+          velocity: 0,
+        },
+        now,
+      );
   }
 
   act(action, now) {
@@ -396,6 +484,25 @@ export class CatBehavior {
     if (!this.scene.visible || this.reduced) return this.scene;
     if (this.motion) {
       const m = this.motion;
+      if (m.kind === "fall") {
+        // Gravity keeps progressing when scrolling retargets a moving landing edge.
+        const gravity = 0.0025;
+        this.scene.y = Math.min(
+          m.target.y,
+          this.scene.y + m.velocity * dt + (gravity * dt * dt) / 2,
+        );
+        m.velocity += gravity * dt;
+        this.scene.x += (m.target.x - this.scene.x) * (1 - Math.exp(-dt / 55));
+        if (
+          this.scene.y < m.target.y ||
+          Math.abs(this.scene.x - m.target.x) > 0.5
+        )
+          return this.scene;
+        Object.assign(this.scene, m.target);
+        this.motion = null;
+        this.enter("land", now, 450);
+        return this.scene;
+      }
       const p = clamp((now - m.began) / m.duration, 0, 1);
       const t = ease(p);
       const arc =
@@ -457,6 +564,8 @@ export class CatBehavior {
           now,
         );
       }
+    } else if (now < this.placedUntil) {
+      this.enter("sit", now, this.placedUntil - now);
     } else if (this.personality !== "classic" && now < this.workUntil) {
       this.enter("watch", now, this.workUntil - now);
     } else if (this.scene.pose === "sleep") this.enter("wake", now, 1800);
