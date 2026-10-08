@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useMemo, useState, useEffect } from "react";
 import { Pencil, X, LoaderCircle } from "lucide-react";
 import { t } from "../shared/i18n.js";
@@ -182,7 +183,7 @@ export function JournalNotebook({
         <div className="collection-toolbar">
           <label>
             {t("tools.project")}
-            <select
+            <Select
               value={project}
               onChange={(e) => setProject(e.target.value)}
             >
@@ -194,7 +195,7 @@ export function JournalNotebook({
                     {n.title}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           <label className="journal-experience-filter">
             <input

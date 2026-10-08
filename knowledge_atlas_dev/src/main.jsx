@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import { SpaceBar } from "./spaces.jsx";
 import { AtlasCat } from "./atlas-cat.jsx";
 import { release } from "../shared/release.js";
@@ -98,6 +99,9 @@ import {
 } from "./locations.jsx";
 import { DocumentViewer } from "./documents.jsx";
 import { AttachmentGallery } from "./journal.jsx";
+import { ToolEditor } from "./tool-editor.jsx";
+import { journalFromTask } from "../shared/task-workflow.js";
+import { localDate } from "./work-model.js";
 import { JournalNotebook } from "./journal-notebook.jsx";
 import { MAP_LAYOUTS, mapGraph } from "./map-layout.js";
 import {
@@ -240,6 +244,7 @@ function App() {
     [relations, setRelations] = useState(true),
     [expanded, setExpanded] = useState(new Set()),
     [sidebar, setSidebar] = useState(false),
+    [taskJournal, setTaskJournal] = useState(null),
     [detail, setDetail] = useState(
       () => new URLSearchParams(location.search).get("view") === "library",
     ),
@@ -346,6 +351,7 @@ function App() {
     if (!editing && !reader) return;
     const previous = document.activeElement;
     const handle = (e) => {
+      if (document.querySelector("[data-select-popup]")) return;
       if (e.key === "Escape" && reader) {
         setReader(null);
         return;
@@ -472,6 +478,7 @@ function App() {
     status = "draft",
     projectId = "",
     columnId,
+    day = "",
   ) =>
     setEditing({
       schema: 1,
@@ -505,8 +512,8 @@ function App() {
             projectId,
             task: {
               ...(columnId ? { columnId } : {}),
-              start: "",
-              due: "",
+              start: day,
+              due: day,
               priority: "normal",
               assignee: "",
             },
@@ -709,7 +716,7 @@ function App() {
   );
   const atlasFilters = (
     <>
-      <select
+      <Select
         className="area-filter"
         aria-label={t("m139")}
         value={scope}
@@ -721,7 +728,7 @@ function App() {
             {n.title}
           </option>
         ))}
-      </select>
+      </Select>
       {view !== "backups" && (
         <fieldset className="importance-filter">
           <legend>{t("importance.label")}</legend>
@@ -1141,7 +1148,7 @@ function App() {
               )}
               <div className="toolbar-spacer" />
               {view === "map" && (
-                <select
+                <Select
                   aria-label={t("map.layout")}
                   aria-describedby="map-layout-description"
                   className="map-layout-select"
@@ -1157,7 +1164,7 @@ function App() {
                       {index + 1}. {t(`map.layout.${name}`)}
                     </option>
                   ))}
-                </select>
+                </Select>
               )}
               {view === "map" && (
                 <div className="segmented">
@@ -1384,13 +1391,15 @@ function App() {
                   onSelect={choose}
                   orderRevision={orderRevision}
                   onEdit={(n, tab) => setEditing({ ...n, _tab: tab })}
-                  onNew={(project = "", status = "draft", columnId) =>
+                  onSettings={setSettings}
+                  onNew={(project = "", status = "draft", columnId, day) =>
                     newNode(
                       project || scope || homeId,
                       "task",
                       status,
                       project,
                       columnId,
+                      day,
                     )
                   }
                   onMove={async (n, status) => {
@@ -1941,6 +1950,15 @@ function App() {
             onManage={() => setShowSettings(true)}
             onClose={() => setEditing(null)}
             onRefresh={load}
+            onJournal={(task) =>
+              setTaskJournal(
+                journalFromTask(task, {
+                  id: crypto.randomUUID(),
+                  date: localDate(),
+                  projectId: projectFor(task, nodes)?.id || "",
+                }),
+              )
+            }
             onSave={async (value) => {
               const result = await api(
                 editing.id ? `nodes/${editing.id}` : "nodes",
@@ -1978,6 +1996,18 @@ function App() {
             }}
           />
         )
+      )}
+      {taskJournal && (
+        <ToolEditor
+          key={taskJournal.id}
+          initial={taskJournal}
+          nodes={nodes}
+          onClose={() => setTaskJournal(null)}
+          onSaved={async () => {
+            await load();
+            notify(t("tasks.journalSaved"));
+          }}
+        />
       )}
       {reader && (
         <div
@@ -2237,7 +2267,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
             <div className="form-grid">
               <label>
                 {t("m191")}
-                <select
+                <Select
                   value={form.type}
                   onChange={(e) => set("type", e.target.value)}
                 >
@@ -2246,11 +2276,11 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                       {v}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <label>
                 {t("m192")}
-                <select
+                <Select
                   value={form.status}
                   onChange={(e) => set("status", e.target.value)}
                 >
@@ -2261,7 +2291,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                       {v}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
             </div>
             <label>
@@ -2363,7 +2393,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                 />
                 <label>
                   {t("m199")}
-                  <select
+                  <Select
                     value={form.projectId || ""}
                     onChange={(e) => set("projectId", e.target.value)}
                   >
@@ -2375,13 +2405,13 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                           {n.title}
                         </option>
                       ))}
-                  </select>
+                  </Select>
                 </label>
               </>
             )}
             <label>
               {t("m201")}
-              <select
+              <Select
                 value={form.parent || ""}
                 onChange={(e) => set("parent", e.target.value || null)}
               >
@@ -2393,7 +2423,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                       {n.title} · {TYPES[n.type]}
                     </option>
                   ))}
-              </select>
+              </Select>
             </label>
             <label>
               {t("m203")}
@@ -2512,7 +2542,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
             />
             <label className="preview-choice">
               {t("documents.doubleClick")}
-              <select
+              <Select
                 value={form.previewResourceId || ""}
                 onChange={(e) => set("previewResourceId", e.target.value)}
               >
@@ -2532,7 +2562,7 @@ function Editor({ initial, nodes, settings, onManage, onClose, onSave }) {
                       {r.label || r.path || r.url}
                     </option>
                   ))}
-              </select>
+              </Select>
               <small>{t("documents.doubleClickHelp")}</small>
             </label>
           </fieldset>

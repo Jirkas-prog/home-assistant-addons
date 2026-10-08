@@ -30,7 +30,7 @@
   font-size: 12px;
 }
 .stock-movements input,
-.stock-movements select {
+.stock-movements :is(select, .atlas-select) {
   width: 100%;
   min-width: 0;
   background: #111820;

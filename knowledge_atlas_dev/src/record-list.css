@@ -7,7 +7,7 @@
   font-size: 12px;
   min-width: 0;
 }
-.list-sort select {
+.list-sort :is(select, .atlas-select) {
   max-width: 100%;
 }
 .record-stamp {

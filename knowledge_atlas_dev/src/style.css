@@ -17,14 +17,14 @@ body {
 }
 button,
 input,
-select,
+:is(select, .atlas-select),
 textarea {
   font: inherit;
 }
 button,
 a,
 input,
-select,
+:is(select, .atlas-select),
 textarea {
   -webkit-tap-highlight-color: transparent;
 }
@@ -52,7 +52,7 @@ a:focus-visible {
   outline-offset: 3px;
 }
 input,
-select,
+:is(select, .atlas-select),
 textarea {
   color: #e4e8ef;
   background: #12161d;
@@ -62,41 +62,41 @@ textarea {
   min-width: 0;
 }
 input:focus,
-select:focus,
+:is(select, .atlas-select):focus,
 textarea:focus {
   outline: 1px solid #a7e87b;
   border-color: #a7e87b;
 }
-select {
+:is(select, .atlas-select) {
   cursor: pointer;
   color-scheme: dark;
 }
-select option,
-select optgroup {
+:is(select, .atlas-select) option,
+:is(select, .atlas-select) optgroup {
   color: #e7ebf2;
   background-color: #171c23;
 }
-select option:checked {
+:is(select, .atlas-select) option:checked {
   color: #101318;
   background-color: #b0ef88;
 }
-select option:disabled,
-select optgroup:disabled {
+:is(select, .atlas-select) option:disabled,
+:is(select, .atlas-select) optgroup:disabled {
   color: #a4aebd;
   background-color: #171c23;
 }
 @media (forced-colors: active) {
-  select option,
-  select optgroup {
+  :is(select, .atlas-select) option,
+  :is(select, .atlas-select) optgroup {
     color: CanvasText;
     background-color: Canvas;
   }
-  select option:checked {
+  :is(select, .atlas-select) option:checked {
     color: HighlightText;
     background-color: Highlight;
   }
-  select option:disabled,
-  select optgroup:disabled {
+  :is(select, .atlas-select) option:disabled,
+  :is(select, .atlas-select) optgroup:disabled {
     color: GrayText;
     background-color: Canvas;
   }
@@ -521,7 +521,7 @@ button:hover {
   border-radius: 3px;
   color: #788292;
 }
-.toolbar > select {
+.toolbar > :is(select, .atlas-select) {
   font-size: 12px;
   padding: 9px;
   max-width: 180px;
@@ -1074,7 +1074,7 @@ button:hover {
   color: #adbacb;
 }
 .editor-body input,
-.editor-body select,
+.editor-body :is(select, .atlas-select),
 .editor-body textarea {
   width: 100%;
   font-size: 14px;
@@ -1391,7 +1391,7 @@ button:hover {
     max-width: 45%;
     width: 230px;
   }
-  .toolbar > select {
+  .toolbar > :is(select, .atlas-select) {
     max-width: 135px;
   }
   .segmented button {
@@ -1520,7 +1520,7 @@ button:hover {
     flex: 1;
     min-width: 160px;
   }
-  .toolbar > select {
+  .toolbar > :is(select, .atlas-select) {
     max-width: 145px;
     font-size: 11px;
   }

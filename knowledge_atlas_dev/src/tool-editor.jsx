@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useState, useEffect, useRef } from "react";
 import {
   Plus,
@@ -219,6 +220,15 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
           </div>
         )}
         <div className="editor-body">
+          {kind === "journal" &&
+            !initial.revision &&
+            nodes
+              .filter((n) => n.type === "task" && form.related.includes(n.id))
+              .map((n) => (
+                <p className="field-help" key={n.id}>
+                  {t("tasks.linkedTask", n.title)}
+                </p>
+              ))}
           {leaving && (
             <DraftExit
               failed={draft.state === "failed"}
@@ -312,7 +322,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                   <div className="form-grid">
                     <label>
                       {t("tools.project")}
-                      <select
+                      <Select
                         value={form.projectId || ""}
                         onChange={(e) => {
                           const projectId = e.target.value;
@@ -333,11 +343,11 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                             {n.title}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </label>
                     <label>
                       {t("tools.status")}
-                      <select
+                      <Select
                         value={form.status}
                         onChange={(e) => set("status", e.target.value)}
                       >
@@ -348,7 +358,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                             </option>
                           ),
                         )}
-                      </select>
+                      </Select>
                     </label>
                   </div>
                   <label>
@@ -402,7 +412,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                       <div className="form-grid">
                         <label>
                           {t("tools.inventoryItem")}
-                          <select
+                          <Select
                             value={line.itemId}
                             onChange={(e) => {
                               const item = items.find(
@@ -428,7 +438,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                                 {n.title}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </label>
                         <label>
                           {t("tools.required")}
@@ -602,7 +612,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                       <div className="form-grid">
                         <label>
                           {t("tools.source")}
-                          <select
+                          <Select
                             value={card.sourceId}
                             onChange={(e) =>
                               updateRow(
@@ -621,7 +631,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                                   {n.title}
                                 </option>
                               ))}
-                          </select>
+                          </Select>
                         </label>
                         <label>
                           {t("tools.sourcePage")}
@@ -674,7 +684,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                   <h3>{t("tools.viewFilters")}</h3>
                   <label>
                     {t("tools.rule")}
-                    <select
+                    <Select
                       value={form.tool.filter.rule}
                       onChange={(e) =>
                         toolSet("filter", {
@@ -688,12 +698,12 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                           {t("tools.rule." + rule)}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <div className="form-grid">
                     <label>
                       {t("tools.recordType")}
-                      <select
+                      <Select
                         value={form.tool.filter.type}
                         onChange={(e) =>
                           toolSet("filter", {
@@ -716,11 +726,11 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                             {t("tools.type." + type)}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </label>
                     <label>
                       {t("tools.status")}
-                      <select
+                      <Select
                         value={form.tool.filter.status}
                         onChange={(e) =>
                           toolSet("filter", {
@@ -736,12 +746,12 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                             </option>
                           ),
                         )}
-                      </select>
+                      </Select>
                     </label>
                   </div>
                   <label>
                     {t("tools.filterProject")}
-                    <select
+                    <Select
                       value={form.tool.filter.projectId}
                       onChange={(e) =>
                         toolSet("filter", {
@@ -756,7 +766,7 @@ export function ToolEditor({ initial, nodes, onClose, onSaved }) {
                           {n.title}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label>
                     {t("tools.searchWords")}

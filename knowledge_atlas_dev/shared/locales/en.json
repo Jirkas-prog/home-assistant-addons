@@ -1263,5 +1263,22 @@
   "cat.motion.still": "Still companion",
   "cat.stillStatus": "Animations paused in settings",
   "workspace.clearFilters": "Clear filters",
-  "timeline.help": "Help"
+  "timeline.help": "Help",
+  "select.search": "Search options…",
+  "select.options": "Options",
+  "select.empty": "No matching options",
+  "tasks.calendar": "Calendar",
+  "tasks.undated": "No date · {0}",
+  "tasks.setDefault": "Set as default",
+  "tasks.defaultView": "Default view",
+  "tasks.newProject": "New project",
+  "tasks.projectName": "Project name",
+  "tasks.createProject": "Create and select",
+  "tasks.writeJournal": "Write in journal",
+  "tasks.saveAndJournal": "Save and write in journal",
+  "tasks.journalSaved": "Journal entry saved and linked to the task.",
+  "tasks.invalidView": "Invalid default task view.",
+  "tasks.linkedTask": "Entry for task: {0}",
+  "tasks.addOn": "Add a task on {0}",
+  "tasks.count": "{0} tasks"
 }

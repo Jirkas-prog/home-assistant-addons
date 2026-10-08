@@ -50,6 +50,11 @@ export function useDialogKeys(React, close) {
     const previous = document.activeElement;
     const owned = [...document.querySelectorAll('[role="dialog"]')].at(-1);
     const handler = (e) => {
+      if (
+        ["Escape", "Tab"].includes(e.key) &&
+        document.querySelector("[data-select-popup]")
+      )
+        return;
       const dialogs = [...document.querySelectorAll('[role="dialog"]')],
         dialog = dialogs.at(-1);
       if (dialog !== owned) return;

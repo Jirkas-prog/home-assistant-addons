@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.33
+
+- Render dropdown menus in the Atlas theme on desktop and mobile, with touch targets, keyboard navigation, and search in long lists. Space switching uses the same menu above the sidebar and dialogs.
+- Add task calendar views for day, week, month, and year, reusing the journal calendar. Show undated tasks separately; clicking a date prefills a new task. Tasks with one endpoint appear on that date, while ranged tasks span both endpoints.
+- Save the default task layout and calendar period independently for each atlas space, including across restarts and settings backups.
+- Create and select a project without leaving a task draft. Save a task and open a linked journal draft, carrying its project, title, tags, and importance without copying attachments or changing completion state.
+
 ## 5.0.1-dev.32
 
 - Move the space picker, space management actions and cat toggle to the top of the sidebar, with aligned controls on desktop and in the mobile menu.

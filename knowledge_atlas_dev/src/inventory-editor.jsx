@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React from "react";
 import { Plus, X } from "lucide-react";
 import { t } from "../shared/i18n.js";
@@ -70,7 +71,7 @@ export function InventoryEditor({ node, settings, onChange, onManage }) {
       <p className="field-help">{t("stock.help")}</p>
       <label>
         {t("stock.mode")}
-        <select
+        <Select
           value={stock.mode}
           onChange={(e) =>
             onChange({ ...node, stock: { ...stock, mode: e.target.value } })
@@ -78,13 +79,13 @@ export function InventoryEditor({ node, settings, onChange, onManage }) {
         >
           <option value="stock">{t("stock.bulk")}</option>
           <option value="unique">{t("stock.unique")}</option>
-        </select>
+        </Select>
       </label>
       {stock.placements.map((p, index) => (
         <div className="stock-placement" key={p.id}>
           <label>
             {t("stock.place", index + 1)}
-            <select
+            <Select
               required
               value={p.locationId}
               onChange={(e) =>
@@ -100,7 +101,7 @@ export function InventoryEditor({ node, settings, onChange, onManage }) {
                 </option>
               ))}
               <option value="__manage">{t("m056")}</option>
-            </select>
+            </Select>
           </label>
           <label>
             {t("stock.detail")}

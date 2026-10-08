@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import { t, locale } from "../shared/i18n.js";
 import React, { useState, useRef } from "react";
 import {
@@ -104,13 +105,13 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
         <div className="editor-body">
           <label>
             {t("settings.language")}
-            <select
+            <Select
               value={form.language || "en"}
               onChange={(e) => change("language", e.target.value)}
             >
               <option value="en">{t("language.en")}</option>
               <option value="cs">{t("language.cs")}</option>
-            </select>
+            </Select>
           </label>
           <p className="field-help">{t("settings.languageHelp")}</p>
           <label className="check-label">
@@ -123,7 +124,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
           </label>
           <label>
             {t("cat.motion")}
-            <select
+            <Select
               aria-label={t("cat.motion")}
               value={form.catMotion ?? "full"}
               onChange={(e) => change("catMotion", e.target.value)}
@@ -133,7 +134,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                   {t(`cat.motion.${mode}`)}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
           <p className="field-help">{t("cat.help")}</p>
           <label>
@@ -188,7 +189,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                   </label>
                   <label>
                     {t("m037")}
-                    <select
+                    <Select
                       value={l.kind}
                       onChange={(e) => update(l.id, "kind", e.target.value)}
                     >
@@ -197,7 +198,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                           {name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <button
                     type="button"
@@ -219,7 +220,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                   <>
                     <label>
                       {t("locations.parent")}
-                      <select
+                      <Select
                         value={l.parentId || ""}
                         onChange={(e) =>
                           update(l.id, "parentId", e.target.value || null)
@@ -236,7 +237,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                               {locationLabel(form.locations, x.id)}
                             </option>
                           ))}
-                      </select>
+                      </Select>
                     </label>
                     {(used > 0 || children > 0) && (
                       <details>
@@ -244,7 +245,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                         <p className="field-help">
                           {t("locations.replaceHelp", used, children)}
                         </p>
-                        <select
+                        <Select
                           aria-label={t("locations.destination", l.name)}
                           disabled={dirty || busy}
                           value={replacement[l.id] || ""}
@@ -266,7 +267,7 @@ export function LocationsSettings({ initial, nodes, onClose, onSaved }) {
                                 {locationLabel(form.locations, x.id)}
                               </option>
                             ))}
-                        </select>
+                        </Select>
                         <button
                           type="button"
                           disabled={dirty || busy || !replacement[l.id]}
@@ -441,7 +442,7 @@ export function ResourceEditor({ resources, onChange, settings, onManage }) {
             }
           />
           <div className="path-field">
-            <select
+            <Select
               aria-label={t("m054", i + 1)}
               value={resourceLocation(r)}
               onChange={(e) =>
@@ -461,7 +462,7 @@ export function ResourceEditor({ resources, onChange, settings, onManage }) {
                 </option>
               ))}
               <option value="__manage">{t("m056")}</option>
-            </select>
+            </Select>
             <button
               type="button"
               className="icon-button"

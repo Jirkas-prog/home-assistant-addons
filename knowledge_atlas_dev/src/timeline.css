@@ -59,7 +59,7 @@
   align-items: flex-end;
   gap: 16px;
 }
-.task-filter-fields > select,
+.task-filter-fields > :is(select, .atlas-select),
 .task-filter-fields > label {
   flex: 1 1 180px;
   min-width: 0;
@@ -71,7 +71,7 @@
   font-size: 12px;
   color: #b6c4d6;
 }
-.task-filter-fields select {
+.task-filter-fields :is(select, .atlas-select) {
   width: 100%;
   font-size: 13px;
 }
@@ -114,7 +114,7 @@
 .timeline-guide p:last-child {
   margin-bottom: 0;
 }
-.timeline-controls > label select {
+.timeline-controls > label :is(select, .atlas-select) {
   width: 130px;
   font-size: 13px;
 }
@@ -146,7 +146,7 @@
     flex: 1;
     justify-content: center;
   }
-  .task-filter-fields > select,
+  .task-filter-fields > :is(select, .atlas-select),
   .task-filter-fields > label {
     max-width: none;
   }
@@ -331,5 +331,78 @@
     width: 100%;
     margin-left: 0;
     order: 1;
+  }
+}
+
+.tasks-footer {
+  flex-wrap: wrap;
+}
+.tasks-footer > span {
+  margin-right: auto;
+}
+.task-default-view {
+  font-size: 12px;
+  padding: 6px 9px;
+}
+.task-default-view:disabled {
+  cursor: default;
+  opacity: 0.8;
+}
+.task-calendar .calendar-toolbar {
+  padding-top: 0;
+}
+.task-undated {
+  margin-top: 14px;
+  border: 1px solid #354050;
+  border-radius: 9px;
+  padding: 12px;
+}
+.task-undated summary {
+  cursor: pointer;
+  color: #c8e6b6;
+}
+.task-undated > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.task-undated button {
+  display: grid;
+  gap: 8px;
+  text-align: left;
+  padding: 12px;
+  border: 1px solid #394554;
+  border-radius: 8px;
+}
+.task-undated strong {
+  overflow-wrap: anywhere;
+}
+.task-calendar .calendar-all-bars {
+  min-height: 150px !important;
+}
+@media (max-width: 700px) {
+  .tasks-toolbar .segmented {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .tasks-filter-toggle {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: end;
+  }
+  .tasks-toolbar .segmented button {
+    min-height: 42px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 430px) {
+  .tasks-toolbar .segmented button {
+    padding: 8px 5px;
+    font-size: 11px;
+  }
+  .tasks-toolbar .segmented button svg {
+    display: none;
   }
 }

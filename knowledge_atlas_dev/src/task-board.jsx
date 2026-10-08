@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useState } from "react";
 import {
   Plus,
@@ -81,7 +82,7 @@ function BoardSettings({ project, nodes, onClose, onSaved }) {
               </label>
               <label>
                 {t("m192")}
-                <select
+                <Select
                   value={c.status}
                   onChange={(e) =>
                     setColumns(
@@ -96,7 +97,7 @@ function BoardSettings({ project, nodes, onClose, onSaved }) {
                       {name}
                     </option>
                   ))}
-                </select>
+                </Select>
               </label>
               <button
                 className="icon-button"
@@ -143,7 +144,7 @@ function BoardSettings({ project, nodes, onClose, onSaved }) {
           {affected.map((c) => (
             <label key={c.id}>
               {t("board.destination", c.name || t(c.key))}
-              <select
+              <Select
                 value={destinations[c.id] || ""}
                 onChange={(e) =>
                   setDestinations({ ...destinations, [c.id]: e.target.value })
@@ -155,7 +156,7 @@ function BoardSettings({ project, nodes, onClose, onSaved }) {
                     {x.name}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
           ))}
           {error && (
@@ -442,7 +443,7 @@ export default function TaskBoard({
                       <summary>{t("board.move")}</summary>
                       <label>
                         {t("board.column")}
-                        <select
+                        <Select
                           value={column.id}
                           disabled={!!busy}
                           onChange={(e) => move(n, e.target.value)}
@@ -452,11 +453,11 @@ export default function TaskBoard({
                               {c.name || t(c.key)}
                             </option>
                           ))}
-                        </select>
+                        </Select>
                       </label>
                       <label>
                         {t("board.insertBefore")}
-                        <select
+                        <Select
                           value=""
                           disabled={!!busy || n.positionFixed}
                           onChange={(e) => {
@@ -475,7 +476,7 @@ export default function TaskBoard({
                                 {x.title}
                               </option>
                             ))}
-                        </select>
+                        </Select>
                       </label>
                     </details>
                   </article>

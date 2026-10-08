@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import {
@@ -62,7 +63,7 @@ export function SpaceBar({ settings, onSettings }) {
           </span>
           <label className="space-select">
             <span>{t("spaces.label")}</span>
-            <select
+            <Select
               aria-label={t("spaces.label")}
               value={data?.currentId || ""}
               disabled={!data || blocked}
@@ -82,7 +83,7 @@ export function SpaceBar({ settings, onSettings }) {
                 </option>
               ))}
               {data && <option value="__new">+ {t("spaces.new")}</option>}
-            </select>
+            </Select>
           </label>
           <button
             className="icon-button space-new"

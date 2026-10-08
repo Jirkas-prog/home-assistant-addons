@@ -255,7 +255,7 @@
   min-width: 0;
 }
 .task-dialog input:not([type="checkbox"]),
-.task-dialog select,
+.task-dialog :is(select, .atlas-select),
 .task-dialog textarea {
   width: 100%;
   min-width: 0;
@@ -374,7 +374,7 @@
   flex: 1;
 }
 .board-column-editor input,
-.board-column-editor select {
+.board-column-editor :is(select, .atlas-select) {
   min-width: 0;
   width: 100%;
 }
@@ -447,4 +447,31 @@
 .task-dialog [data-field],
 .tool-editor [data-field] {
   scroll-margin-top: 100px;
+}
+
+.task-project-field {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+}
+.task-project-new {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  justify-self: start;
+  color: #bae990;
+  font-size: 12px;
+  padding: 4px;
+}
+.task-project-create {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.task-project-create input {
+  width: 100%;
+}
+.task-project-create button {
+  min-height: 36px;
 }

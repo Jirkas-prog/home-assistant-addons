@@ -1,0 +1,87 @@
+.atlas-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  text-align: left;
+  max-width: 100%;
+}
+.atlas-select > .atlas-select-value {
+  display: block;
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.atlas-select > svg {
+  flex-shrink: 0;
+}
+.atlas-select-popup {
+  position: fixed;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  padding: 5px;
+  background: #1b222b;
+  color: #e7ebf2;
+  border: 1px solid #58665a;
+  border-radius: 10px;
+  box-shadow: 0 10px 36px #0009;
+  overflow: hidden;
+}
+.atlas-select-popup > input {
+  width: 100%;
+  flex: none;
+  margin-bottom: 4px;
+}
+.atlas-select-options {
+  overflow: auto;
+  overscroll-behavior: contain;
+  min-height: 0;
+}
+.atlas-select-options [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 42px;
+  padding: 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  touch-action: pan-y;
+}
+.atlas-select-options [role="option"] > span {
+  flex: 1;
+}
+.atlas-select-options [role="option"] > svg {
+  flex: none;
+}
+.atlas-select-options [aria-selected="true"] {
+  color: #c5f6a7;
+  background: #2b3b2b;
+}
+.atlas-select-options [data-active="true"] {
+  outline: 1px solid #b0ef88;
+  outline-offset: -2px;
+  background: #354238;
+}
+.atlas-select-options [aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+.atlas-select-options p {
+  padding: 10px;
+  margin: 0;
+}
+@media (pointer: coarse), (max-width: 700px) {
+  .atlas-select {
+    min-height: 44px;
+  }
+  .atlas-select-options [role="option"] {
+    min-height: 48px;
+  }
+  .atlas-select-popup > input {
+    font-size: 16px;
+  }
+}

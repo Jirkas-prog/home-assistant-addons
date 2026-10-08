@@ -106,7 +106,7 @@
   gap: 5px;
   align-items: center;
 }
-.path-field > select {
+.path-field > :is(select, .atlas-select) {
   padding: 10px 6px;
 }
 .attachment-actions {
@@ -298,7 +298,7 @@
   color: #b7c1d0;
   font-size: 13px;
 }
-.collection-toolbar select {
+.collection-toolbar :is(select, .atlas-select) {
   max-width: 250px;
   font-size: 13px;
 }
@@ -475,7 +475,7 @@
   margin-top: 12px;
   align-items: center;
 }
-.task-bottom select {
+.task-bottom :is(select, .atlas-select) {
   padding: 6px 8px;
   font-size: 11px;
   flex: 1;
@@ -646,7 +646,7 @@
     width: 100%;
     justify-content: space-between;
   }
-  .collection-toolbar > select {
+  .collection-toolbar > :is(select, .atlas-select) {
     flex: 1;
     min-width: 130px;
     max-width: none;

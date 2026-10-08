@@ -1,6 +1,9 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Home,
+  BookOpen,
+  Plus,
   Paperclip,
   MessageSquare,
   Activity,
@@ -24,6 +27,7 @@ import { ResourceEditor, ResourceList } from "./locations.jsx";
 import { DocumentViewer } from "./documents.jsx";
 import { MarkdownContent } from "./markdown.jsx";
 import { columnsFor, columnFor } from "../shared/boards.js";
+import { projectForTask } from "../shared/task-workflow.js";
 import { projectFor } from "./work-model.js";
 import { validateNode } from "../shared/schema.js";
 import { descendants } from "./atlas-model.js";
@@ -310,6 +314,7 @@ export default function TaskDialog({
   onManage,
   onClose,
   onRefresh,
+  onJournal,
   onSave,
 }) {
   const { _tab, ...initialValue } = initial;
@@ -326,6 +331,9 @@ export default function TaskDialog({
     [conflict, setConflict] = useState(null),
     [document, setDocument] = useState(null),
     [project, setProject] = useState(null),
+    [createdProjects, setCreatedProjects] = useState([]),
+    [projectName, setProjectName] = useState(null),
+    [creatingProject, setCreatingProject] = useState(false),
     [confirmed, setConfirmed] = useState(false);
   const draft = useDraft(
     `record:${initial.id || "new"}`,
@@ -334,7 +342,7 @@ export default function TaskDialog({
     dirty,
   );
   const close = () => {
-    if (busy) return;
+    if (busy || creatingProject) return;
     if (dirty) setLeaving(true);
     else onClose();
   };
@@ -356,7 +364,11 @@ export default function TaskDialog({
       });
     return () => abort.abort();
   }, [initial.id]);
-  const owner = projectFor(form, nodes)?.id;
+  const projectNodes = [
+    ...nodes,
+    ...createdProjects.filter((n) => !nodes.some((old) => old.id === n.id)),
+  ];
+  const owner = projectFor(form, projectNodes)?.id;
   useEffect(() => {
     setProject(null);
     if (!owner) return;
@@ -395,8 +407,8 @@ export default function TaskDialog({
     today,
   ).get(form.id);
   const excluded = descendants(nodes, form.id);
-  async function save() {
-    if (busy || loading || draft.available) return;
+  async function save(toJournal = false) {
+    if (busy || creatingProject || loading || draft.available) return;
     setBusy(true);
     setError("");
     try {
@@ -425,6 +437,7 @@ export default function TaskDialog({
       setOriginal(n);
       setDirty(false);
       draft.clear();
+      if (toJournal) onJournal(n);
     } catch (e) {
       setError(localizeMessage(e.message));
       focusError(e);
@@ -568,7 +581,7 @@ export default function TaskDialog({
           ) : (
             <fieldset
               className="draft-fields"
-              disabled={busy || !!draft.available}
+              disabled={busy || creatingProject || !!draft.available}
               data-field={
                 tab === "checkpoints"
                   ? "task.checkpoints"
@@ -593,25 +606,108 @@ export default function TaskDialog({
                     />
                   </label>
                   <div className="form-grid">
-                    <label>
-                      {t("m199")}
-                      <select
-                        value={form.projectId || ""}
-                        onChange={(e) => set("projectId", e.target.value)}
-                      >
-                        <option value="">{t("m200")}</option>
-                        {nodes
-                          .filter((n) => n.type === "project")
-                          .map((n) => (
-                            <option key={n.id} value={n.id}>
-                              {n.title}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
+                    <div className="task-project-field">
+                      <label>
+                        {t("m199")}
+                        <Select
+                          value={form.projectId || ""}
+                          onChange={(e) => set("projectId", e.target.value)}
+                        >
+                          <option value="">{t("m200")}</option>
+                          {projectNodes
+                            .filter((n) => n.type === "project")
+                            .map((n) => (
+                              <option key={n.id} value={n.id}>
+                                {n.title}
+                              </option>
+                            ))}
+                        </Select>
+                      </label>
+                      {projectName === null ? (
+                        <button
+                          type="button"
+                          className="task-project-new"
+                          onClick={() => setProjectName("")}
+                        >
+                          <Plus size={14} />
+                          {t("tasks.newProject")}
+                        </button>
+                      ) : (
+                        <div className="task-project-create">
+                          <input
+                            autoFocus
+                            aria-label={t("tasks.projectName")}
+                            placeholder={t("tasks.projectName")}
+                            maxLength={180}
+                            value={projectName}
+                            disabled={creatingProject}
+                            onChange={(e) => setProjectName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                e.currentTarget.parentElement
+                                  .querySelector("button")
+                                  .click();
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="secondary-button"
+                            disabled={!projectName.trim() || creatingProject}
+                            onClick={async () => {
+                              setCreatingProject(true);
+                              setError("");
+                              try {
+                                const parent = projectNodes.find(
+                                  (n) => n.id === form.parent,
+                                );
+                                const value = projectForTask(projectName, {
+                                  id: crypto.randomUUID(),
+                                  parent:
+                                    parent?.type === "project" ||
+                                    parent?.type === "task"
+                                      ? parent.parent
+                                      : form.parent,
+                                  color: form.color,
+                                });
+                                const created = await api("nodes", {
+                                  method: "POST",
+                                  body: JSON.stringify(value),
+                                });
+                                setCreatedProjects((old) => [...old, created]);
+                                setForm((old) => ({
+                                  ...old,
+                                  projectId: created.id,
+                                  parent: created.id,
+                                }));
+                                setDirty(true);
+                                setProjectName(null);
+                                await onRefresh();
+                              } catch (e) {
+                                setError(e.message);
+                              } finally {
+                                setCreatingProject(false);
+                              }
+                            }}
+                          >
+                            {t("tasks.createProject")}
+                          </button>
+                          <button
+                            type="button"
+                            className="icon-button"
+                            aria-label={t("m188")}
+                            disabled={creatingProject}
+                            onClick={() => setProjectName(null)}
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     <label>
                       {t("board.column")}
-                      <select
+                      <Select
                         value={currentColumn?.id || ""}
                         onChange={(e) => {
                           const c = columns.find(
@@ -631,7 +727,7 @@ export default function TaskDialog({
                             {c.name || t(c.key)}
                           </option>
                         ))}
-                      </select>
+                      </Select>
                     </label>
                   </div>
                   {form.task?.columnId &&
@@ -699,7 +795,7 @@ export default function TaskDialog({
                     <summary>{t("task.organization")}</summary>
                     <label>
                       {t("m201")}
-                      <select
+                      <Select
                         value={form.parent || ""}
                         onChange={(e) => set("parent", e.target.value || null)}
                       >
@@ -711,7 +807,7 @@ export default function TaskDialog({
                               {n.title}
                             </option>
                           ))}
-                      </select>
+                      </Select>
                     </label>
                     <label>
                       {t("list.recordDate")}
@@ -789,7 +885,7 @@ export default function TaskDialog({
                   />
                   <label>
                     {t("documents.doubleClick")}
-                    <select
+                    <Select
                       value={form.previewResourceId || ""}
                       onChange={(e) => set("previewResourceId", e.target.value)}
                     >
@@ -807,7 +903,7 @@ export default function TaskDialog({
                             {r.label}
                           </option>
                         ))}
-                    </select>
+                    </Select>
                   </label>
                 </>
               )}
@@ -850,6 +946,17 @@ export default function TaskDialog({
                 {t("task.confirmIncomplete")}
               </label>
             )}
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={loading || busy || creatingProject || !!draft.available}
+            onClick={() => (dirty || !form.id ? save(true) : onJournal(form))}
+          >
+            <BookOpen size={16} />
+            {t(
+              dirty || !form.id ? "tasks.saveAndJournal" : "tasks.writeJournal",
+            )}
+          </button>
           <span role="status">
             {dirty
               ? t("task.unsaved")
@@ -859,9 +966,13 @@ export default function TaskDialog({
             className="primary-button"
             type="button"
             disabled={
-              loading || busy || !!draft.available || (!dirty && !!form.id)
+              loading ||
+              busy ||
+              creatingProject ||
+              !!draft.available ||
+              (!dirty && !!form.id)
             }
-            onClick={save}
+            onClick={() => save()}
           >
             <Save size={16} />
             {t("task.save")}

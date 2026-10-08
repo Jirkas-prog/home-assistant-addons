@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useDialogKeys } from "./client.js";
@@ -81,7 +82,7 @@ function DayEntries({ day, entries, onOpen, onClose }) {
     </div>
   );
 }
-function Month({ date, entries, onOpen, onDay, onCreate }) {
+function Month({ date, entries, onOpen, onDay, onCreate, dateOnly }) {
   const container = useRef();
   const [height, setHeight] = useState(500);
   const [overflowDay, setOverflowDay] = useState(null);
@@ -164,7 +165,10 @@ function Month({ date, entries, onOpen, onDay, onCreate }) {
                       </button>
                       <button
                         className="calendar-add"
-                        aria-label={t("calendar.addOn", day)}
+                        aria-label={t(
+                          dateOnly ? "tasks.addOn" : "calendar.addOn",
+                          day,
+                        )}
                         onClick={() => onCreate(day)}
                       >
                         <Plus size={13} />
@@ -214,7 +218,7 @@ function Month({ date, entries, onOpen, onDay, onCreate }) {
     </>
   );
 }
-function TimeGrid({ date, mode, entries, onOpen, onCreate }) {
+function TimeGrid({ date, mode, entries, onOpen, onCreate, dateOnly }) {
   const range = calendarRange(date, mode),
     days = Array.from({ length: mode === "day" ? 1 : 7 }, (_, i) =>
       dayOffset(range.start, i),
@@ -268,47 +272,49 @@ function TimeGrid({ date, mode, entries, onOpen, onCreate }) {
           ))}
         </div>
       </div>
-      <div className="calendar-hours-scroll" ref={scroll}>
-        <div className="calendar-hours">
-          <div className="calendar-hour-labels">
-            {Array.from({ length: 24 }, (_, h) => (
-              <span key={h}>{String(h).padStart(2, "0")}:00</span>
-            ))}
-          </div>
-          {days.map((day) => (
-            <div className="calendar-hour-day" key={day}>
-              {Array.from({ length: 24 }, (_, hour) => (
-                <button
-                  key={hour}
-                  className="calendar-hour-slot"
-                  aria-label={t(
-                    "calendar.addAt",
-                    day,
-                    `${String(hour).padStart(2, "0")}:00`,
-                  )}
-                  onClick={() =>
-                    onCreate(day, `${String(hour).padStart(2, "0")}:00`)
-                  }
-                />
-              ))}
-              {timedSegments(entries, day).map((s) => (
-                <EntryButton
-                  timed
-                  key={s.entry.id}
-                  segment={s}
-                  onOpen={onOpen}
-                  style={{
-                    top: `${(s.start / 1440) * 100}%`,
-                    height: `${((s.end - s.start) / 1440) * 100}%`,
-                    left: `${(s.lane / s.columns) * 100}%`,
-                    width: `${100 / s.columns}%`,
-                  }}
-                />
+      {!dateOnly && (
+        <div className="calendar-hours-scroll" ref={scroll}>
+          <div className="calendar-hours">
+            <div className="calendar-hour-labels">
+              {Array.from({ length: 24 }, (_, h) => (
+                <span key={h}>{String(h).padStart(2, "0")}:00</span>
               ))}
             </div>
-          ))}
+            {days.map((day) => (
+              <div className="calendar-hour-day" key={day}>
+                {Array.from({ length: 24 }, (_, hour) => (
+                  <button
+                    key={hour}
+                    className="calendar-hour-slot"
+                    aria-label={t(
+                      "calendar.addAt",
+                      day,
+                      `${String(hour).padStart(2, "0")}:00`,
+                    )}
+                    onClick={() =>
+                      onCreate(day, `${String(hour).padStart(2, "0")}:00`)
+                    }
+                  />
+                ))}
+                {timedSegments(entries, day).map((s) => (
+                  <EntryButton
+                    timed
+                    key={s.entry.id}
+                    segment={s}
+                    onOpen={onOpen}
+                    style={{
+                      top: `${(s.start / 1440) * 100}%`,
+                      height: `${((s.end - s.start) / 1440) * 100}%`,
+                      left: `${(s.lane / s.columns) * 100}%`,
+                      width: `${100 / s.columns}%`,
+                    }}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -320,6 +326,7 @@ export function JournalCalendar({
   onMode,
   onOpen,
   onCreate,
+  dateOnly = false,
 }) {
   const monthTitle = stamp(date, { month: "long", year: "numeric" });
   const heading =
@@ -368,7 +375,7 @@ export function JournalCalendar({
           value={date}
           onChange={(e) => e.target.value && onDate(e.target.value)}
         />
-        <select
+        <Select
           aria-label={t("calendar.view")}
           value={mode}
           onChange={(e) => onMode(e.target.value)}
@@ -378,10 +385,11 @@ export function JournalCalendar({
               {t(`calendar.${m}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
       {mode === "month" ? (
         <Month
+          dateOnly={dateOnly}
           date={date}
           entries={entries}
           onOpen={onOpen}
@@ -420,7 +428,7 @@ export function JournalCalendar({
                       <button
                         key={day}
                         className={`${day.slice(0, 7) !== month.slice(0, 7) ? "outside" : ""} ${n ? "has-entries" : ""} ${day === localDate() ? "today" : ""}`}
-                        aria-label={`${stamp(day, { dateStyle: "full" })} · ${t("tools.entries", n)}`}
+                        aria-label={`${stamp(day, { dateStyle: "full" })} · ${t(dateOnly ? "tasks.count" : "tools.entries", n)}`}
                         onClick={() => {
                           onDate(day);
                           onMode("day");
@@ -437,6 +445,7 @@ export function JournalCalendar({
         </div>
       ) : (
         <TimeGrid
+          dateOnly={dateOnly}
           date={date}
           mode={mode}
           entries={entries}

@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useState } from "react";
 import { LockKeyhole } from "lucide-react";
 import { t, locale, localizeMessage } from "../shared/i18n.js";
@@ -10,13 +11,13 @@ export function ListSort({ value, onChange }) {
   return (
     <label className="list-sort">
       <span>{t("list.sort")}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)}>
+      <Select value={value} onChange={(event) => onChange(event.target.value)}>
         {LIST_SORTS.map((mode) => (
           <option key={mode} value={mode}>
             {t(`list.sort.${mode}`)}
           </option>
         ))}
-      </select>
+      </Select>
     </label>
   );
 }

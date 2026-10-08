@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.32**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.33**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -65,3 +65,13 @@ Home Assistant builds the image locally from the Dockerfile. Supported architect
 Fresh installations start with an empty library. Existing libraries are preserved. No personal library or machine-specific settings are included in this repository.
 
 See [DOCS.md](DOCS.md) for operation and backups, [FORMAT.md](FORMAT.md) for manual records, and [CHANGELOG.md](CHANGELOG.md) for releases.
+
+### Task planning and journal handoff
+
+Switch tasks between Board, Timeline, and Calendar. The calendar uses the journal's day, week, month, and year navigation. A task with a start and due date spans that inclusive range; with only one date it appears on that date. Undated tasks remain accessible under **No date**. Timeline open-ended ranges are unchanged. Click a calendar date to prefill a new task.
+
+Choose **Set as default** below the view to remember that layout (and the calendar period) for this atlas space. The preference lives in its settings and settings backups. Other spaces keep their own defaults.
+
+In a task card, **New project** creates and selects a project while preserving the task draft. **Write in journal**, or **Save and write in journal**, opens an editable journal draft for today, linked to that task and project. It reuses the title, tags, and importance. Saving the journal does not complete the task. Attachments are neither copied nor fetched by this action.
+
+Dropdowns use an application menu on desktop and mobile. Long lists include search; arrows, Home/End, Enter, Escape and Tab work without the operating system's picker. Space switching remains within the add-on, including Home Assistant Ingress.

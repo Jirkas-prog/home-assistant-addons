@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import { t } from "../shared/i18n.js";
 import React, { useState, useMemo, lazy, Suspense } from "react";
 import {
@@ -6,6 +7,8 @@ import {
   Download,
   ClipboardList,
   CalendarRange,
+  CalendarDays,
+  Star,
   ArrowUpRight,
   SlidersHorizontal,
   X,
@@ -17,6 +20,9 @@ import { Timeline } from "./timeline.jsx";
 import { RecordStamp } from "./record-list.jsx";
 import { taskUrgencies } from "../shared/checkpoints.js";
 import { useToday } from "./use-today.js";
+import { TaskCalendar } from "./task-calendar.jsx";
+import { api } from "./client.js";
+import { localDate } from "./work-model.js";
 import { TASK_STATUS, projectFor } from "./work-model.js";
 const TaskBoard = lazy(() => import("./task-board.jsx"));
 export function Inventory({
@@ -49,7 +55,7 @@ export function Inventory({
       <div className="collection-toolbar">
         <label>
           {t("m232")}
-          <select
+          <Select
             aria-label={t("m233")}
             value={place}
             onChange={(e) => setPlace(e.target.value)}
@@ -60,7 +66,7 @@ export function Inventory({
                 {locationLabel(settings.locations, l.id)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <span>
           {items.length}
@@ -130,6 +136,7 @@ export function Inventory({
   );
 }
 export function Tasks({
+  onSettings,
   searchControl,
   filterControls,
   sortControl,
@@ -146,7 +153,12 @@ export function Tasks({
   onRefresh,
 }) {
   const [project, setProject] = useState(""),
-    [mode, setMode] = useState("timeline"),
+    [mode, setMode] = useState(settings.taskDefaultView || "timeline"),
+    [calendarMode, setCalendarMode] = useState(
+      settings.taskCalendarView || "month",
+    ),
+    [calendarDate, setCalendarDate] = useState(localDate),
+    [savingDefault, setSavingDefault] = useState(false),
     [filtersOpen, setFiltersOpen] = useState(false),
     [status, setStatus] = useState("all"),
     [timelineStatuses, setTimelineStatuses] = useState([
@@ -167,7 +179,7 @@ export function Tasks({
       }).filter(
         (n) =>
           (!project || projectFor(n, nodes)?.id === project) &&
-          (mode === "timeline" || status === "all" || n.status === status),
+          (mode !== "board" || status === "all" || n.status === status),
       ),
     [nodes, query, scope, project, status, mode, settings, importance],
   );
@@ -181,7 +193,7 @@ export function Tasks({
     [allTasks, today],
   );
   const statusFiltered =
-    mode === "timeline"
+    mode !== "board"
       ? timelineStatuses.length !== Object.keys(TASK_STATUS).length
       : status !== "all";
   const filterCount =
@@ -190,7 +202,7 @@ export function Tasks({
     Number(!!project) +
     Number(statusFiltered);
   const shownTasks =
-    mode === "timeline"
+    mode !== "board"
       ? tasks.filter((n) => timelineStatuses.includes(n.status))
       : tasks;
   function clearFilters() {
@@ -220,6 +232,14 @@ export function Tasks({
             <CalendarRange size={15} />
             {t("m254")}
           </button>
+          <button
+            className={mode === "calendar" ? "active" : ""}
+            aria-pressed={mode === "calendar"}
+            onClick={() => setMode("calendar")}
+          >
+            <CalendarDays size={15} />
+            {t("tasks.calendar")}
+          </button>
         </div>
         <button
           className={`secondary-button tasks-filter-toggle ${filterCount ? "has-filters" : ""}`}
@@ -241,7 +261,7 @@ export function Tasks({
           {filterControls}
           <label className="task-project-filter">
             <span>{t("tools.project")}</span>
-            <select
+            <Select
               aria-label={t("m249")}
               value={project}
               onChange={(e) => setProject(e.target.value)}
@@ -254,10 +274,10 @@ export function Tasks({
                     {n.title}
                   </option>
                 ))}
-            </select>
+            </Select>
           </label>
           {mode === "board" && (
-            <select
+            <Select
               aria-label={t("m251")}
               value={status}
               onChange={(e) => setStatus(e.target.value)}
@@ -268,12 +288,12 @@ export function Tasks({
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           {mode === "board" && sortControl}
         </div>
         <div className="task-filter-footer">
-          {mode === "timeline" && (
+          {mode !== "board" && (
             <fieldset className="timeline-statuses">
               <legend>{t("timeline.showStatuses")}</legend>
               {Object.entries(TASK_STATUS).map(([id, label]) => (
@@ -323,6 +343,16 @@ export function Tasks({
             onRefresh={onRefresh}
           />
         </Suspense>
+      ) : mode === "calendar" ? (
+        <TaskCalendar
+          tasks={shownTasks}
+          date={calendarDate}
+          mode={calendarMode}
+          onDate={setCalendarDate}
+          onMode={setCalendarMode}
+          onEdit={onEdit}
+          onCreate={(day) => onNew(project, "draft", undefined, day)}
+        />
       ) : (
         <Timeline
           tasks={tasks}
@@ -342,6 +372,44 @@ export function Tasks({
           {shownTasks.filter((n) => urgencyById.get(n.id).overdue).length}
           {" " + t("m258")}
         </span>
+        <button
+          className="task-default-view secondary-button"
+          disabled={
+            savingDefault ||
+            (mode === settings.taskDefaultView &&
+              (mode !== "calendar" ||
+                calendarMode === settings.taskCalendarView))
+          }
+          onClick={async () => {
+            setSavingDefault(true);
+            setError("");
+            try {
+              onSettings(
+                await api("settings", {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    ...settings,
+                    taskDefaultView: mode,
+                    taskCalendarView: calendarMode,
+                  }),
+                }),
+              );
+            } catch (e) {
+              setError(e.message);
+            } finally {
+              setSavingDefault(false);
+            }
+          }}
+        >
+          <Star size={14} />
+          {t(
+            mode === settings.taskDefaultView &&
+              (mode !== "calendar" ||
+                calendarMode === settings.taskCalendarView)
+              ? "tasks.defaultView"
+              : "tasks.setDefault",
+          )}
+        </button>
         {detailControl}
       </div>
     </section>

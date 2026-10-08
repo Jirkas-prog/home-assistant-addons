@@ -41,7 +41,7 @@
   letter-spacing: 0.8px;
   padding-left: 6px;
 }
-.space-select select {
+.space-select :is(select, .atlas-select) {
   grid-column: 2 / -1;
   grid-row: 2;
   min-width: 0;

@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useState } from "react";
 import { t, locale } from "../shared/i18n.js";
 import { api } from "./client.js";
@@ -25,7 +26,7 @@ export function StockMovements({ node, settings, onChanged }) {
       <summary>{t("movement.title")}</summary>
       <label>
         {t("movement.kind")}
-        <select
+        <Select
           value={form.kind}
           onChange={(e) => change("kind", e.target.value)}
         >
@@ -34,12 +35,12 @@ export function StockMovements({ node, settings, onChanged }) {
               {t(`movement.${kind}`)}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {form.kind !== "return" && (
         <label>
           {t("movement.from")}
-          <select
+          <Select
             value={form.from}
             onChange={(e) => change("from", e.target.value)}
           >
@@ -49,13 +50,13 @@ export function StockMovements({ node, settings, onChanged }) {
                 {label(p)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {form.kind !== "loan" && (
         <label>
           {t("movement.to")}
-          <select
+          <Select
             value={form.to}
             onChange={(e) => change("to", e.target.value)}
           >
@@ -65,7 +66,7 @@ export function StockMovements({ node, settings, onChanged }) {
                 {label(p)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
       {form.kind === "loan" && (
@@ -81,7 +82,7 @@ export function StockMovements({ node, settings, onChanged }) {
       {form.kind === "return" && (
         <label>
           {t("movement.loan")}
-          <select
+          <Select
             value={form.loanId}
             onChange={(e) => change("loanId", e.target.value)}
           >
@@ -93,7 +94,7 @@ export function StockMovements({ node, settings, onChanged }) {
                   {l.borrower} ({l.quantity})
                 </option>
               ))}
-          </select>
+          </Select>
         </label>
       )}
       <label>

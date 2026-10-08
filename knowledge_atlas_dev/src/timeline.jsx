@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, Flag, CircleHelp } from "lucide-react";
 import { t, locale } from "../shared/i18n.js";
@@ -159,7 +160,7 @@ export function Timeline({
     <div className="timeline-v2">
       <div className="timeline-controls">
         <label>
-          <select
+          <Select
             aria-label={t("timeline.scale")}
             value={view.preset}
             onChange={(e) => {
@@ -184,7 +185,7 @@ export function Timeline({
             {view.preset === "custom" && (
               <option value="custom">{t("timeline.custom")}</option>
             )}
-          </select>
+          </Select>
         </label>
         <div className="timeline-navigation">
           <button

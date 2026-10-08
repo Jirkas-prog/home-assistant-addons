@@ -3,7 +3,7 @@
 .nav-button,
 .primary-button,
 .secondary-button,
-.toolbar select,
+.toolbar :is(select, .atlas-select),
 .search input,
 .filter-bar button,
 .segmented button,
@@ -114,7 +114,7 @@
 }
 @media (max-width: 1250px) {
   .toolbar .segmented button,
-  .toolbar select {
+  .toolbar :is(select, .atlas-select) {
     font-size: 12px;
   }
   .filter-bar button {

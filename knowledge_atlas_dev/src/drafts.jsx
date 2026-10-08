@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useState } from "react";
 import { t, locale } from "../shared/i18n.js";
 import { compareChanges } from "../shared/merge.js";
@@ -134,7 +135,7 @@ export function ConflictReview({ base, mine, current, onApply, onCancel }) {
           </div>
           <label>
             {t("conflict.choose")}
-            <select
+            <Select
               value={choices[field.key] || ""}
               onChange={(e) =>
                 setChoices({ ...choices, [field.key]: e.target.value })
@@ -143,7 +144,7 @@ export function ConflictReview({ base, mine, current, onApply, onCancel }) {
               <option value="">—</option>
               <option value="mine">{t("conflict.mine")}</option>
               <option value="current">{t("conflict.current")}</option>
-            </select>
+            </Select>
           </label>
         </div>
       ))}

@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import {
   Plus,
@@ -374,7 +375,7 @@ export function WorkTools({
       <div className="collection-toolbar">
         <label>
           {t("tools.project")}
-          <select
+          <Select
             value={project}
             onChange={(e) => {
               setProject(e.target.value);
@@ -387,7 +388,7 @@ export function WorkTools({
                 {n.title}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         <span>{t("tools.entries", entries.length)}</span>
         <button

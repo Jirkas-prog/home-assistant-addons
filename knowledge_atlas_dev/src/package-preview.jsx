@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useEffect, useState } from "react";
 import { api } from "./client.js";
 import { t, localizeMessage } from "../shared/i18n.js";
@@ -59,7 +60,7 @@ export function PackagePreview({
       </p>
       <label>
         {t("package.parent")}
-        <select
+        <Select
           disabled={busy}
           value={parent}
           onChange={(event) => {
@@ -73,7 +74,7 @@ export function PackagePreview({
               {node.title} ({node.id})
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {preview.issue && (
         <p className="error-banner" role="alert">
@@ -91,7 +92,7 @@ export function PackagePreview({
             {row.status === "conflict" && (
               <label>
                 {t("package.choose")}
-                <select
+                <Select
                   aria-label={t("package.choiceFor", row.title)}
                   disabled={busy}
                   value={
@@ -109,7 +110,7 @@ export function PackagePreview({
                 >
                   <option value="keep">{t("package.keep")}</option>
                   <option value="replace">{t("package.replace")}</option>
-                </select>
+                </Select>
               </label>
             )}
             <div className="package-comparison">

@@ -1263,5 +1263,22 @@
   "cat.motion.still": "Klidná společnice",
   "cat.stillStatus": "Animace pozastavené v nastavení",
   "workspace.clearFilters": "Zrušit filtry",
-  "timeline.help": "Nápověda"
+  "timeline.help": "Nápověda",
+  "select.search": "Hledat v možnostech…",
+  "select.options": "Možnosti",
+  "select.empty": "Žádné odpovídající možnosti",
+  "tasks.calendar": "Kalendář",
+  "tasks.undated": "Bez data · {0}",
+  "tasks.setDefault": "Nastavit jako výchozí",
+  "tasks.defaultView": "Výchozí zobrazení",
+  "tasks.newProject": "Nový projekt",
+  "tasks.projectName": "Název projektu",
+  "tasks.createProject": "Vytvořit a vybrat",
+  "tasks.writeJournal": "Zapsat do deníku",
+  "tasks.saveAndJournal": "Uložit a zapsat do deníku",
+  "tasks.journalSaved": "Zápis do deníku je uložený a propojený s úkolem.",
+  "tasks.invalidView": "Neplatné výchozí zobrazení úkolů.",
+  "tasks.linkedTask": "Zápis k úkolu: {0}",
+  "tasks.addOn": "Přidat úkol na {0}",
+  "tasks.count": "Úkoly: {0}"
 }

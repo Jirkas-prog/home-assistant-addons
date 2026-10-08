@@ -1,3 +1,4 @@
+import { Select } from "./select.jsx";
 import React, { useState, useEffect } from "react";
 import {
   Plus,
@@ -230,7 +231,7 @@ export function JournalFields({
           <div className="form-grid">
             <label>
               {t("journal.period")}
-              <select
+              <Select
                 value={period}
                 onChange={(e) =>
                   change({
@@ -247,7 +248,7 @@ export function JournalFields({
                     {t(`journal.period.${p}`)}
                   </option>
                 ))}
-              </select>
+              </Select>
             </label>
             <label>
               {t("journal.start")}

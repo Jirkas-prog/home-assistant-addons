@@ -32,7 +32,7 @@
   margin: 0 12px;
 }
 .calendar-toolbar input,
-.calendar-toolbar select {
+.calendar-toolbar :is(select, .atlas-select) {
   background: #202020;
   border-color: #555;
   color: #eee;
@@ -547,7 +547,7 @@
   color: #ccc;
 }
 .journal-editor input,
-.journal-editor select,
+.journal-editor :is(select, .atlas-select),
 .journal-editor textarea {
   background: #1d1d1d;
   border-color: #555;
@@ -574,7 +574,7 @@
 .journal-editor > header {
   padding: 20px 28px;
 }
-.journal-editor :is(input, select, textarea):focus {
+.journal-editor :is(input, :is(select, .atlas-select), textarea):focus {
   border-color: #c986f4;
   outline-color: #c986f4;
 }
@@ -671,7 +671,7 @@
     min-width: 160px;
     order: -2;
   }
-  .calendar-toolbar select {
+  .calendar-toolbar :is(select, .atlas-select) {
     order: -1;
   }
   .calendar-toolbar {
