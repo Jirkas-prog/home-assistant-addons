@@ -55,6 +55,8 @@ export default function MapView({
   onPositions,
   dragDisabled,
   onParentChange,
+  onClearFilters,
+  resultsPending,
 }) {
   const [linkMode, setLinkMode] = useState("browse"),
     [linkParent, setLinkParent] = useState(null),
@@ -103,9 +105,17 @@ export default function MapView({
     setLinkError("");
   };
   useEffect(() => {
-    if (linkParent && !allNodes.some((n) => n.id === linkParent))
+    if (
+      linkParent &&
+      !resultsPending &&
+      !data.nodes.some((n) => n.id === linkParent) &&
+      !mutation.current
+    ) {
       setLinkParent(null);
-  }, [allNodes, linkParent]);
+      setLinkError("");
+      setLinkMessage(t("map.hierarchy.hiddenParent"));
+    }
+  }, [data.nodes, linkParent, resultsPending]);
   useEffect(() => {
     if (viewerOpen) setEditingMode("browse");
   }, [viewerOpen]);
@@ -358,11 +368,16 @@ export default function MapView({
           </div>
         )}
       </div>
-      {data.nodes.length === 0 && (
+      {data.nodes.length === 0 && !resultsPending && (
         <div className="empty map-empty">
           <Search />
           <h3>{t("m089")}</h3>
           <p>{t("m090")}</p>
+          {onClearFilters && (
+            <button className="primary-button" onClick={onClearFilters}>
+              {t("workspace.clearFilters")}
+            </button>
+          )}
         </div>
       )}
       {mode === "3d" ? (

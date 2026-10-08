@@ -1400,5 +1400,14 @@
   "map.hierarchy.changed": "Záznamy v mapě se změnily. Obnov mapu.",
   "map.hierarchy.parentShort": "1. Klepni na nadřazenou bublinu.",
   "map.hierarchy.childShort": "2. Klepni na potomka pro „{0}“.",
-  "map.hierarchy.unlinkShort": "Klepnutím na čáru nebo potomka oddělíš větev."
+  "map.hierarchy.unlinkShort": "Klepnutím na čáru nebo potomka oddělíš větev.",
+  "map.options": "Filtry a rozložení",
+  "map.closeOptions": "Zavřít nastavení mapy",
+  "map.showResults": "Zobrazit mapu",
+  "map.dimensions": "Rozměry mapy",
+  "map.recordTypes": "Typy záznamů",
+  "map.visibleCount": "{0} z {1} záznamů",
+  "map.removeFilter": "Zrušit filtr: {0}",
+  "map.filterSearch": "Hledání: {0}",
+  "map.hierarchy.hiddenParent": "Vybraného rodiče skryly filtry. Vyber jinou viditelnou bublinu."
 }

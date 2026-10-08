@@ -23,6 +23,7 @@ import { createRoot } from "react-dom/client";
 import { MarkdownContent as Md } from "./markdown.jsx";
 import { useMapPositions } from "./use-map-positions.js";
 import { positionSnapshot } from "./map-positions.js";
+import { MapToolbar } from "./map-toolbar.jsx";
 import { useRecord, useRecordSearch } from "./use-record.js";
 import {
   CalendarDays,
@@ -105,7 +106,7 @@ import { ToolEditor, newTool } from "./tool-editor.jsx";
 import { journalFromTask } from "../shared/task-workflow.js";
 import { localDate } from "./work-model.js";
 import { JournalNotebook } from "./journal-notebook.jsx";
-import { MAP_LAYOUTS, mapGraph } from "./map-layout.js";
+import { mapGraph } from "./map-layout.js";
 import {
   useMapLayout,
   readMapLayout,
@@ -793,6 +794,62 @@ function App() {
       )}
     </>
   );
+  const typeNames = {
+    ...TYPES,
+    journal: t("journal.title"),
+    experience: t("journal.experience"),
+  };
+  const clearMapFilters = () => {
+    setQuery("");
+    setScope("");
+    setFilter("all");
+    setImportanceFilter([]);
+  };
+  const activeMapFilters = [
+    query.trim() && {
+      id: "query",
+      label: t("map.filterSearch", query.trim()),
+      clear: () => setQuery(""),
+    },
+    scope && {
+      id: "scope",
+      label: nodes.find((n) => n.id === scope)?.title || scope,
+      clear: () => setScope(""),
+    },
+    filter !== "all" && {
+      id: "type",
+      label: typeNames[filter],
+      clear: () => setFilter("all"),
+    },
+    !!importanceFilter.length && {
+      id: "importance",
+      label: `${[...importanceFilter].sort().join(", ")} ★`,
+      clear: () => setImportanceFilter([]),
+    },
+  ].filter(Boolean);
+  const typeFilters = (
+    <div className="filter-bar" role="group" aria-label={t("map.recordTypes")}>
+      <button
+        className={filter === "all" ? "selected" : ""}
+        aria-pressed={filter === "all"}
+        onClick={() => setFilter("all")}
+      >
+        {t("m144") + " "}
+        <span>{nodes.length}</span>
+      </button>
+      {Object.entries(typeNames).map(([key, label]) => (
+        <button
+          key={key}
+          className={filter === key ? "selected" : ""}
+          aria-pressed={filter === key}
+          onClick={() => setFilter(key)}
+        >
+          <Glyph type={key} />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
   if (
     !loading &&
     settings.languageSelectionCompleted === false &&
@@ -1103,7 +1160,7 @@ function App() {
           </div>
         </header>
         <section
-          className={`page-heading ${view === "tasks" ? "tasks-heading" : ""}`}
+          className={`page-heading ${view === "tasks" ? "tasks-heading" : ""} ${view === "map" && mapRequested ? "map-heading" : ""}`}
         >
           <div>
             <h1>
@@ -1170,7 +1227,37 @@ function App() {
           data-cat-context={view}
           className={`workbench ${view === "backups" ? "backup-workbench" : ""} ${view === "map" && !mapRequested ? "map-locked" : ""}`}
         >
-          {view !== "tasks" && (
+          {view === "map" && mapRequested && (
+            <MapToolbar
+              search={searchControl}
+              filters={atlasFilters}
+              types={typeFilters}
+              activeFilters={activeMapFilters}
+              clearFilters={clearMapFilters}
+              layout={mapLayout}
+              onLayout={(value) => {
+                setMapLayout(value);
+                saveMapLayout(value);
+              }}
+              mode={mode}
+              onMode={setMode}
+              busy={hierarchyBusy}
+              matches={graph.matchCount}
+              pending={search.pending}
+              total={nodes.length}
+              context={graph.nodes.length - graph.matchCount}
+              detailControl={
+                <button
+                  className="icon-button"
+                  aria-label={detail ? t("m143") : t("m398")}
+                  onClick={() => setDetail(!detail)}
+                >
+                  <PanelLeftClose size={18} />
+                </button>
+              }
+            />
+          )}
+          {view !== "tasks" && view !== "map" && (
             <div
               className={`toolbar ${calendarView ? "journal-toolbar" : ""} ${journalFilters ? "filters-open" : ""}`}
             >
@@ -1190,46 +1277,6 @@ function App() {
                 <ListSort value={listSort} onChange={changeListSort} />
               )}
               <div className="toolbar-spacer" />
-              {view === "map" && (
-                <Select
-                  aria-label={t("map.layout")}
-                  aria-describedby="map-layout-description"
-                  className="map-layout-select"
-                  title={t("map.layoutHelp")}
-                  value={mapLayout}
-                  disabled={hierarchyBusy}
-                  onChange={(e) => {
-                    setMapLayout(e.target.value);
-                    saveMapLayout(e.target.value);
-                  }}
-                >
-                  {MAP_LAYOUTS.map((name, index) => (
-                    <option key={name} value={name}>
-                      {index + 1}. {t(`map.layout.${name}`)}
-                    </option>
-                  ))}
-                </Select>
-              )}
-              {view === "map" && (
-                <div className="segmented">
-                  <button
-                    className={mode === "2d" ? "active" : ""}
-                    disabled={hierarchyBusy}
-                    onClick={() => setMode("2d")}
-                  >
-                    <Network size={15} />
-                    {t("m141")}
-                  </button>
-                  <button
-                    className={mode === "3d" ? "active" : ""}
-                    disabled={hierarchyBusy}
-                    onClick={() => setMode("3d")}
-                  >
-                    <Box size={15} />
-                    {t("m142")}
-                  </button>
-                </div>
-              )}
               {!calendarView && (
                 <button
                   className="icon-button"
@@ -1242,7 +1289,7 @@ function App() {
               )}
             </div>
           )}
-          {(search.pending || search.error) && (
+          {((search.pending && view !== "map") || search.error) && (
             <div
               className="search-status"
               role={search.error ? "alert" : "status"}
@@ -1255,48 +1302,7 @@ function App() {
               )}
             </div>
           )}
-          {view === "map" && (
-            <p className="map-layout-description" id="map-layout-description">
-              {t(`map.layoutDescription.${mapLayout}`)}
-            </p>
-          )}
-          <div
-            className={`filter-bar ${["inventory", "tasks", "tools", "journal", "calendar", "backups"].includes(view) ? "hidden-filter" : ""}`}
-          >
-            <button
-              className={filter === "all" ? "selected" : ""}
-              onClick={() => setFilter("all")}
-            >
-              {t("m144") + " "}
-              <span>{nodes.length}</span>
-            </button>
-            {[
-              ...Object.entries(TYPES),
-              ["journal", t("journal.title")],
-              ["experience", t("journal.experience")],
-            ].map(([key, label]) => (
-              <button
-                key={key}
-                className={filter === key ? "selected" : ""}
-                onClick={() => setFilter(key)}
-              >
-                <Glyph type={key} />
-                {label}
-              </button>
-            ))}
-            {view === "map" && (
-              <span className="filter-caption">
-                {graph.matchCount}
-                {" " + t("m145")}
-                {graph.nodes.length > graph.matchCount && (
-                  <small>
-                    {" "}
-                    · {t("map.context", graph.nodes.length - graph.matchCount)}
-                  </small>
-                )}
-              </span>
-            )}
-          </div>
+          {view === "library" && typeFilters}
           {error && (
             <div className="error-banner" role="alert">
               {error}
@@ -1516,6 +1522,10 @@ function App() {
                         hierarchyBusy
                       }
                       onParentChange={changeMapParent}
+                      onClearFilters={
+                        activeMapFilters.length ? clearMapFilters : null
+                      }
+                      resultsPending={search.pending || layoutState.building}
                       mode={mode}
                       selected={selected}
                       onSelect={choose}

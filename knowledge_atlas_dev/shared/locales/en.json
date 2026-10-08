@@ -1400,5 +1400,14 @@
   "map.hierarchy.changed": "The map records have changed. Refresh the map.",
   "map.hierarchy.parentShort": "1. Tap the parent bubble.",
   "map.hierarchy.childShort": "2. Tap a child for “{0}”.",
-  "map.hierarchy.unlinkShort": "Tap a line or child bubble to detach its branch."
+  "map.hierarchy.unlinkShort": "Tap a line or child bubble to detach its branch.",
+  "map.options": "Filters and layout",
+  "map.closeOptions": "Close map options",
+  "map.showResults": "Show map",
+  "map.dimensions": "Map dimensions",
+  "map.recordTypes": "Record types",
+  "map.visibleCount": "{0} of {1} records",
+  "map.removeFilter": "Remove filter: {0}",
+  "map.filterSearch": "Search: {0}",
+  "map.hierarchy.hiddenParent": "The selected parent is hidden by the filters. Choose a visible parent."
 }

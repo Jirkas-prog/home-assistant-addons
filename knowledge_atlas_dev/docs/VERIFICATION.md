@@ -1,10 +1,10 @@
 # Validation
 
-Validated for Knowledge Atlas Dev `5.0.1-dev.41` on 2026-10-08.
+Validated for Knowledge Atlas Dev `5.0.1-dev.42` on 2026-10-08.
 
 - All 270 application tests pass. Coverage includes Markdown records, automatic refresh, inventory, work tools, backup and restore, incremental data packages, resumable transfers, concurrent editing, language persistence, deep breadcrumb paths and 2D/3D node picking.
 - The production web build passes.
-- English/Czech language audits pass with 1402 matching translation keys.
+- English/Czech language audits pass with 1411 matching translation keys.
 - Add-on checks cover configuration, package and lockfile versions, Dockerfile metadata, documentation, graphics and example records.
 - The repository channel check verifies the two permanent directories, names and slugs, independent storage and empty first launches.
 - Browser checks cover English/Czech breadcrumb menus, ancestor and sibling navigation, keyboard controls, dropdown contrast, cross-branch map selection, small nodes, visible labels, first-click selection in 3D and mouse-wheel zoom in both modes.
@@ -21,6 +21,14 @@ Validated for Knowledge Atlas Dev `5.0.1-dev.41` on 2026-10-08.
 - English/Czech browser checks cover creating and editing entries, day/week/month/custom ranges, related-record links, saved-place lookup, multi-file uploads, EXIF suggestions, photo navigation, PDF/Markdown/DOCX viewing and custom-extension text previews. Saved language and the selected entry survive reloads; console checks found no errors. All fixtures are generic.
 
 Run `npm test`, `npm run build`, `npm run check:languages` and `npm run check:addon` in the add-on directory. Run `node scripts/check-atlas-channels.mjs` from the repository root.
+
+## Compact map controls (5.0.1-dev.42)
+
+All 270 tests, the production build, English/Czech language audit (1411 keys), add-on checks and permanent-channel checks pass. Browser checks with a generic six-record library covered collapsed filter controls, removable filter chips, recovery from an empty result, nested themed layout menus, retained layout preferences after reload, 2D/3D switching and the shared library type filters.
+
+At 390 x 844, the map canvas measured 536 pixels high, compared with approximately 248 pixels in the previous version's screenshot. Both document dimensions stayed equal to the viewport. Opening the options overlay did not resize the canvas or move its bubbles. Escape closed the options and returned focus to their trigger without ending hierarchy editing. A selected parent survived a pending search when it remained in the final results; a search that hid it cleared the selection and explained why. Search and layout updates did not display a false empty-result message.
+
+The request log contained no attachment or document-file requests during map filtering. Browser console checks recorded no warnings or errors in this run. These checks used a local production build and an emulated mobile viewport; physical mobile hardware and a live Home Assistant installation were not tested.
 
 ## Manual map hierarchy (5.0.1-dev.41)
 

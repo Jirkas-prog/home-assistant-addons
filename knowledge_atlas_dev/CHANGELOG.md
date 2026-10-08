@@ -1,5 +1,12 @@
 # Changelog
 
+## 5.0.1-dev.42
+
+- Give the knowledge map more usable space with a compact heading and a collapsible Filters and layout panel. Keep search, 2D/3D switching and the details toggle directly accessible. Opening options does not resize the canvas or refit the map.
+- Show the result count and individually removable filter chips, with a single clear-all action. Provide the same recovery action in an empty filtered map; retain every layout, type, area and importance filter.
+- Clear a hierarchy parent selection when completed filtering hides it, with an explanation. Do not report no matches or clear that selection while search results or layout geometry are still being prepared.
+- Support mobile layouts, keyboard dismissal and nested themed select menus without adding dependencies, attachment requests or changing saved records and coordinates.
+
 ## 5.0.1-dev.41
 
 - Edit the hierarchy directly in every 2D/3D map layout: choose Connect, then the parent bubble and the child. Replace the previous parent while retaining the child's entire subtree and the current arrangement.
