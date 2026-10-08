@@ -4,7 +4,7 @@
 
 A personal knowledge and project workspace for Home Assistant. Keep notes in ordinary Markdown files and explore their connections in a 2D or 3D map.
 
-This is the **development channel**, version **5.0.1-dev.33**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
+This is the **development channel**, version **5.0.1-dev.34**. The add-on name and identity are permanent; future major versions update this same add-on. New development versions are published here immediately, without changing the stable channel. See [Release channels](docs/RELEASE-CHANNELS.md).
 
 - Independent atlas spaces with a top selector, empty-space creation, renaming and a saved default. Existing libraries remain in the General space.
 - An optional offline cat companion that roams panel edges, peeks out and steps aside while typing.
@@ -19,7 +19,7 @@ This is the **development channel**, version **5.0.1-dev.33**. The add-on name a
 - Projects, configurable task boards and a timeline with start and due dates.
 - Five-tab task cards: details, attachments, comments, activity and checkpoints.
 - Full backups or checkbox-selected sections with a merge preview, managed attachments and discussion history.
-- Five-star importance controls on records and timeline tasks; importance influences bubble sizes.
+- Five-star importance controls on records and timeline tasks; narrow timeline bars prioritize the title and reveal the whole rating only when it fits. Importance influences bubble sizes.
 - A resizable details panel with a remembered width and keyboard controls.
 - Work journals, inventory-linked bills of materials and shopping lists.
 - A dedicated notebook journal with day/week/month contents, date ranges, experience markers, linked tasks, photo galleries, EXIF suggestions and offline places.

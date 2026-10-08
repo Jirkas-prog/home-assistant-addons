@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.1-dev.34
+
+- Prioritize task titles on the timeline and remove list numbers from task bars.
+- Reveal importance only when all five stars fit beside a readable title. Adapt immediately to zooming, panning and resizing without clipping the rating control.
+- Show checkpoint counters only on wide task bars with checkpoints, keeping narrow bars focused on the title and retaining checkpoint markers.
+
 ## 5.0.1-dev.33
 
 - Render dropdown menus in the Atlas theme on desktop and mobile, with touch targets, keyboard navigation, and search in long lists. Space switching uses the same menu above the sidebar and dialogs.

@@ -319,11 +319,9 @@ export function Timeline({
               <div className="timeline-bar-content">
                 <button
                   className="timeline-item-title"
-                  style={{ width: Math.min(240, Math.max(42, pixels - 192)) }}
                   onClick={() => onEdit(node)}
                   title={`${node.title} · ${range} · ${urgencyText}`}
                 >
-                  {node.position ? `#${node.position} · ` : ""}
                   {node.title}
                 </button>
                 <div className="timeline-inline-stars">
@@ -334,15 +332,17 @@ export function Timeline({
                     compact
                   />
                 </div>
-                <button
-                  className="timeline-checkpoint-button"
-                  aria-label={t("checkpoint.forTask", node.title)}
-                  title={urgencyText}
-                  onClick={() => onEdit(node, "checkpoints")}
-                >
-                  <Flag size={14} />
-                  {points.filter((p) => p.done).length}/{points.length}
-                </button>
+                {points.length > 0 && (
+                  <button
+                    className="timeline-checkpoint-button"
+                    aria-label={t("checkpoint.forTask", node.title)}
+                    title={urgencyText}
+                    onClick={() => onEdit(node, "checkpoints")}
+                  >
+                    <Flag size={14} />
+                    {points.filter((p) => p.done).length}/{points.length}
+                  </button>
+                )}
               </div>
               {pixels >= 16 &&
                 markerDates.map((due) => {

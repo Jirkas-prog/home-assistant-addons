@@ -261,6 +261,7 @@
   font-size: 10px;
 }
 .timeline-task-bar {
+  container: timeline-task / inline-size;
   position: absolute;
   height: 40px;
   overflow: hidden;
@@ -286,12 +287,13 @@
   display: flex;
   align-items: center;
   height: 100%;
-  width: max-content;
-  max-width: none;
+  width: 100%;
+  padding-right: 4px;
   gap: 4px;
 }
 .timeline-item-title {
-  flex: none;
+  flex: 1;
+  min-width: 0;
   text-align: left;
   padding: 8px;
   height: 100%;
@@ -307,6 +309,7 @@
   outline-offset: -3px;
 }
 .timeline-inline-stars {
+  display: none;
   width: 124px;
   flex-shrink: 0;
 }
@@ -317,6 +320,24 @@
 .timeline-inline-stars .importance-rating svg {
   width: 17px;
   height: 17px;
+}
+.timeline-task-bar .timeline-checkpoint-button {
+  display: none;
+  max-width: 72px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+/* Keep a readable title beside the entire five-star control. Use the visible
+   bar width, including when a task extends beyond the current time window. */
+@container timeline-task (min-width: 300px) {
+  .timeline-inline-stars {
+    display: block;
+  }
+}
+@container timeline-task (min-width: 400px) {
+  .timeline-task-bar .timeline-checkpoint-button {
+    display: inline-flex;
+  }
 }
 .timeline-no-tasks {
   position: absolute;

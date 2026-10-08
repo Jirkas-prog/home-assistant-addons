@@ -1,4 +1,4 @@
-ARG BUILD_VERSION=5.0.1-dev.33
+ARG BUILD_VERSION=5.0.1-dev.34
 ARG BUILD_ARCH=amd64
 
 FROM node:24.15.0-alpine AS build
