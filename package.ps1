@@ -42,10 +42,14 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "chromium.js has invalid syntax." }
     node --check brave.js
     if ($LASTEXITCODE -ne 0) { throw "brave.js has invalid syntax." }
+    node --check availability.js
+    if ($LASTEXITCODE -ne 0) { throw "availability.js has invalid syntax." }
     node --check locales.js
     if ($LASTEXITCODE -ne 0) { throw "locales.js has invalid syntax." }
     node -e "const fs=require('fs'),{localizeUi}=require('./locales');const source=fs.readFileSync('ui.html','utf8');for(const language of ['en','cs']){const h=localizeUi(source,language),a=h.indexOf('<script>')+8,b=h.lastIndexOf('</script>');if(a<8||b<a)throw Error('script missing');new Function(h.slice(a,b));}"
     if ($LASTEXITCODE -ne 0) { throw "JavaScript in the English or Czech UI has invalid syntax." }
+    node -e "const fs=require('fs'),{panelStrings}=require('./locales');for(const language of ['en','cs']){const h=fs.readFileSync('panel.html','utf8').replace('__PANEL_STRINGS__',JSON.stringify(panelStrings(language)));new Function(h.split('<script>')[1].split('</script>')[0]);}"
+    if ($LASTEXITCODE -ne 0) { throw "The setup panel has invalid JavaScript." }
 }
 finally {
     Pop-Location

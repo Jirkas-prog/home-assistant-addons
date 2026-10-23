@@ -32,12 +32,14 @@ It starts with an empty database and contains no personal business data. English
 
 ## MyBrowser
 
-MyBrowser is a personal website library, historical offline archive, full Brave desktop, and manager for small web servers. Its card-based home page presents hosted websites and saved links with previews, favorites, ordering, and visit statistics.
+MyBrowser is a Home Assistant setup-page panel for local devices, external websites, and hosted projects. Its default screen has persistent pinned tabs above the live device page, without another navigation sidebar. The library, historical offline archive, and hosting manager remain available through edit mode.
 
-English is the default language. Open **Server Management → Add-on Settings → Interface language** to switch the entire MyBrowser interface to Czech. The preference is stored in the add-on data and survives restarts and upgrades.
+English is the default language. Open **Edit panel → Interface language** to switch MyBrowser to Czech. The preference is stored in the add-on data and survives restarts and upgrades.
 
 ## Features
 
+- pinned setup tabs with HTTP availability indicators and edit-only layout controls;
+- separate Brave targets that retain unfinished forms while switching pages;
 - one library for hosted websites and external links;
 - website previews, view counters, and last-visit timestamps;
 - favorites with drag-and-drop ordering;
@@ -66,7 +68,9 @@ A package produced by `package.ps1` extracts to `/addons/mybrowser` with `config
 
 ## Library and favorites
 
-The **Add** button provides two choices:
+Use **Edit panel** to add device links, pin or unpin pages, and drag tabs into order. Saved but unpinned pages remain accessible through **Library**. Existing favorites are pinned once on upgrade; subsequent pinning and favorite changes are independent.
+
+Under **Edit panel → Library and hosting management**, the **Add** button provides two choices:
 
 - **Hosted website** — a static/SPA website or an npm/Bun project.
 - **Website link** — an external HTTP/HTTPS page with automatically loaded title, description, Open Graph image, or favicon.
@@ -77,9 +81,9 @@ The three-dot menu can hide an item from Home without deleting it, open settings
 
 ## Brave browser and ad blocking
 
-External links and hosted websites open inside a complete Brave desktop streamed by Selkies. This is the normal browser UI with tabs, its own address bar, browser settings, extensions, cookies, sign-ins, downloads, clipboard, audio, and standard Chromium rendering. The desktop is embedded behind Home Assistant Ingress; its internal streaming and DevTools ports are loopback-only.
+External links and hosted websites are rendered by Brave inside the add-on and streamed by Selkies. The setup panel uses kiosk/fullscreen mode so native browser tab controls do not duplicate the pinned strip. It does not rewrite the device's HTML, JavaScript, or API calls. The desktop is embedded behind Home Assistant Ingress; its internal streaming and DevTools ports are loopback-only.
 
-MyBrowser can open cards and searches directly in the active Brave tab through the local DevTools interface. The Brave profile is persistent. Downloads are stored in `/share/MyBrowser/Downloads`; the exact path is shown in MyBrowser settings.
+Each saved setup page has a separate Brave target. Switching pages preserves the current document, internal navigation, and unfinished form values during the running session. Unsaved forms are not guaranteed to survive a restart. The desktop and login profile are shared across simultaneous viewers, so use one active operator at a time. Downloads are stored in `/share/MyBrowser/Downloads`.
 
 Brave provides its normal Shields protection while browsing. The **Block ads** option also filters known advertising resources and containers when MyBrowser creates an offline version. This is a practical filter rather than a guarantee that every advertisement is removed.
 
@@ -87,7 +91,7 @@ Brave provides its normal Shields protection while browsing. The **Block ads** o
 
 **Save offline** creates a new immutable historical version. MyBrowser stores the main HTML document and common images, stylesheets, fonts, and scripts. Links to other pages remain external. Dynamic applications that depend on APIs, authentication, DRM, or service workers may not be fully available offline.
 
-Every download receives its own directory. Older versions remain available until they are individually deleted. Offline pages cannot make network requests and open in a sandboxed viewer.
+Every download receives its own directory. Older versions remain available until they are individually deleted. The setup panel presents copies as read-only references with scripts, form controls, links, and redirects disabled. They cannot control disconnected hardware. LAN devices can still be used without internet while Home Assistant and the devices are reachable; that is distinct from viewing an archive. The archive downloader does not inherit authenticated Brave sessions.
 
 The default per-version limit is 100 MB and can be changed with `max_archive_mb`. There is no automatic retention period.
 

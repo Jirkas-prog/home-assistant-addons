@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.9.0
+
+- made device setup pages the default Home Assistant panel, without a second navigation sidebar;
+- added rectangular pinned tabs, a separate underline, cached HTTP availability indicators, and an explicit edit mode;
+- persisted pinning and tab order independently from favorites; existing favorites are pinned once during migration;
+- retained a separate Brave target per saved page, preserving unsaved form values and internal navigation while switching tabs during the current runtime;
+- kept the stream iframe mounted while switching and hid native browser tab controls with kiosk/fullscreen mode;
+- moved library and hosting administration behind Edit panel, while unpinned pages remain accessible through Library;
+- added read-only saved copies with scripts, forms, navigation links, and refresh instructions disabled in the setup panel;
+- added English/Czech panel dictionaries and tests using real headless Brave, including ingress paths, state migration, restart persistence, and mobile layout;
+- retained the existing shared Brave desktop: simultaneous viewers still share the active page and browser login session.
+
 ## 0.8.1
 
 - fixed Home Assistant image builds by declaring `BUILD_FROM`, `BUILD_VERSION`, and `BUILD_ARCH` in Dockerfile's global argument scope before every `FROM` instruction;

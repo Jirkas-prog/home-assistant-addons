@@ -128,7 +128,7 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
   });
 
   try {
-    const uiResponse = await waitFor(`http://127.0.0.1:${uiPort}/`);
+    const uiResponse = await waitFor(`http://127.0.0.1:${uiPort}/?manage=1`);
     assert.match(uiResponse.headers.get('content-security-policy'), /img-src[^;]*blob:/);
     const uiHtml = await uiResponse.text();
     assert.match(uiHtml, /MyBrowser/);
@@ -182,7 +182,7 @@ test('MyBrowser manages hosted websites, links, favorites, and historical offlin
     assert.match(await braveIngress.text(), /api\/hassio_ingress\/test-token\/brave\/app\.js/);
     assert.match(await (await fetch(`http://127.0.0.1:${uiPort}/api/hassio_ingress/test-token/brave/app.js`)).text(), /braveProxyWorks/);
     await api('settings/language', json('PATCH', { language: 'cs' }));
-    const czechUi = await (await fetch(`http://127.0.0.1:${uiPort}/`)).text();
+    const czechUi = await (await fetch(`http://127.0.0.1:${uiPort}/?manage=1`)).text();
     assert.match(czechUi, /Hledat v knihovně nebo na webu/);
     assert.match(czechUi, /Jazyk rozhraní/);
     assert.match(czechUi, /\['logs','Logy'\]/);

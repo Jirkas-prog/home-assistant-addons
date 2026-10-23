@@ -1,7 +1,7 @@
 name: MyBrowser
 slug: mybrowser
-description: Brave browser, web library, offline archive, and hosting for static, npm, and Bun projects
-version: 0.8.1
+description: Pinned device setup pages powered by Brave, with a web library, offline copies, and local hosting
+version: 0.9.0
 url: https://github.com/Jirkas-prog/home-assistant-addons
 arch:
   - amd64

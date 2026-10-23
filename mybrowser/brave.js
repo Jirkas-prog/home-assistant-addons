@@ -13,12 +13,15 @@ function safeUrl(value) {
   try { url = new URL(String(value || '').trim()); }
   catch { throw httpError(400, 'Enter a valid absolute website URL'); }
   if (!['http:', 'https:'].includes(url.protocol)) throw httpError(400, 'Only HTTP and HTTPS URLs are allowed');
+  if (url.username || url.password) throw httpError(400, 'Credentials in website URLs are not allowed');
   return url.href;
 }
 
 class BraveDesktop {
   constructor({ port = 9221 } = {}) {
     this.port = Number(port) || 9221;
+    this.pages = new Map();
+    this.openQueue = Promise.resolve();
   }
 
   async request(pathname, { method = 'GET', timeout = 2500 } = {}) {
@@ -93,6 +96,29 @@ class BraveDesktop {
       await this.command(target, 'Page.bringToFront');
     }
     return { ok: true, url, targetId: target?.id || null };
+  }
+
+  openSaved(key, value) {
+    // One shared desktop: serialize switches so the latest request wins.
+    const operation = this.openQueue.catch(() => {}).then(async () => {
+      const url = safeUrl(value);
+      const saved = this.pages.get(key);
+      let target = saved && (await this.targets()).find(item => item.id === saved.id);
+      if (!target) {
+        target = await this.request(`/json/new?${encodeURIComponent(url)}`, { method: 'PUT', timeout: 5000 });
+        this.pages.set(key, { id: target.id, url });
+      } else if (saved.url !== url) {
+        await this.command(target, 'Page.navigate', { url });
+        this.pages.set(key, { id: target.id, url });
+      }
+      await this.command(target, 'Page.bringToFront');
+      // Keep native tab-close controls out of the setup panel.
+      const { windowId } = await this.command(target, 'Browser.getWindowForTarget', { targetId: target.id });
+      await this.command(target, 'Browser.setWindowBounds', { windowId, bounds: { windowState: 'fullscreen' } });
+      return { ok: true, targetId: target.id, url: target.url || url };
+    });
+    this.openQueue = operation;
+    return operation;
   }
 
   async action(action) {

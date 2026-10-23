@@ -11,7 +11,8 @@ const { pipeline } = require('node:stream/promises');
 const { RemoteManager } = require('./remote');
 const { ChromiumBrowser } = require('./chromium');
 const { BraveDesktop, safeUrl: safeBrowserUrl } = require('./brave');
-const { localizeUi } = require('./locales');
+const { Availability } = require('./availability');
+const { localizeUi, panelStrings } = require('./locales');
 
 const dataDir = process.env.DATA_DIR || path.join(__dirname, '.data');
 const stateFile = path.join(dataDir, 'state.json');
@@ -143,6 +144,12 @@ function saveState() {
     fs.fsyncSync(handle);
   } finally { fs.closeSync(handle); }
   fs.renameSync(temp, stateFile);
+}
+
+// Preserve existing favorites on upgrade without conflating future pins and stars.
+for (const item of [...Object.values(state.sites), ...Object.values(state.links)]) {
+  item.pinned = typeof item.pinned === 'boolean' ? item.pinned : Boolean(item.favorite);
+  item.pinOrder = Number.isInteger(item.pinOrder) ? item.pinOrder : item.favoriteOrder ?? 999999;
 }
 
 saveState();
@@ -293,6 +300,7 @@ async function captureSitePreview(id) {
 }
 
 const remote = new RemoteManager({ dataDir, state, save: saveState, maxArchiveBytes, appendLog, allowPrivateFetch: allowPrivateLinks });
+const availability = new Availability(value => remote.assertPublicUrl(value));
 
 function slugify(value) {
   const slug = String(value || '')
@@ -411,6 +419,8 @@ function createSite(body) {
     spaFallback: runtime === 'static' ? body.spaFallback !== false : false,
     favorite: Boolean(body.favorite),
     favoriteOrder: 999999,
+    pinned: false,
+    pinOrder: 999999,
     views: 0,
     lastViewedAt: null,
     showOnHome: body.showOnHome !== false,
@@ -485,6 +495,8 @@ function publicLink(id, link) {
     description: link.description || '',
     favorite: Boolean(link.favorite),
     favoriteOrder: link.favoriteOrder,
+    pinned: Boolean(link.pinned),
+    pinOrder: link.pinOrder ?? 999999,
     views: link.views || 0,
     lastViewedAt: link.lastViewedAt || null,
     showOnHome: link.showOnHome !== false,
@@ -510,6 +522,8 @@ async function createLink(body) {
     description: '',
     favorite: Boolean(body.favorite),
     favoriteOrder: body.favorite ? nextFavoriteOrder() : 999999,
+    pinned: false,
+    pinOrder: 999999,
     views: 0,
     lastViewedAt: null,
     blockAds: body.blockAds !== false,
@@ -554,6 +568,14 @@ function libraryEntity(kind, id) {
 function updateLibraryItem(kind, id, body) {
   const entity = libraryEntity(kind, id);
   if (!entity) throw httpError(404, 'Item not found');
+  if (body.pinned !== undefined && typeof body.pinned !== 'boolean') throw httpError(400, 'Pinned must be a boolean');
+  if (body.pinned !== undefined) {
+    if (body.pinned && !entity.item.pinned) {
+      const orders = [...Object.values(state.sites), ...Object.values(state.links)].filter(item => item.pinned).map(item => item.pinOrder || 0);
+      entity.item.pinOrder = orders.length ? Math.max(...orders) + 1 : 0;
+    }
+    entity.item.pinned = body.pinned;
+  }
   if (body.favorite !== undefined) {
     const favorite = Boolean(body.favorite);
     if (favorite && !entity.item.favorite) entity.item.favoriteOrder = nextFavoriteOrder();
@@ -583,6 +605,18 @@ function reorderFavorites(order) {
   const keys = order.map(entry => `${entry.kind}:${entry.id}`);
   if (new Set(keys).size !== keys.length || keys.length !== favorites.length || favorites.some(key => !keys.includes(key))) throw new Error('Order must contain every favorite item exactly once');
   order.forEach((entry, index) => { libraryEntity(entry.kind, entry.id).item.favoriteOrder = index; });
+  saveState();
+}
+
+function reorderPins(order) {
+  const pins = [...Object.entries(state.sites).filter(([, item]) => item.pinned).map(([id]) => `site:${id}`),
+    ...Object.entries(state.links).filter(([, item]) => item.pinned).map(([id]) => `link:${id}`)];
+  if (!Array.isArray(order)) throw httpError(400, 'Order must be an array');
+  const keys = order.map(entry => `${entry?.kind}:${entry?.id}`);
+  if (new Set(keys).size !== keys.length || keys.length !== pins.length || pins.some(key => !keys.includes(key))) {
+    throw httpError(400, 'Order must contain every pinned page exactly once');
+  }
+  order.forEach((entry, index) => { libraryEntity(entry.kind, entry.id).item.pinOrder = index; });
   saveState();
 }
 
@@ -1275,6 +1309,7 @@ function toolVersion(command, args = ['--version']) {
 const versions = { node: process.version.replace(/^v/, ''), npm: toolVersion(process.platform === 'win32' ? 'npm.cmd' : 'npm'), bun: toolVersion('bun') };
 const iconDataUrl = `data:image/png;base64,${fs.readFileSync(path.join(__dirname, 'icon.png')).toString('base64')}`;
 const uiTemplate = fs.readFileSync(path.join(__dirname, 'ui.html'), 'utf8').replace('__MYBROWSER_ICON_DATA__', iconDataUrl);
+const panelTemplate = fs.readFileSync(path.join(__dirname, 'panel.html'), 'utf8').replace('__MYBROWSER_ICON_DATA__', iconDataUrl);
 const viewer = fs.readFileSync(path.join(__dirname, 'viewer.html'));
 const brandAssets = new Map([
   ['/api/assets/icon.png', path.join(__dirname, 'icon.png')],
@@ -1492,7 +1527,8 @@ const uiServer = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && (route === '/' || (!route.startsWith('/api/') && !route.startsWith('/view/') && !route.startsWith('/offline/')))) {
-      const ui = Buffer.from(localizeUi(uiTemplate, state.language));
+      const ui = Buffer.from(url.searchParams.get('manage') === '1' ? localizeUi(uiTemplate, state.language)
+        : panelTemplate.replace('__PANEL_STRINGS__', JSON.stringify(panelStrings(state.language))).replace('<html lang="en">', `<html lang="${state.language}">`));
       res.writeHead(200, {
         'content-type': 'text/html; charset=utf-8',
         'content-length': ui.length,
@@ -1532,6 +1568,35 @@ const uiServer = http.createServer(async (req, res) => {
       state.language = body.language;
       saveState();
       return sendJson(res, 200, { language: state.language });
+    }
+
+    if (req.method === 'PUT' && route === '/api/panel/order') {
+      reorderPins((await readJson(req)).order);
+      return sendJson(res, 200, { ok: true });
+    }
+    if (req.method === 'GET' && route === '/api/panel/availability') {
+      const entries = [...Object.entries(state.links).map(([id, link]) => ({ key: `link:${id}`, url: link.url })),
+        ...Object.entries(state.sites).map(([id, site]) => ({ key: `site:${id}`, url: localSiteUrl(site), stopped: runtimeFor(id).status !== 'running' }))];
+      const results = {};
+      // Bound parallel checks to avoid flooding small device web servers.
+      for (let i = 0; i < entries.length; i += 4) {
+        await Promise.all(entries.slice(i, i + 4).map(async entry => {
+          results[entry.key] = entry.stopped ? { reachable: false, error: 'STOPPED', checkedAt: new Date().toISOString() }
+            : await availability.check(entry.url);
+        }));
+      }
+      return sendJson(res, 200, results);
+    }
+    if (req.method === 'POST' && route === '/api/panel/open') {
+      const body = await readJson(req);
+      const entity = libraryEntity(body.kind, body.id);
+      if (!entity) throw httpError(404, 'Page not found');
+      if (body.kind === 'site' && runtimeFor(body.id).status !== 'running') throw httpError(503, 'The hosted website is stopped. Start it in hosting management.');
+      const target = body.kind === 'site' ? localSiteUrl(entity.item) : entity.item.url;
+      if (body.kind === 'link') await remote.assertPublicUrl(target);
+      const result = await brave.openSaved(`${body.kind}:${body.id}`, target);
+      recordView(body.kind, body.id);
+      return sendJson(res, 200, result);
     }
 
     if (req.method === 'GET' && route === '/api/brave/state') {

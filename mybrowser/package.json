@@ -1,8 +1,8 @@
 {
   "name": "home-assistant-mybrowser",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "private": true,
-  "description": "Home Assistant web library, offline archive and static/npm/Bun host",
+  "description": "Home Assistant device setup panel with Brave, offline copies and local hosting",
   "license": "UNLICENSED",
   "engines": {
     "node": ">=24"

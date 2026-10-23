@@ -1,6 +1,8 @@
 'use strict';
 
 const CS_REPLACEMENTS = [
+  ['Back to setup pages', 'Zpět na nastavovací stránky'],
+  ['Uploads are still running. Leave this page and interrupt them?', 'Stále probíhá nahrávání. Opustit stránku a přerušit je?'],
   ["The full Brave desktop is starting. The first launch may take a moment.", "Spouští se plná plocha Brave. První spuštění může chvíli trvat."],
   ["Private and local addresses", "Soukromé a místní adresy"],
   ["change this on the add-on Configuration tab", "změňte na kartě Konfigurace add-onu"],
@@ -1179,4 +1181,57 @@ function localizeUi(source, language) {
   return result.replace('<html lang="en">', '<html lang="cs">');
 }
 
-module.exports = { localizeUi };
+const PANEL_TEXT = {
+  title: ['Setup pages', 'Nastavovací stránky'],
+  library: ['Library', 'Knihovna'],
+  edit: ['Edit panel', 'Upravit panel'],
+  done: ['Done', 'Hotovo'],
+  reload: ['Reload page', 'Obnovit stránku'],
+  saveOffline: ['Save a copy', 'Uložit kopii'],
+  savedCopy: ['Saved copy', 'Uložená kopie'],
+  live: ['Back to live page', 'Zpět na živou stránku'],
+  retry: ['Try again', 'Zkusit znovu'],
+  editTitle: ['Arrange your setup pages', 'Uspořádání nastavovacích stránek'],
+  editHint: ['Pin saved pages to the top bar. Drag pinned tabs or use their arrow buttons to reorder them. Changes are saved immediately; unpinning does not delete a page.', 'Připněte uložené stránky do horní lišty. Pořadí měňte přetažením nebo šipkami. Změny se ukládají ihned; odepnutí stránku nesmaže.'],
+  addLink: ['Add device or website', 'Přidat zařízení nebo web'],
+  hosting: ['Add hosted website', 'Přidat hostovaný web'],
+  management: ['Library and hosting management', 'Správa knihovny a hostování'],
+  language: ['Interface language', 'Jazyk rozhraní'],
+  czech: ['Czech', 'Čeština'],
+  sharedSession: ['Brave runs inside this add-on. Its desktop and login session are shared: simultaneous viewers control the same active page. Edit mode prevents accidental layout changes; it is not an access-control boundary.', 'Brave běží přímo v add-onu. Plocha a přihlášení jsou sdílené: více současných uživatelů ovládá stejnou aktivní stránku. Režim úprav chrání před nechtěnou změnou rozložení, není omezením přístupových práv.'],
+  name: ['Page name', 'Název stránky'],
+  address: ['Website address', 'Adresa webu'],
+  pin: ['Pinned', 'Připnuto'],
+  unpin: ['Unpin page', 'Odepnout stránku'],
+  cancel: ['Cancel', 'Zrušit'],
+  save: ['Save', 'Uložit'],
+  close: ['Close', 'Zavřít'],
+  settings: ['Settings', 'Nastavení'],
+  remove: ['Remove', 'Odebrat'],
+  copyAddress: ['Copy address', 'Kopírovat adresu'],
+  copied: ['Address copied.', 'Adresa zkopírována.'],
+  libraryHint: ['All saved pages, including unpinned pages. Opening a page does not pin it.', 'Všechny uložené stránky včetně nepřipnutých. Otevření stránku nepřipne.'],
+  checking: ['Not checked yet', 'Zatím nezkontrolováno'],
+  reachable: ['Web server responds', 'Webový server odpovídá'],
+  unreachable: ['No web server response', 'Webový server neodpovídá'],
+  noPins: ['No pinned pages', 'Žádné připnuté stránky'],
+  choosePage: ['Choose a setup page', 'Vyberte nastavovací stránku'],
+  emptyHint: ['Open a saved page from the library, or enter Edit panel to add and pin your device pages.', 'Otevřete uloženou stránku z knihovny nebo v režimu Upravit panel přidejte a připněte stránky zařízení.'],
+  moveLeft: ['Move page left', 'Posunout stránku doleva'],
+  moveRight: ['Move page right', 'Posunout stránku doprava'],
+  offlineNotice: ['Saved copy, not live device controls. The device cannot be controlled from this copy. Saved:', 'Uložená kopie, nikoli živé ovládání. Z této kopie nelze zařízení ovládat. Uloženo:'],
+  unreachableNotice: ['The add-on received no response from this web server. Check its power, network connection, or TLS certificate. A saved copy cannot control an unavailable device.', 'Add-on nedostal odpověď od webového serveru. Zkontrolujte napájení, síť nebo TLS certifikát. Uložená kopie nemůže ovládat nedostupné zařízení.'],
+  opening: ['Opening live page…', 'Otevírání živé stránky…'],
+  openFailed: ['The page could not be opened', 'Stránku se nepodařilo otevřít'],
+  emptyLibrary: ['No saved pages yet.', 'Zatím nejsou uložené žádné stránky.'],
+  removeConfirm: ['Remove this page and its offline copies from the library? Hosted website files will be kept.', 'Odebrat stránku a její offline kopie z knihovny? Soubory hostovaného webu zůstanou zachovány.'],
+  savingCopy: ['An offline copy is being prepared. It is a reference snapshot, not an offline device controller.', 'Připravuje se offline kopie. Je určená k prohlížení, ne k ovládání zařízení bez spojení.'],
+  loading: ['Loading setup pages…', 'Načítání nastavovacích stránek…'],
+  loadingHint: ['Connecting to MyBrowser inside Home Assistant.', 'Připojování k MyBrowseru v Home Assistantu.']
+};
+
+function panelStrings(language) {
+  return Object.fromEntries(Object.entries(PANEL_TEXT).map(([key, values]) => [key, values[language === 'cs' ? 1 : 0]]));
+}
+
+module.exports = { localizeUi, panelStrings };

@@ -1,5 +1,5 @@
 ARG BUILD_FROM
-ARG BUILD_VERSION=0.8.1
+ARG BUILD_VERSION=0.9.0
 ARG BUILD_ARCH=amd64
 
 FROM node:24-bookworm-slim AS node-runtime
@@ -24,7 +24,7 @@ RUN ln -sf ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
 
 WORKDIR /app
 COPY package.json package-lock.json /app/
-COPY server.js remote.js chromium.js brave.js locales.js ui.html viewer.html icon.png logo.png sidebar-icon.png /app/
+COPY server.js remote.js chromium.js brave.js availability.js locales.js ui.html panel.html viewer.html icon.png logo.png sidebar-icon.png /app/
 COPY guide /app/guide
 COPY rootfs/ /
 RUN chmod +x /etc/s6-overlay/s6-rc.d/init-mybrowser/run /etc/s6-overlay/s6-rc.d/svc-mybrowser/run
@@ -46,4 +46,4 @@ ENV DATA_DIR=/data \
     BRAVE_DEBUG_PORT=9221 \
     S6_CMD_WAIT_FOR_SERVICES=1 \
     S6_CMD_WAIT_FOR_SERVICES_MAXTIME=0 \
-    BRAVE_CLI="--remote-debugging-address=127.0.0.1 --remote-debugging-port=9221"
+    BRAVE_CLI="--remote-debugging-address=127.0.0.1 --remote-debugging-port=9221 --kiosk --no-first-run --no-default-browser-check"
