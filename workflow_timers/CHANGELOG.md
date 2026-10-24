@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1
+
+- Made device names prominent, with secondary entity IDs and accent-insensitive search by either.
+- Pinned selected devices above results, including during search, with an always-visible selection count.
+- Restored unchecked devices to their alphabetical position and retained missing selected entities for removal.
+- Improved editor text readability and styled dropdown pickers in supporting browsers, with native fallbacks.
+- Added a 400-device preview fixture (`?many=1`) and selection regression checks.
+
 ## 1.0.0
 
 - Added a Czech full-width timer panel and matching dashboard card.

@@ -3,6 +3,19 @@ export const SKIP = 'workflow-skip:';
 export const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 export const DAY_NAMES = ['Po','Út','St','Čt','Pá','So','Ne'];
 export const DOMAINS = ['light','switch','fan','input_boolean','cover'];
+export function targetChoices(states, selectedIds, excludedIds = [], query = '') {
+  const selected = new Set(selectedIds), excluded = new Set(excludedIds);
+  const normalize = text => text.normalize('NFD').replace(/\p{M}/gu, '').toLocaleLowerCase('cs');
+  const words = normalize(query).trim().split(/\s+/).filter(Boolean);
+  const candidates = Object.keys(states).filter(id => DOMAINS.includes(id.split('.')[0]) && !excluded.has(id) && !id.startsWith('switch.schedule_'));
+  const items = [...new Set([...candidates, ...selected])].map(id => ({id, name:states[id]?.attributes?.friendly_name || id, missing:!states[id]}))
+    .sort((a,b) => a.name.localeCompare(b.name, 'cs', {numeric:true}) || a.id.localeCompare(b.id));
+  return {
+    selected:items.filter(item => selected.has(item.id)),
+    available:items.filter(item => !selected.has(item.id) && words.every(word => normalize(item.name+' '+item.id).includes(word))),
+    total:items.length,
+  };
+}
 export const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 export function localDate(zone, date = new Date()) {
   const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {timeZone:zone, year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date).map(p => [p.type,p.value]));

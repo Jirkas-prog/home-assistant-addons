@@ -7,7 +7,7 @@ use the card in dashboards:
 
 1. Enable Advanced mode in your Home Assistant user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources → Add resource**.
-3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.0`; type: **JavaScript Module**.
+3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.1`; type: **JavaScript Module**.
 4. In the desired dashboard, create a view with layout **Panel (1 card)**.
 5. Add a manual card:
 
@@ -101,3 +101,14 @@ Keep the original Scheduler data if you want its plans to remain available.
 
 No long-lived access token, extra exposed port, Supervisor API permission or
 external JavaScript CDN is needed. The frontend uses the signed-in HA session.
+
+## Device selection
+
+Search uses the Home Assistant entity friendly name and entity ID, ignoring case
+and accents. Names are displayed above IDs; the stored entity IDs are never renamed.
+Selected devices remain at the top even when they do not match the current search.
+The selection count always includes all selected devices. Unchecking returns an
+entity to name order (or hides it when it does not match the current search).
+
+Dropdowns use native keyboard behavior with an application-themed picker where
+customizable select is supported. Other browsers retain their native picker.

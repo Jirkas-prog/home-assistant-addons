@@ -1,6 +1,27 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildSchedule,toDraft,DAYS,TAG,encodeTime,localDate,editable} from '../www/workflow-timers/model.js';
+import {buildSchedule,toDraft,DAYS,TAG,encodeTime,localDate,editable,targetChoices} from '../www/workflow-timers/model.js';
+
+test('hundreds of devices sort by name, pin selections across searches and restore unchecked positions',()=>{
+  const states=Object.fromEntries(Array.from({length:400},(_,i)=>['light.0x'+(400-i).toString(16),{attributes:{friendly_name:'Světlo '+(i+1)}}]));
+  states['sensor.temperature']={attributes:{friendly_name:'Teplota'}};
+  states['switch.schedule_demo']={attributes:{friendly_name:'Plán'}};
+  states['switch.plan']={attributes:{friendly_name:'Další plán'}};
+  const excluded=['switch.plan'], selected=['light.0x1','light.0x190'];
+  const full=targetChoices(states,[],excluded);
+  assert.equal(full.total,400);
+  assert.equal(full.available[0].name,'Světlo 1');
+  assert.equal(full.available[399].name,'Světlo 400');
+  const filtered=targetChoices(states,selected,excluded,'SVETLO 200');
+  assert.deepEqual(filtered.selected.map(x=>x.name),['Světlo 1','Světlo 400']);
+  assert.deepEqual(filtered.available.map(x=>x.name),['Světlo 200']);
+  assert.equal(filtered.total,400);
+  assert.deepEqual(targetChoices(states,[],excluded,'0x190').available.map(x=>x.name),['Světlo 1']);
+  const unchecked=targetChoices(states,selected.slice(1),excluded);
+  assert.equal(unchecked.available.at(-1).name,'Světlo 400');
+  assert.deepEqual(targetChoices(states,[],excluded).available,full.available);
+  assert.equal(targetChoices(states,['light.removed'],excluded,'nothing').selected[0].missing,true);
+});
 
 test('a multi-device plan survives editing with per-device parameters',()=>{
   const draft=toDraft();draft.name='Morning';draft.days=['mon','wed'];draft.targets=[{id:'light.desk',on:{brightness_pct:60},off:{}},{id:'switch.pump',on:{},off:{}}];

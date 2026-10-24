@@ -1,4 +1,4 @@
-import '../www/workflow-timers/workflow-timers.js';
+import '../www/workflow-timers/workflow-timers.js?v=1.0.1';
 import {buildSchedule,DAYS,localDate,SKIP} from '../www/workflow-timers/model.js';
 const states={
  'light.aquarium':{state:'on',attributes:{friendly_name:'Osvětlení akvária'}},
@@ -8,8 +8,13 @@ const states={
  'switch.workshop':{state:'off',attributes:{friendly_name:'Zásuvka v dílně'}},
  'fan.bathroom':{state:'unavailable',attributes:{friendly_name:'Ventilátor'}},
  'cover.shades':{state:'closed',attributes:{friendly_name:'Rolety'}},
+ 'light.0x00158d000000a1b2':{state:'off',attributes:{friendly_name:'Obývák · stojací lampa'}},
  'sun.sun':{state:'above_horizon',attributes:{}},
 };
+// Optional large fictional inventory for checking selection and search behavior.
+if(new URLSearchParams(location.search).has('many')){
+ for(let i=1;i<=400;i++)states['light.0x'+(0x100000+i).toString(16)]={state:'off',attributes:{friendly_name:'Zkušební světlo '+i}};
+}
 function plan(name,ids,on,off,days=DAYS,enabled=true){const p=buildSchedule({name,days,date:'',on,off,targets:ids.map(id=>({id,on:{},off:{}}))});const id=crypto.randomUUID();return {...p,schedule_id:id,entity_id:'switch.schedule_'+id,enabled,timestamps:[]};}
 const at=time=>({mode:'time',time,offset:0});
 const seed=()=>[
@@ -27,7 +32,7 @@ const listeners=new Set();
 function save(){localStorage.setItem('workflow-timers-demo',JSON.stringify(schedules));listeners.forEach(fn=>fn());}
 const hass={states,config:{time_zone:'Europe/Prague'},user:{is_admin:true},connection:{subscribeEvents:async fn=>{listeners.add(fn);return ()=>listeners.delete(fn);}},
  async callWS(msg){
-   if(msg.type==='scheduler/workflow_info')return {version:'1.0.0',today:localDate('Europe/Prague'),time_zone:'Europe/Prague'};
+   if(msg.type==='scheduler/workflow_info')return {version:'1.0.1',today:localDate('Europe/Prague'),time_zone:'Europe/Prague'};
    if(msg.type==='scheduler')return structuredClone(schedules);
    const s=schedules.find(s=>s.schedule_id===msg.schedule_id);
    if(msg.type==='scheduler/item')return structuredClone(s);

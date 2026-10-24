@@ -44,6 +44,7 @@ timer semantics. See [THIRD_PARTY.md](THIRD_PARTY.md) for source attribution.
 
 Run `python preview/serve.py`, then open the printed local URL. The demo uses
 fictional entities and browser-local storage; it never connects to Home Assistant.
+Append `?many=1` to the preview URL to test selection with 400 extra devices.
 
 ```sh
 node --test tests/model.test.js
