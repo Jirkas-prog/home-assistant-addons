@@ -8,5 +8,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Jirkas-prog/home-assistant-addons/issues",
   "requirements": [],
-  "version": "3.3.8+workflow.3"
+  "version": "3.3.8+workflow.4"
 }

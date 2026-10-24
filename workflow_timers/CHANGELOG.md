@@ -1,3 +1,7 @@
+# 1.0.3
+
+- Fix sidebar panel creation in Home Assistant by setting host attributes after the custom element is connected.
+
 # Changelog
 
 ## 1.0.2

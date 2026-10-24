@@ -7,7 +7,7 @@ use the card in dashboards:
 
 1. Enable Advanced mode in your Home Assistant user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources → Add resource**.
-3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.2`; type: **JavaScript Module**.
+3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.3`; type: **JavaScript Module**.
 4. In the desired dashboard, create a view with layout **Panel (1 card)**.
 5. Add a manual card:
 

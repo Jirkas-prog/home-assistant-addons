@@ -70,5 +70,5 @@ if __name__ == "__main__":
     backup = install(Path("/app"), Path("/homeassistant"), Path("/data"), options.get("replace_existing_scheduler", False))
     print(f"WorkFlow Timers installed. Previous code saved in {backup}." if backup else "WorkFlow Timers is already up to date.")
     print("Next: restart Home Assistant Core, then add the 'Scheduler' integration in Settings > Devices & services if it is not configured yet.")
-    print("Open 'Casovace' (Timers) in the sidebar. For dashboards, add /local/workflow-timers/workflow-timers.js?v=1.0.2 as a JavaScript module resource, then add custom:workflow-timers-card in a Panel view.")
+    print("Open 'Casovace' (Timers) in the sidebar. For dashboards, add /local/workflow-timers/workflow-timers.js?v=1.0.3 as a JavaScript module resource, then add custom:workflow-timers-card in a Panel view.")
     print("This installer now stops normally. The timers run inside Home Assistant Core. No HACS or Node-RED setup is required.")

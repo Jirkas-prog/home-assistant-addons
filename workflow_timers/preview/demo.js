@@ -1,4 +1,4 @@
-import '../www/workflow-timers/workflow-timers.js?v=1.0.2';
+import '../www/workflow-timers/workflow-timers.js?v=1.0.3';
 import {buildSchedule,DAYS,localDate,SKIP} from '../www/workflow-timers/model.js';
 const states={
  'light.aquarium':{state:'on',attributes:{friendly_name:'Osvětlení akvária'}},
@@ -32,7 +32,7 @@ const listeners=new Set();
 function save(){localStorage.setItem('workflow-timers-demo',JSON.stringify(schedules));listeners.forEach(fn=>fn());}
 const hass={states,config:{time_zone:'Europe/Prague'},user:{is_admin:true},connection:{subscribeEvents:async fn=>{listeners.add(fn);return ()=>listeners.delete(fn);}},
  async callWS(msg){
-   if(msg.type==='scheduler/workflow_info')return {version:'1.0.2',today:localDate('Europe/Prague'),time_zone:'Europe/Prague'};
+   if(msg.type==='scheduler/workflow_info')return {version:'1.0.3',today:localDate('Europe/Prague'),time_zone:'Europe/Prague'};
    if(msg.type==='scheduler')return structuredClone(schedules);
    const s=schedules.find(s=>s.schedule_id===msg.schedule_id);
    if(msg.type==='scheduler/item')return structuredClone(s);

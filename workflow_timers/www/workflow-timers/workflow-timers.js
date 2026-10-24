@@ -1,5 +1,5 @@
-import css from './styles.js?v=1.0.2';
-import {TAG,DAYS,DAY_NAMES,escapeHTML as e,localDate,timeLabel,dayLabel,isManaged,isSkipped,entityIds,editable,toDraft,buildSchedule,targetChoices} from './model.js?v=1.0.2';
+import css from './styles.js?v=1.0.3';
+import {TAG,DAYS,DAY_NAMES,escapeHTML as e,localDate,timeLabel,dayLabel,isManaged,isSkipped,entityIds,editable,toDraft,buildSchedule,targetChoices} from './model.js?v=1.0.3';
 
 const paths = {
   clock:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6M12 2v3M18 5l2 2"/>',
@@ -191,6 +191,6 @@ class WorkFlowTimers extends HTMLElement {
   }
 }
 if(!customElements.get('workflow-timers-card'))customElements.define('workflow-timers-card',WorkFlowTimers);
-if(!customElements.get('workflow-timers-panel'))customElements.define('workflow-timers-panel',class extends WorkFlowTimers{constructor(){super();this.setAttribute('panel','');}});
+if(!customElements.get('workflow-timers-panel'))customElements.define('workflow-timers-panel',class extends WorkFlowTimers{connectedCallback(){this.setAttribute('panel','');super.connectedCallback();}});
 window.customCards=window.customCards || [];
 if(!window.customCards.some(c=>c.type==='workflow-timers-card'))window.customCards.push({type:'workflow-timers-card',name:'WorkFlow Časovače',description:'Řádkový plánovač s časy, sluncem a ovládáním více zařízení.',preview:false});

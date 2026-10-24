@@ -1,5 +1,5 @@
 FROM python:3.13-alpine
-ARG BUILD_VERSION=1.0.2
+ARG BUILD_VERSION=1.0.3
 ARG BUILD_ARCH
 LABEL io.hass.name="WorkFlow Timers" \
       io.hass.description="Scheduler integration and WorkFlow timer panel installer" \
