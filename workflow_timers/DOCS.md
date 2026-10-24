@@ -8,8 +8,11 @@ use the card in dashboards:
 1. Enable Advanced mode in your Home Assistant user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources → Add resource**.
 3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.3`; type: **JavaScript Module**.
-4. In the desired dashboard, create a view with layout **Panel (1 card)**.
-5. Add a manual card:
+4. Fully reload every Home Assistant browser window that was already open when
+   the resource was added or updated (Ctrl+F5 on Windows). Switching views alone
+   can leave an old resource list in memory and show a configuration error.
+5. In the desired dashboard, create a view with layout **Panel (1 card)**.
+6. Add a manual card:
 
 ```yaml
 type: custom:workflow-timers-card
@@ -19,6 +22,8 @@ title: Časovače
 [examples/dashboard-view.yaml](examples/dashboard-view.yaml) contains a complete
 view definition. The same card also works inside a normal view. Both locations
 read the same server-side plans; they do not create duplicate timers.
+Verify the dashboard by opening its URL directly in a fresh page, before visiting
+the sidebar panel; the panel also registers the card when its module loads.
 
 ## Creating a plan
 
