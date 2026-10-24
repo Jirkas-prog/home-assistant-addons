@@ -1,3 +1,8 @@
+# 1.0.4
+
+- Create named Home Assistant toggle helpers directly in the timer editor and select them automatically.
+- Organize related timers into named groups, with group selection and creation in the editor.
+
 # 1.0.3
 
 - Fix sidebar panel creation in Home Assistant by setting host attributes after the custom element is connected.

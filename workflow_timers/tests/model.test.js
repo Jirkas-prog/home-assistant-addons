@@ -1,6 +1,33 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {buildSchedule,toDraft,DAYS,TAG,encodeTime,localDate,editable,targetChoices} from '../www/workflow-timers/model.js';
+import {buildSchedule,toDraft,DAYS,TAG,GROUP,SKIP,encodeTime,localDate,editable,targetChoices,groupName,groupedSchedules,createVirtualSwitch} from '../www/workflow-timers/model.js';
+
+test('groups keep related plans together and preserve skip and provenance tags',()=>{
+  const d=toDraft();d.name='Morning';d.group='Rybičky';d.targets=[{id:'input_boolean.night_mode',on:{},off:{}}];
+  const original=buildSchedule(d);original.tags.push(SKIP+'2026-10-24','workflow-origin:cas_01');
+  const roundtrip=buildSchedule(toDraft(original),original);
+  assert.deepEqual(roundtrip,original);
+  const changed=toDraft(original);changed.group='Půda';
+  const moved=buildSchedule(changed,original);
+  assert.equal(groupName(moved),'Půda');assert.ok(!moved.tags.includes(GROUP+'Rybičky'));
+  assert.ok(moved.tags.includes(SKIP+'2026-10-24'));assert.ok(moved.tags.includes('workflow-origin:cas_01'));
+  changed.group='';assert.equal(groupName(buildSchedule(changed,original)),'');
+  assert.deepEqual(groupedSchedules([{name:'free',tags:[]},original,moved,original]).map(([g,items])=>[g,items.length]),[['Rybičky',2],['Půda',1],['',1]]);
+  assert.equal(original.timeslots[0].actions[0].service,'input_boolean.turn_on');
+  assert.equal(original.timeslots[1].actions[0].service,'input_boolean.turn_off');
+});
+
+test('virtual switch creation resolves the real registry ID and never changes existing entities',async()=>{
+  const calls=[];
+  const hass={user:{is_admin:true},callWS:async msg=>{calls.push(msg);return msg.type==='input_boolean/create'?{id:'nocni_rezim',name:msg.name}:[{platform:'input_boolean',unique_id:'nocni_rezim',entity_id:'input_boolean.nocni_rezim_2'}];}};
+  assert.deepEqual(await createVirtualSwitch(hass,' Noční režim '),{id:'input_boolean.nocni_rezim_2',name:'Noční režim'});
+  assert.deepEqual(calls.map(c=>c.type),['input_boolean/create','config/entity_registry/list']);
+  assert.equal(calls[0].initial,undefined); // Restore state normally after future restarts.
+  await assert.rejects(createVirtualSwitch(hass,' '));
+  await assert.rejects(createVirtualSwitch({...hass,user:{is_admin:false}},'Denied'));
+  assert.equal(calls.length,2);
+  await assert.rejects(createVirtualSwitch({...hass,callWS:async msg=>msg.type==='input_boolean/create'?{id:'created'}:[]},'Created'),/byl vytvořen/);
+});
 
 test('hundreds of devices sort by name, pin selections across searches and restore unchecked positions',()=>{
   const states=Object.fromEntries(Array.from({length:400},(_,i)=>['light.0x'+(400-i).toString(16),{attributes:{friendly_name:'Světlo '+(i+1)}}]));

@@ -7,7 +7,7 @@ use the card in dashboards:
 
 1. Enable Advanced mode in your Home Assistant user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources → Add resource**.
-3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.3`; type: **JavaScript Module**.
+3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.4`; type: **JavaScript Module**.
 4. Fully reload every Home Assistant browser window that was already open when
    the resource was added or updated (Ctrl+F5 on Windows). Switching views alone
    can leave an old resource list in memory and show a configuration error.
@@ -26,6 +26,22 @@ Verify the dashboard by opening its URL directly in a fresh page, before visitin
 the sidebar panel; the panel also registers the card when its module loads.
 
 ## Creating a plan
+
+Choose an existing **Skupina časovačů** or **+ Nová skupina** in the editor to
+keep related plans under one heading. **Bez skupiny** removes a plan from its
+group. Group names are also included in search. Grouping never changes the
+scheduled actions or enables/disables other plans.
+
+Under the target selector, expand **+ Vytvořit virtuální přepínač**, enter a name,
+and press **Vytvořit a vybrat**. This creates a standard Home Assistant
+`input_boolean` helper and selects it as a target for both scheduled actions.
+Home Assistant generates a unique entity ID from the name; the editor displays
+the actual ID. The helper can be used in automations, Node-RED and other timers,
+and remains available under Settings → Devices & services → Helpers.
+It is created immediately, independently of saving the timer, so cancelling
+the editor or deleting the timer does not delete a helper used elsewhere.
+Helpers restore their previous state after restarts. Administrator access and
+the Home Assistant `input_boolean` integration are required.
 
 Select **Upravit přehled**, then **Nový časovač**. Enter a name, select weekdays
 or a calendar date, choose both times and select devices. Each selected device

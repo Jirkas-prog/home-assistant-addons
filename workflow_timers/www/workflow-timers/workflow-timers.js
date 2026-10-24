@@ -1,5 +1,5 @@
-import css from './styles.js?v=1.0.3';
-import {TAG,DAYS,DAY_NAMES,escapeHTML as e,localDate,timeLabel,dayLabel,isManaged,isSkipped,entityIds,editable,toDraft,buildSchedule,targetChoices} from './model.js?v=1.0.3';
+import css from './styles.js?v=1.0.4';
+import {TAG,DAYS,DAY_NAMES,escapeHTML as e,localDate,timeLabel,dayLabel,isManaged,isSkipped,entityIds,editable,toDraft,buildSchedule,targetChoices,groupName,groupedSchedules,createVirtualSwitch} from './model.js?v=1.0.4';
 
 const paths = {
   clock:'<circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2M9 2h6M12 2v3M18 5l2 2"/>',
@@ -73,7 +73,7 @@ class WorkFlowTimers extends HTMLElement {
     } catch(error){this.error='Časovače nelze načíst. Ověřte instalaci integrace Scheduler · WorkFlow a připojení k Home Assistantu. '+(error.message||error.code||'');}
     finally{this.refreshing=false;this.render();}
   }
-  name(id){return this._hass?.states[id]?.attributes?.friendly_name || id;}
+  name(id){return this._hass?.states[id]?.attributes?.friendly_name || this.createdHelperNames?.[id] || id;}
   state(id){return this._hass?.states[id]?.state || 'unavailable';}
   status(s){return s.enabled===false?'off':isSkipped(s,this.today)?'skip':'active';}
   render() {
@@ -96,9 +96,9 @@ class WorkFlowTimers extends HTMLElement {
   }
   renderRows() {
     const query=this.search.toLocaleLowerCase('cs');
-    const rows=this.schedules.filter(s=>(this.filter==='all'||this.status(s)===this.filter) && [s.name,...entityIds(s).map(id=>this.name(id)+' '+id)].join(' ').toLocaleLowerCase('cs').includes(query));
+    const rows=this.schedules.filter(s=>(this.filter==='all'||this.status(s)===this.filter) && [s.name,groupName(s),...entityIds(s).map(id=>this.name(id)+' '+id)].join(' ').toLocaleLowerCase('cs').includes(query));
     const active=this.shadowRoot.activeElement, focusedId=active?.closest('[data-id]')?.dataset.id, focusedAction=active?.dataset.action;
-    this.$('#rows').innerHTML=rows.length?rows.map(s=>this.row(s)).join(''):`<div class="empty">${icon('clock')}<h2>${!this.loaded?'Čekám na Home Assistant':this.schedules.length?'Žádný odpovídající časovač':'Dejte svému domovu rytmus.'}</h2><p>${!this.loaded?'Po připojení se zde zobrazí vaše plány.':this.schedules.length?'Změňte hledání nebo vybraný filtr.':'Zapněte režim úprav a vytvořte první časovač.'}</p></div>`;
+    this.$('#rows').innerHTML=rows.length?groupedSchedules(rows).map(([name,items])=>`<section class="timer-group" aria-label="${e(name || 'Bez skupiny')}">${name || this.schedules.some(groupName)?`<div class="group-head"><h2>${e(name || 'Bez skupiny')}</h2><span>Plány · ${items.length}</span></div>`:''}${items.map(s=>this.row(s)).join('')}</section>`).join(''):`<div class="empty">${icon('clock')}<h2>${!this.loaded?'Čekám na Home Assistant':this.schedules.length?'Žádný odpovídající časovač':'Dejte svému domovu rytmus.'}</h2><p>${!this.loaded?'Po připojení se zde zobrazí vaše plány.':this.schedules.length?'Změňte hledání nebo vybraný filtr.':'Zapněte režim úprav a vytvořte první časovač.'}</p></div>`;
     if(focusedId && focusedAction && !this.$('dialog').open)this.$(`[data-id="${CSS.escape(focusedId)}"] [data-action="${CSS.escape(focusedAction)}"]`)?.focus({preventScroll:true});
   }
   row(s) {
@@ -136,14 +136,19 @@ class WorkFlowTimers extends HTMLElement {
   openEditor(s) {
     this.editing=s?structuredClone(s):null;this.editFingerprint=s?fingerprint(s):null;this.draft=toDraft(s);
     const d=this.draft;
+    this.groupOptions=[...new Set([...this.schedules.map(groupName),d.group].filter(Boolean))].sort((a,b)=>a.localeCompare(b,'cs'));
     const timebox=(phase,title)=>`<div class="timebox ${phase}"><strong>${title}</strong><label>Způsob určení času<select data-phase="${phase}" data-field="mode"><option value="time">Konkrétní čas</option><option value="sunrise" ${!this._hass.states['sun.sun']?'disabled':''}>Východ slunce</option><option value="sunset" ${!this._hass.states['sun.sun']?'disabled':''}>Západ slunce</option></select></label><div class="inputs"><label data-time-label="${phase}">Čas<input type="time" required data-phase="${phase}" data-field="time" value="${e(d[phase].time)}"></label><label data-offset-label="${phase}">Posun v minutách<input type="number" min="-120" max="120" step="1" data-phase="${phase}" data-field="offset" value="${d[phase].offset}"></label></div></div>`;
-    this.$('dialog').innerHTML=`<form><div class="dialog-head"><div><div class="eyebrow">JEDEN PLÁN. VŠECHNO POHROMADĚ.</div><h2 id="dialog-title">${s?'Upravit časovač':'Nový časovač'}</h2></div><button type="button" class="icon" data-action="close" aria-label="Zavřít">${icon('close')}</button></div><div class="form-body"><label>Název časovače<input name="name" required maxlength="100" placeholder="Například: Ranní osvětlení" value="${e(d.name)}" autofocus></label><div class="section-label">01 / Kdy se má spustit</div><div class="form-grid"><label>Opakování<select name="repeat"><option value="weekly">Vybrané dny v týdnu</option><option value="date">Jednou v konkrétní den</option></select></label><label id="date-label" hidden>Datum<input name="date" type="date" min="${this.today}" value="${e(d.date)}"></label></div><div id="weekdays"><div class="presets" style="margin-top:14px"><button type="button" data-days="all">Každý den</button><button type="button" data-days="work">Po–Pá</button><button type="button" data-days="weekend">Víkend</button></div><div class="day-picker">${DAYS.map((day,i)=>`<button type="button" data-day="${day}" aria-pressed="${d.days.includes(day)}">${DAY_NAMES[i]}</button>`).join('')}</div></div><div class="section-label">02 / Zapnutí a vypnutí</div><div class="form-grid">${timebox('on','ZAPNOUT / OTEVŘÍT')}${timebox('off','VYPNOUT / ZAVŘÍT')}</div><p class="hint">Časové pásmo: ${e(this.info?.time_zone)}. Obě akce platí pro vybrané kalendářní dny. Posun − znamená před sluneční událostí, + po ní.</p>${d.conditions.length?`<div class="plan-conditions"><strong>Podmínky plánu</strong>${d.conditions.map((c,i)=>`<label class="condition-option"><input type="checkbox" data-condition="${i}" checked>${e(this.name(c.entity_id))} musí být ${c.value==='on'?'zapnuto':'vypnuto'}</label>`).join('')}</div>`:''}<div class="section-label">03 / Co má časovač ovládat</div><label>Vyhledat podle názvu nebo ID<input id="target-search" type="search" placeholder="Například: světla obývák" aria-describedby="target-help"></label><div class="target-summary"><strong id="target-count" role="status" aria-live="polite" aria-atomic="true"></strong><span id="target-results"></span></div><p class="hint" id="target-help">Vybraná zařízení jsou vždy nahoře, i během hledání.</p><div class="target-list" role="group" aria-label="Zařízení časovače"></div><div id="parameters"></div><p class="form-error" role="alert"></p></div><div class="form-actions"><small>Ukládá se přímo do Home Assistantu</small><button type="button" data-action="close">Zrušit</button><button type="submit" class="primary">${s?'Uložit změny':'Vytvořit časovač'}</button></div></form>`;
+    this.$('dialog').innerHTML=`<form><div class="dialog-head"><div><div class="eyebrow">JEDEN PLÁN. VŠECHNO POHROMADĚ.</div><h2 id="dialog-title">${s?'Upravit časovač':'Nový časovač'}</h2></div><button type="button" class="icon" data-action="close" aria-label="Zavřít">${icon('close')}</button></div><div class="form-body"><label>Název časovače<input name="name" required maxlength="100" placeholder="Například: Ranní osvětlení" value="${e(d.name)}" autofocus></label><div class="form-grid group-picker"><label>Skupina časovačů<select name="group"><option value="">Bez skupiny</option>${this.groupOptions.map((name,i)=>`<option value="${i}">${e(name)}</option>`).join('')}<option value="new">+ Nová skupina</option></select></label><label id="new-group-label" hidden>Název nové skupiny<input name="new-group" maxlength="60" placeholder="Například: Rybičky"></label></div><div class="section-label">01 / Kdy se má spustit</div><div class="form-grid"><label>Opakování<select name="repeat"><option value="weekly">Vybrané dny v týdnu</option><option value="date">Jednou v konkrétní den</option></select></label><label id="date-label" hidden>Datum<input name="date" type="date" min="${this.today}" value="${e(d.date)}"></label></div><div id="weekdays"><div class="presets" style="margin-top:14px"><button type="button" data-days="all">Každý den</button><button type="button" data-days="work">Po–Pá</button><button type="button" data-days="weekend">Víkend</button></div><div class="day-picker">${DAYS.map((day,i)=>`<button type="button" data-day="${day}" aria-pressed="${d.days.includes(day)}">${DAY_NAMES[i]}</button>`).join('')}</div></div><div class="section-label">02 / Zapnutí a vypnutí</div><div class="form-grid">${timebox('on','ZAPNOUT / OTEVŘÍT')}${timebox('off','VYPNOUT / ZAVŘÍT')}</div><p class="hint">Časové pásmo: ${e(this.info?.time_zone)}. Obě akce platí pro vybrané kalendářní dny. Posun − znamená před sluneční událostí, + po ní.</p>${d.conditions.length?`<div class="plan-conditions"><strong>Podmínky plánu</strong>${d.conditions.map((c,i)=>`<label class="condition-option"><input type="checkbox" data-condition="${i}" checked>${e(this.name(c.entity_id))} musí být ${c.value==='on'?'zapnuto':'vypnuto'}</label>`).join('')}</div>`:''}<div class="section-label">03 / Co má časovač ovládat</div><details class="virtual-helper"><summary>+ Vytvořit virtuální přepínač</summary><p class="hint">Vlastní přepínač pro časovače a automatizace. Vytvoří se hned a zůstane v Home Assistantu i po zrušení tohoto formuláře.</p><div class="helper-create"><label>Název virtuálního přepínače<input id="helper-name" maxlength="100" placeholder="Například: Půda – noční režim"></label><button type="button" id="create-helper">Vytvořit a vybrat</button></div><p class="helper-result" role="status" aria-live="polite"></p></details><label>Vyhledat podle názvu nebo ID<input id="target-search" type="search" placeholder="Například: světla obývák" aria-describedby="target-help"></label><div class="target-summary"><strong id="target-count" role="status" aria-live="polite" aria-atomic="true"></strong><span id="target-results"></span></div><p class="hint" id="target-help">Vybraná zařízení jsou vždy nahoře, i během hledání.</p><div class="target-list" role="group" aria-label="Zařízení časovače"></div><div id="parameters"></div><p class="form-error" role="alert"></p></div><div class="form-actions"><small>Ukládá se přímo do Home Assistantu</small><button type="button" data-action="close">Zrušit</button><button type="submit" class="primary">${s?'Uložit změny':'Vytvořit časovač'}</button></div></form>`;
     for(const phase of ['on','off']){this.$(`[data-phase="${phase}"][data-field="mode"]`).value=d[phase].mode;this.showTimeInputs(phase);}
     this.$('[name=repeat]').value=d.date?'date':'weekly';this.showRepeat();
     this.$('[name=repeat]').onchange=()=>this.showRepeat();
     this.shadowRoot.querySelectorAll('[data-phase]').forEach(input=>input.onchange=()=>{d[input.dataset.phase][input.dataset.field]=input.value;this.showTimeInputs(input.dataset.phase);});
     this.shadowRoot.querySelectorAll('[data-day]').forEach(button=>button.onclick=()=>{d.days=d.days.includes(button.dataset.day)?d.days.filter(x=>x!==button.dataset.day):[...d.days,button.dataset.day];this.showDays();});
     this.shadowRoot.querySelectorAll('[data-days]').forEach(button=>button.onclick=()=>{d.days=button.dataset.days==='all'?[...DAYS]:button.dataset.days==='work'?DAYS.slice(0,5):DAYS.slice(5);this.showDays();});
+    this.$('[name=group]').value=d.group?String(this.groupOptions.indexOf(d.group)):'';
+    this.$('[name=group]').onchange=()=>{const fresh=this.$('[name=group]').value==='new';this.$('#new-group-label').hidden=!fresh;this.$('[name=new-group]').required=fresh;};
+    this.$('#create-helper').onclick=()=>this.createHelper();
+    this.$('#helper-name').onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();this.createHelper();}};
     this.$('#target-search').oninput=()=>this.renderTargets();
     this.shadowRoot.querySelectorAll('[data-condition]').forEach(input=>input.onchange=()=>d.conditions[Number(input.dataset.condition)].enabled=input.checked);
     this.renderTargets();this.renderParameters();
@@ -158,6 +163,7 @@ class WorkFlowTimers extends HTMLElement {
     const choices=targetChoices(this._hass.states,this.draft.targets.map(t=>t.id),(this.allSchedules||this.schedules).map(s=>s.entity_id),query);
     this.$('#target-count').textContent=`Vybráno zařízení: ${choices.selected.length}`;
     this.$('#target-results').textContent=query.trim()?`Další shody: ${choices.available.length}`:`K dispozici: ${choices.total}`;
+    for(const item of choices.selected)if(item.missing && this.createdHelperNames?.[item.id])item.name=this.createdHelperNames[item.id];
     const option=(item,checked)=>`<label class="target-option ${checked?'selected':''}"><input type="checkbox" data-target="${e(item.id)}" aria-label="${e(item.name)}" aria-describedby="target-id-${e(item.id)}" ${checked?'checked':''}><span class="target-text"><strong>${e(item.name)}</strong><small id="target-id-${e(item.id)}">${e(item.id)}${item.missing?' · nyní nedostupné':''}</small></span>${checked?'<span class="target-selected" aria-hidden="true">Vybráno</span>':''}</label>`;
     this.$('.target-list').innerHTML=(choices.selected.length?`<div class="target-group">Vybraná zařízení · ${choices.selected.length}</div>${choices.selected.map(item=>option(item,true)).join('')}`:'')+`<div class="target-group">${query.trim()?'Výsledky hledání':'Další zařízení · podle názvu'}</div>`+(choices.available.map(item=>option(item,false)).join('')||'<p class="target-empty">Žádné další odpovídající zařízení.</p>');
     this.$('.target-list').scrollTop=0;
@@ -175,11 +181,26 @@ class WorkFlowTimers extends HTMLElement {
     this.shadowRoot.querySelectorAll('[data-level]').forEach(input=>input.oninput=()=>{const t=this.draft.targets[Number(input.dataset.level)],key=t.id.startsWith('light.')?'brightness_pct':'percentage';if(typeof t.on==='string'){try{t.on=JSON.parse(t.on);}catch{return;}}if(input.value==='')delete t.on[key];else t.on[key]=Number(input.value);this.$(`[data-param="on"][data-index="${input.dataset.level}"]`).value=JSON.stringify(t.on,null,2);});
     this.shadowRoot.querySelectorAll('[data-param]').forEach(input=>input.oninput=()=>{this.draft.targets[Number(input.dataset.index)][input.dataset.param]=input.value;});
   }
+  async createHelper(){
+    if(!this.canWrite)return;
+    const input=this.$('#helper-name'),button=this.$('#create-helper'),result=this.$('.helper-result'),submit=this.$('[type=submit]');
+    this.busy=true;button.disabled=true;submit.disabled=true;input.disabled=true;result.textContent='Vytvářím přepínač…';
+    try{
+      const helper=await createVirtualSwitch(this._hass,input.value);
+      this.createdHelperNames={...this.createdHelperNames,[helper.id]:helper.name};
+      if(!this.draft.targets.some(t=>t.id===helper.id))this.draft.targets.push({id:helper.id,on:{},off:{}});
+      input.value='';this.renderTargets();this.renderParameters();
+      result.textContent=`Vytvořeno a vybráno: ${helper.name} · ${helper.id}`;
+    }catch(error){result.textContent=error.message || 'Vytvoření se nepotvrdilo. Před dalším pokusem vyhledejte přepínač podle názvu.';}
+    finally{this.busy=false;button.disabled=false;submit.disabled=false;input.disabled=false;this.render();}
+  }
   async saveEditor(){
     if(this.busy)return;
     const error=this.$('.form-error'),submit=this.$('[type=submit]');error.textContent='';
     try{
       this.draft.name=this.$('[name=name]').value;this.draft.date=this.$('[name=repeat]').value==='date'?this.$('[name=date]').value:'';
+      const group=this.$('[name=group]').value;this.draft.group=group==='new'?this.$('[name=new-group]').value:group===''?'':this.groupOptions[Number(group)];
+      if(group==='new' && !this.draft.group.trim())throw Error('Zadejte název nové skupiny.');
       const payload=buildSchedule(this.draft,this.editing);
       if(this.draft.date && this.draft.date<this.today)throw Error('Vyberte dnešní nebo budoucí datum.');
       this.busy=true;submit.disabled=true;

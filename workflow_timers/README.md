@@ -17,6 +17,8 @@ then runs inside Home Assistant Core, including when browsers are closed.
 - Lights, switches, fans, input booleans and covers; multiple targets in one plan.
 - Per-target brightness/fan percentage and optional JSON service parameters.
 - Enable/disable a plan, or skip today's activation while retaining its off action.
+- Related timers grouped under a shared heading, with group selection in the editor.
+- Create named virtual switches (native input boolean helpers) directly in the editor.
 - Actual target states, search, filters, edit mode and a responsive layout.
 
 ## Install from the existing repository

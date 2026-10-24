@@ -1,4 +1,4 @@
-import '../www/workflow-timers/workflow-timers.js?v=1.0.3';
+import '../www/workflow-timers/workflow-timers.js?v=1.0.4';
 import {buildSchedule,DAYS,localDate,SKIP} from '../www/workflow-timers/model.js';
 const states={
  'light.aquarium':{state:'on',attributes:{friendly_name:'Osvětlení akvária'}},
@@ -11,6 +11,7 @@ const states={
  'light.0x00158d000000a1b2':{state:'off',attributes:{friendly_name:'Obývák · stojací lampa'}},
  'sun.sun':{state:'above_horizon',attributes:{}},
 };
+try{Object.assign(states,JSON.parse(localStorage.getItem('workflow-timers-demo-helpers') || '{}'));}catch{}
 // Optional large fictional inventory for checking selection and search behavior.
 if(new URLSearchParams(location.search).has('many')){
  for(let i=1;i<=400;i++)states['light.0x'+(0x100000+i).toString(16)]={state:'off',attributes:{friendly_name:'Zkušební světlo '+i}};
@@ -32,7 +33,15 @@ const listeners=new Set();
 function save(){localStorage.setItem('workflow-timers-demo',JSON.stringify(schedules));listeners.forEach(fn=>fn());}
 const hass={states,config:{time_zone:'Europe/Prague'},user:{is_admin:true},connection:{subscribeEvents:async fn=>{listeners.add(fn);return ()=>listeners.delete(fn);}},
  async callWS(msg){
-   if(msg.type==='scheduler/workflow_info')return {version:'1.0.3',today:localDate('Europe/Prague'),time_zone:'Europe/Prague'};
+   if(msg.type==='input_boolean/create'){
+     const base=msg.name.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'') || 'prepinac';
+     let id=base,n=2;while(states['input_boolean.'+id])id=base+'_'+n++;
+     states['input_boolean.'+id]={state:'off',attributes:{friendly_name:msg.name}};
+     localStorage.setItem('workflow-timers-demo-helpers',JSON.stringify(Object.fromEntries(Object.entries(states).filter(([id])=>id.startsWith('input_boolean.')))));
+     return {id,name:msg.name};
+   }
+   if(msg.type==='config/entity_registry/list')return Object.keys(states).filter(id=>id.startsWith('input_boolean.')).map(id=>({platform:'input_boolean',unique_id:id.split('.')[1],entity_id:id}));
+   if(msg.type==='scheduler/workflow_info')return {version:'1.0.4',today:localDate('Europe/Prague'),time_zone:'Europe/Prague'};
    if(msg.type==='scheduler')return structuredClone(schedules);
    const s=schedules.find(s=>s.schedule_id===msg.schedule_id);
    if(msg.type==='scheduler/item')return structuredClone(s);
@@ -49,4 +58,4 @@ const hass={states,config:{time_zone:'Europe/Prague'},user:{is_admin:true},conne
  }
 };
 const card=document.querySelector('workflow-timers-card');card.setConfig({title:'Časovače'});card.hass=hass;card.shadowRoot.querySelector('.demo').hidden=false;
-document.querySelector('#reset').onclick=()=>{localStorage.removeItem('workflow-timers-demo');location.reload();};
+document.querySelector('#reset').onclick=()=>{localStorage.removeItem('workflow-timers-demo');localStorage.removeItem('workflow-timers-demo-helpers');location.reload();};

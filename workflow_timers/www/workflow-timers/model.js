@@ -1,5 +1,26 @@
 export const TAG = 'workflow-timers:v1';
 export const SKIP = 'workflow-skip:';
+export const GROUP = 'workflow-group:';
+export const groupName = s => (s.tags || []).find(tag=>tag.startsWith(GROUP))?.slice(GROUP.length) || '';
+export function groupedSchedules(schedules) {
+  const groups=new Map();
+  for(const s of schedules){const name=groupName(s);if(!groups.has(name))groups.set(name,[]);groups.get(name).push(s);}
+  return [...groups].sort(([a],[b])=>a===''?1:b===''?-1:0);
+}
+export async function createVirtualSwitch(hass, name) {
+  name=name.trim();
+  if(!name || name.length>100)throw Error('Zadejte název přepínače (1 až 100 znaků).');
+  if(!hass.user?.is_admin)throw Error('Přepínač může vytvořit jen správce.');
+  const helper=await hass.callWS({type:'input_boolean/create',name,icon:'mdi:toggle-switch-outline'});
+  try {
+    const registry=await hass.callWS({type:'config/entity_registry/list'});
+    const entity=registry.find(e=>e.platform==='input_boolean' && e.unique_id===helper.id && e.entity_id.startsWith('input_boolean.'));
+    if(!entity)throw Error('Entita ještě není dostupná.');
+    return {id:entity.entity_id,name:helper.name};
+  } catch(error) {
+    throw Error(`Přepínač „${name}“ byl vytvořen, ale nepodařilo se jej automaticky vybrat. Vyhledejte jej podle názvu v seznamu zařízení.`,{cause:error});
+  }
+}
 export const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
 export const DAY_NAMES = ['Po','Út','St','Čt','Pá','So','Ne'];
 export const DOMAINS = ['light','switch','fan','input_boolean','cover'];
@@ -71,6 +92,8 @@ export function buildSchedule(draft, old) {
   if (old && !editable(old)) throw Error('Tento plán má jiný formát. Upravte jej v původní kartě Scheduler.');
   const name = draft.name.trim();
   if (!name || name.length>100) throw Error('Název musí mít 1 až 100 znaků.');
+  const group=(draft.group || '').trim();
+  if(group.length>60 || /[\u0000-\u001f]/.test(group))throw Error('Název skupiny musí mít nejvýše 60 znaků a být na jednom řádku.');
   if (!draft.targets.length) throw Error('Vyberte alespoň jedno zařízení.');
   const ids = draft.targets.map(t=>t.id);
   if (new Set(ids).size!==ids.length || ids.some(id=>!/^\w+\.\w+$/.test(id) || !DOMAINS.includes(id.split('.')[0]))) throw Error('Neplatný nebo duplicitní cíl.');
@@ -87,11 +110,11 @@ export function buildSchedule(draft, old) {
   return {
     name, weekdays:draft.date || draft.days.length===7?['daily']:draft.days,
     start_date:draft.date || null, end_date:draft.date || null, repeat_type:draft.date?'pause':'repeat',
-    tags:[...new Set([...(old?.tags || []),TAG])],
+    tags:[...new Set([...(old?.tags || []).filter(tag=>!tag.startsWith(GROUP) || (group && tag===GROUP+group)),TAG,...(group?[GROUP+group]:[])])],
     timeslots:[on,off].map((start,i)=>({start,...(conditions.length?{conditions,condition_type:'and'}:{}),actions:draft.targets.filter(t=>t[i===0?'onEnabled':'offEnabled']!==false).map(t=>({entity_id:t.id,service:service(t.id,i===0),service_data:parameters(i===0?t.on:t.off)}))})),
   };
 }
 export function toDraft(s) {
-  if (!s) return {name:'',days:[...DAYS],date:'',on:parseTime('07:00:00'),off:parseTime('09:00:00'),targets:[],conditions:[]};
-  return {name:s.name, days:s.weekdays.includes('daily')?[...DAYS]:[...s.weekdays],date:s.start_date===s.end_date?s.start_date||'':'',on:parseTime(s.timeslots[0].start),off:parseTime(s.timeslots[1].start),conditions:slotConditions(s.timeslots[0]),targets:entityIds(s).map(id=>({id,onEnabled:s.timeslots[0].actions.some(a=>a.entity_id===id),offEnabled:s.timeslots[1].actions.some(a=>a.entity_id===id),on:s.timeslots[0].actions.find(a=>a.entity_id===id)?.service_data || {},off:s.timeslots[1].actions.find(a=>a.entity_id===id)?.service_data || {}}))};
+  if (!s) return {name:'',group:'',days:[...DAYS],date:'',on:parseTime('07:00:00'),off:parseTime('09:00:00'),targets:[],conditions:[]};
+  return {name:s.name,group:groupName(s), days:s.weekdays.includes('daily')?[...DAYS]:[...s.weekdays],date:s.start_date===s.end_date?s.start_date||'':'',on:parseTime(s.timeslots[0].start),off:parseTime(s.timeslots[1].start),conditions:slotConditions(s.timeslots[0]),targets:entityIds(s).map(id=>({id,onEnabled:s.timeslots[0].actions.some(a=>a.entity_id===id),offEnabled:s.timeslots[1].actions.some(a=>a.entity_id===id),on:s.timeslots[0].actions.find(a=>a.entity_id===id)?.service_data || {},off:s.timeslots[1].actions.find(a=>a.entity_id===id)?.service_data || {}}))};
 }
