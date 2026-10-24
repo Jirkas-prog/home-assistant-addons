@@ -1,6 +1,6 @@
 # Home Assistant Add-ons
 
-Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas** and **Knowledge Atlas Dev**.
+Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev** and **WorkFlow Timers**.
 
 ## Add this repository to Home Assistant
 
@@ -8,6 +8,10 @@ Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge At
 2. Open the menu and select **Repositories**.
 3. Add `https://github.com/Jirkas-prog/home-assistant-addons`.
 4. Select the add-on you want to install.
+
+## WorkFlow Timers
+
+[WorkFlow Timers](workflow_timers/README.md) installs a Czech timer panel and dashboard card based on Scheduler. Create multi-device plans with on/off times, weekdays, calendar dates and sun offsets, without Node-RED wiring. It includes persistent skip-today controls and actual device states. Start the one-shot installer, restart Home Assistant Core, then add the Scheduler integration; the timer page appears in the sidebar. Version 1.0.0 is experimental. See the [installation and dashboard guide](workflow_timers/DOCS.md).
 
 ## Knowledge Atlas
 

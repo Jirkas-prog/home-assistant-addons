@@ -1,0 +1,19 @@
+name: WorkFlow Timers
+slug: workflow_timers
+version: "1.0.0"
+description: Install the WorkFlow timer panel and dashboard card, powered by Scheduler
+url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/workflow_timers
+arch:
+  - amd64
+  - aarch64
+startup: once
+boot: manual
+init: false
+stage: experimental
+map:
+  - type: homeassistant_config
+    read_only: false
+options:
+  replace_existing_scheduler: false
+schema:
+  replace_existing_scheduler: bool

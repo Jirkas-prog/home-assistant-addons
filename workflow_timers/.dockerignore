@@ -1,0 +1,9 @@
+upstream-scheduler
+preview
+tests
+releases
+.qa
+**/__pycache__
+**/*.pyc
+**/*.log
+.git

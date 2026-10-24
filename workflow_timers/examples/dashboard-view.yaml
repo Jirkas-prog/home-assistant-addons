@@ -1,0 +1,8 @@
+# Paste this view into an existing dashboard's views list.
+title: Časovače
+path: casovace
+icon: mdi:timer-outline
+type: panel
+cards:
+  - type: custom:workflow-timers-card
+    title: Časovače
