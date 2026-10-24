@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.0.2
+
+- Preserve shared on/off state conditions when editing imported schedules.
+- Support per-device on-only and off-only actions without adding unintended actions during edits.
+
 ## 1.0.1
 
 - Made device names prominent, with secondary entity IDs and accent-insensitive search by either.

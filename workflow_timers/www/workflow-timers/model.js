@@ -51,10 +51,13 @@ export function dayLabel(s) {
 export const isManaged = s => (s.tags || []).includes(TAG);
 export const isSkipped = (s,today) => (s.tags || []).includes(SKIP+today);
 export const entityIds = s => [...new Set((s.timeslots||[]).flatMap(t=>t.actions.map(a=>a.entity_id).filter(Boolean)))];
+const slotConditions = slot => (slot.conditions || []).map(c=>({entity_id:c.entity_id,match_type:c.match_type,value:c.value}));
+const simpleCondition = c => /^\w+\.\w+$/.test(c.entity_id) && !c.attribute && c.match_type==='is' && ['on','off'].includes(c.value);
 export function editable(s) {
   return isManaged(s) && ['repeat','pause'].includes(s.repeat_type) && s.start_date===s.end_date
     && s.weekdays.every(d=>d==='daily'||DAYS.includes(d))
-    && s.timeslots?.length===2 && s.timeslots.every(t=>!t.stop && !t.conditions?.length && t.actions.length>0)
+    && s.timeslots?.length===2 && s.timeslots.every(t=>!t.stop && !t.track_conditions && (!t.condition_type || t.condition_type==='and') && (t.conditions || []).every(simpleCondition) && t.actions.length>0)
+    && JSON.stringify(slotConditions(s.timeslots[0]))===JSON.stringify(slotConditions(s.timeslots[1]))
     && s.timeslots.every((t,i)=>t.actions.every(a=>DOMAINS.includes(a.entity_id?.split('.')[0]) && a.service===service(a.entity_id,i===0)));
 }
 function service(id,on) {const domain=id.split('.')[0];return `${domain}.${domain==='cover'?(on?'open_cover':'close_cover'):(on?'turn_on':'turn_off')}`;}
@@ -71,6 +74,10 @@ export function buildSchedule(draft, old) {
   if (!draft.targets.length) throw Error('Vyberte alespoň jedno zařízení.');
   const ids = draft.targets.map(t=>t.id);
   if (new Set(ids).size!==ids.length || ids.some(id=>!/^\w+\.\w+$/.test(id) || !DOMAINS.includes(id.split('.')[0]))) throw Error('Neplatný nebo duplicitní cíl.');
+  if (draft.targets.some(t=>t.onEnabled===false && t.offEnabled===false)) throw Error('U každého zařízení vyberte zapnutí, vypnutí, nebo obojí.');
+  const conditions=(draft.conditions || []).filter(c=>c.enabled!==false).map(({entity_id,match_type,value})=>({entity_id,match_type,value}));
+  if (!conditions.every(simpleCondition)) throw Error('Neplatná podmínka plánu.');
+  if (['onEnabled','offEnabled'].some(key=>!draft.targets.some(t=>t[key]!==false))) throw Error('Pro každý čas vyberte alespoň jednu akci.');
   const on = encodeTime(draft.on), off = encodeTime(draft.off);
   if (on===off) throw Error('Zapnutí a vypnutí musí mít rozdílné časy.');
   if (draft.on.mode==='time' && draft.off.mode==='time' && on>off && draft.days.length!==7) throw Error('Pro čas přes půlnoc vyberte každý den. Obě akce jinak platí jen pro označené dny.');
@@ -81,10 +88,10 @@ export function buildSchedule(draft, old) {
     name, weekdays:draft.date || draft.days.length===7?['daily']:draft.days,
     start_date:draft.date || null, end_date:draft.date || null, repeat_type:draft.date?'pause':'repeat',
     tags:[...new Set([...(old?.tags || []),TAG])],
-    timeslots:[on,off].map((start,i)=>({start,actions:draft.targets.map(t=>({entity_id:t.id,service:service(t.id,i===0),service_data:parameters(i===0?t.on:t.off)}))})),
+    timeslots:[on,off].map((start,i)=>({start,...(conditions.length?{conditions,condition_type:'and'}:{}),actions:draft.targets.filter(t=>t[i===0?'onEnabled':'offEnabled']!==false).map(t=>({entity_id:t.id,service:service(t.id,i===0),service_data:parameters(i===0?t.on:t.off)}))})),
   };
 }
 export function toDraft(s) {
-  if (!s) return {name:'',days:[...DAYS],date:'',on:parseTime('07:00:00'),off:parseTime('09:00:00'),targets:[]};
-  return {name:s.name, days:s.weekdays.includes('daily')?[...DAYS]:[...s.weekdays],date:s.start_date===s.end_date?s.start_date||'':'',on:parseTime(s.timeslots[0].start),off:parseTime(s.timeslots[1].start),targets:entityIds(s).map(id=>({id,on:s.timeslots[0].actions.find(a=>a.entity_id===id)?.service_data || {},off:s.timeslots[1].actions.find(a=>a.entity_id===id)?.service_data || {}}))};
+  if (!s) return {name:'',days:[...DAYS],date:'',on:parseTime('07:00:00'),off:parseTime('09:00:00'),targets:[],conditions:[]};
+  return {name:s.name, days:s.weekdays.includes('daily')?[...DAYS]:[...s.weekdays],date:s.start_date===s.end_date?s.start_date||'':'',on:parseTime(s.timeslots[0].start),off:parseTime(s.timeslots[1].start),conditions:slotConditions(s.timeslots[0]),targets:entityIds(s).map(id=>({id,onEnabled:s.timeslots[0].actions.some(a=>a.entity_id===id),offEnabled:s.timeslots[1].actions.some(a=>a.entity_id===id),on:s.timeslots[0].actions.find(a=>a.entity_id===id)?.service_data || {},off:s.timeslots[1].actions.find(a=>a.entity_id===id)?.service_data || {}}))};
 }

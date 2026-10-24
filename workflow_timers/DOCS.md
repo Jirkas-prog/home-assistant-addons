@@ -7,7 +7,7 @@ use the card in dashboards:
 
 1. Enable Advanced mode in your Home Assistant user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources → Add resource**.
-3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.1`; type: **JavaScript Module**.
+3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.2`; type: **JavaScript Module**.
 4. In the desired dashboard, create a view with layout **Panel (1 card)**.
 5. Add a manual card:
 
@@ -112,3 +112,8 @@ entity to name order (or hides it when it does not match the current search).
 
 Dropdowns use native keyboard behavior with an application-themed picker where
 customizable select is supported. Other browsers retain their native picker.
+
+Imported plans may include shared on/off state conditions. The editor shows them
+under Conditions and preserves them unless unchecked. Per-device checkboxes select
+which of the two scheduled actions applies; this supports off-only companion
+devices while retaining at least one action at each scheduled time.

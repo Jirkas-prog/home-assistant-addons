@@ -14,7 +14,7 @@ from .workflow_rules import MANAGED_TAG, SKIP_PREFIX
 @callback
 def websocket_info(hass, connection, msg):
     connection.send_result(msg["id"], {
-        "version": "1.0.1",
+        "version": "1.0.2",
         "today": dt_util.now().date().isoformat(),
         "time_zone": hass.config.time_zone,
     })
@@ -58,6 +58,6 @@ async def async_setup_workflow(hass):
         webcomponent_name="workflow-timers-panel",
         sidebar_title="Časovače",
         sidebar_icon="mdi:timer-outline",
-        module_url="/local/workflow-timers/workflow-timers.js?v=1.0.1",
+        module_url="/local/workflow-timers/workflow-timers.js?v=1.0.2",
         trust_external=True,
     )

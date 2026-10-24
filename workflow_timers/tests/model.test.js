@@ -40,6 +40,22 @@ test('sun offsets, date-only plans and HA timezone dates',()=>{
   const d=toDraft();d.name='One day';d.date='2026-12-01';d.targets=[{id:'cover.blind',on:{},off:{}}];
   const s=buildSchedule(d);assert.equal(s.start_date,s.end_date);assert.equal(s.repeat_type,'pause');assert.equal(s.timeslots[1].actions[0].service,'cover.close_cover');
 });
+test('editing preserves shared enable conditions and a device that only turns off',()=>{
+  const d=toDraft();d.name='Aquarium';
+  d.targets=[{id:'switch.light',on:{},off:{}},{id:'switch.air',onEnabled:false,offEnabled:true,on:{},off:{}}];
+  d.conditions=[{entity_id:'input_boolean.aquarium_enabled',match_type:'is',value:'on'}];
+  const s=buildSchedule(d);
+  assert.equal(editable(s),true);
+  assert.deepEqual(s.timeslots[0].actions.map(a=>a.entity_id),['switch.light']);
+  assert.deepEqual(s.timeslots[1].actions.map(a=>a.entity_id),['switch.light','switch.air']);
+  assert.deepEqual(buildSchedule(toDraft(s),s),s);
+  const edited=toDraft(s);edited.conditions[0].enabled=false;
+  assert.equal(buildSchedule(edited,s).timeslots[0].conditions,undefined);
+  const asymmetric=structuredClone(s);asymmetric.timeslots[1].conditions=[];
+  assert.equal(editable(asymmetric),false);
+  const invalid=toDraft(s);invalid.targets[0].onEnabled=false;
+  assert.throws(()=>buildSchedule(invalid,s));
+});
 test('invalid or destructive inputs are rejected',()=>{
   const d=toDraft();d.name='Test';d.targets=[{id:'light.desk',on:{},off:{}}];
   assert.throws(()=>buildSchedule({...d,days:[]}));
