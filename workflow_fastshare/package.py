@@ -6,7 +6,7 @@ import zipfile
 root = Path(__file__).resolve().parent
 destination = root / 'releases'
 destination.mkdir(exist_ok=True)
-path = destination / 'workflow_fastshare-1.1.2.zip'
+path = destination / 'workflow_fastshare-1.2.0.zip'
 names = ['config.yaml', 'Dockerfile', '.dockerignore', 'requirements.txt', 'README.md', 'DOCS.md', 'CHANGELOG.md']
 files = [root / name for name in names]
 files += sorted((root / 'fastshare_app').glob('*.py'))

@@ -7,7 +7,7 @@ import time
 import requests
 import websocket
 
-RESOURCE = '/local/workflow-fastshare/workflow-fastshare.js?v=1.1.2'
+RESOURCE = '/local/workflow-fastshare/workflow-fastshare.js?v=1.2.0'
 
 
 class HomeAssistant:
@@ -43,6 +43,21 @@ class HomeAssistant:
         finally:
             socket.close()
 
+    def supervisor(self, method, path, data=None, timeout=20):
+        token = os.environ.get('SUPERVISOR_TOKEN')
+        if not token:
+            raise ValueError('This feature is available after installation in Home Assistant.')
+        try:
+            response = requests.request(method, 'http://supervisor' + path,
+                                        headers={'Authorization': 'Bearer ' + token}, json=data, timeout=timeout)
+            response.raise_for_status()
+            result = response.json()
+            if result.get('result') != 'ok':
+                raise ValueError('Supervisor rejected the request.')
+            return result.get('data', {})
+        except (requests.RequestException, ValueError):
+            raise ValueError('Home Assistant could not apply the port. Check for a port conflict and try again.') from None
+
     def install_resource(self):
         root = Path('/homeassistant/www/workflow-fastshare')
         root.mkdir(parents=True, exist_ok=True)
@@ -67,7 +82,7 @@ class HomeAssistant:
         rows = self.commands(lambda call: call('lovelace/dashboards/list'))
         return [{'title': 'Overview', 'url_path': None}] + [r for r in rows if r.get('mode') == 'storage']
 
-    def add_view(self, dashboard):
+    def add_view(self, dashboard, rows='auto'):
         self.install_resource()
 
         def install(call):
@@ -84,7 +99,7 @@ class HomeAssistant:
             updated['views'].append({'title': 'FastShare', 'path': 'fastshare', 'icon': 'mdi:cloud-download',
                                      'type': 'sections', 'max_columns': 2, 'sections': [{'type': 'grid', 'cards': [
                                          {'type': 'custom:workflow-fastshare-card', 'title': 'FastShare',
-                                          'addon': self.slug, 'grid_options': {'columns': 12, 'rows': 'auto'}}
+                                          'addon': self.slug, 'rows': rows, 'grid_options': {'columns': 12, 'rows': rows}}
                                      ]}]})
             if call('lovelace/config', **args) != config:
                 raise ValueError('The dashboard changed in the meantime. Try again.')

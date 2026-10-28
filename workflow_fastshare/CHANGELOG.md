@@ -1,3 +1,13 @@
+# 1.2.0
+
+- Persistent queue ordering, one-slot priority and exclusive downloads with automatic return to normal limits.
+- Local video library with search, folder filters, direct browser playback, byte-range seeking, saved position and sidecar subtitles.
+- Optional authenticated LAN web with a configurable port and address, one-use Home Assistant sign-in links and optional password.
+- Automatic port mapping and app restart; existing Ingress access stays available.
+- Dashboard card Auto / 2 / 3 / 4 row layouts and a visual card editor.
+- Green dropdown highlights, English defaults and Czech translations for the new interface.
+- Media path confinement, authentication, range and migration tests. No video transcoding dependency.
+
 # 1.1.2
 
 - Custom film-inbox illustration for an empty download queue.

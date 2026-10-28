@@ -6,4 +6,10 @@ MQTT is obtained automatically from the Supervisor. On **Dashboard card**, selec
 
 English is the default. Language selection persists for the app and card. New messages are monitored after the first successful check unless older messages are explicitly enabled. Messages are never deleted or marked as read.
 
+Open **Library & player** to play downloaded or existing videos. Add other folders under `/media` or `/share` in **Settings → Media library**. The player supports seeking, fullscreen, remembered position and matching SRT/VTT subtitle files. Files stream directly without conversion; MP4/H.264/AAC is broadly supported, other codecs depend on your browser.
+
+For a separate address, enable **Local web & player**, choose a port and optionally enter your own DNS name. Use **Open local web** to sign in once, or set a separate password for direct visits. Port changes restart the add-on. The DNS name must already resolve to Home Assistant; the add-on does not configure your DNS or remote access.
+
+The dashboard card supports **Auto / 2 / 3 / 4 rows**, selectable in the card editor. Compact sizes retain all counts and show zero, one or two transfers respectively. Auto grows with the content.
+
 See README.md for limits, configuration, backup and privacy details.

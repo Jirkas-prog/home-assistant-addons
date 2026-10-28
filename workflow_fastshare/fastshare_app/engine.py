@@ -5,6 +5,7 @@ from email.utils import parseaddr
 import hashlib
 from html import unescape
 import imaplib
+import json
 import os
 from pathlib import Path
 import re
@@ -47,6 +48,7 @@ class Engine:
         self.wake = threading.Event()
         self.lock = threading.RLock()
         self.active = {}
+        self.priority = json.loads(self.store.cursor('priority_override') or 'null')
         self.health = {'fastshare': None, 'email': None, 'email_message': 'Email is not configured.',
                        'fastshare_message': 'Checking connection…', 'mqtt': False, 'mqtt_message': 'Connecting…'}
         self.pool = ThreadPoolExecutor(max_workers=8, thread_name_prefix='download')
@@ -74,13 +76,30 @@ class Engine:
         self.wake.set()
         return job
 
-    def action(self, job_id, action):
+    def clear_priority(self):
+        with self.lock:
+            self.priority = None
+            self.store.cursor('priority_override', 'null')
+        self.wake.set()
+
+    def action(self, job_id, action, mode=None):
         with self.lock:
             rows = self.store.query('SELECT * FROM jobs WHERE id=?', (job_id,))
             if not rows:
                 raise ValueError('The job does not exist.')
             job = rows[0]
-            if action == 'cancel':
+            if action in ('up', 'down', 'first'):
+                self.store.move(job_id, action)
+            elif action == 'priority':
+                if mode not in ('slot', 'exclusive'):
+                    raise ValueError('Choose Free one slot or Download alone.')
+                if job['status'] not in ('queued', 'resolving', 'downloading'):
+                    raise ValueError('Only waiting or active files can be prioritized.')
+                self.priority = {'job_id': job_id, 'mode': mode}
+                self.store.cursor('priority_override', json.dumps(self.priority))
+                self.store.update(job_id, retry_at=0)
+                self.settings.save({'paused': False})
+            elif action == 'cancel':
                 if job['status'] == 'completed':
                     raise ValueError('The completed file remains on disk.')
                 self.store.update(job_id, status='cancelled', speed=0, eta=None, error='')
@@ -100,13 +119,19 @@ class Engine:
         config = self.settings.get()
         rows = self.store.query('SELECT * FROM jobs ORDER BY created DESC')
         live = [row for row in rows if row['status'] in ('downloading', 'resolving')]
-        waiting = [row for row in rows if row['status'] == 'queued']
-        visible = live + sorted(waiting, key=lambda row: row['created']) + [row for row in rows if row not in live and row not in waiting]
+        waiting = sorted((row for row in rows if row['status'] == 'queued'), key=lambda row: (row['queue_order'], row['id']))
+        positions = {row['id']: i + 1 for i, row in enumerate(waiting)}
+        visible = live + waiting + [row for row in rows if row not in live and row not in waiting]
+        with self.lock:
+            priority = dict(self.priority) if self.priority else None
+        if priority:
+            priority['name'] = next((row['name'] for row in rows if row['id'] == priority['job_id']), '')
         jobs = []
         for row in visible[:60]:
             item = {key: row[key] for key in ('id', 'file_id', 'name', 'source', 'status', 'total', 'downloaded', 'speed', 'eta', 'error', 'created', 'retry_at')}
             item['url'] = free_url(row['url']) if '/download.php?' in row['url'] else row['url']
             item['progress'] = min(100, round(row['downloaded'] / row['total'] * 100, 1)) if row['total'] else 0
+            item['queue_position'] = positions.get(row['id'])
             jobs.append(item)
         session = config['fastshare_session']
         estimates = [row['eta'] for row in live if row['eta'] is not None]
@@ -115,37 +140,71 @@ class Engine:
                 'completed': sum(row['status'] == 'completed' for row in rows),
                 'failed': sum(row['status'] in ('failed', 'needs_action') for row in rows),
                 'speed': round(sum(row['speed'] for row in live)), 'eta': max(estimates) if estimates else None,
-                'paused': config['paused'], 'limit': config['parallel_downloads'] if session else 1,
+                'paused': config['paused'], 'priority': priority,
+                'limit': 1 if priority and priority['mode'] == 'exclusive' else config['parallel_downloads'] if session else 1,
                 'account': {k: v for k, v in session.items() if k != 'token'},
                 'email_enabled': config['email_enabled'], 'jobs': jobs, 'total_jobs': len(rows)}
 
     def scheduler(self):
         while not self.stop.is_set():
-            config = self.settings.get()
-            with self.lock:
-                self.active = {key: value for key, value in self.active.items() if not value[1].done()}
-                if config['paused']:
-                    for event, _ in self.active.values():
-                        event.set()
-                else:
-                    limit = config['parallel_downloads'] if config['fastshare_session'] else 1
-                    for job in self.store.query("SELECT * FROM jobs WHERE status='queued' AND retry_at<=? ORDER BY created", (time.time(),)):
-                        if len(self.active) >= limit or self.stop.is_set():
-                            break
-                        if job['id'] in self.active:
-                            continue
-                        cancel = threading.Event()
-                        self.store.update(job['id'], status='resolving', error='', speed=0, eta=None)
-                        future = self.pool.submit(self.download, job, config, cancel)
-                        self.active[job['id']] = (cancel, future)
+            self.schedule()
             self.wake.wait(1)
             self.wake.clear()
+
+    def schedule(self):
+        with self.lock:
+            config = self.settings.get()
+            self.active = {key: value for key, value in self.active.items() if not value[1].done()}
+            target = None
+            if self.priority:
+                rows = self.store.query('SELECT * FROM jobs WHERE id=?', (self.priority['job_id'],))
+                target = rows[0] if rows else None
+                if not target or target['status'] not in ('queued', 'resolving', 'downloading'):
+                    self.clear_priority()
+                    target = None
+            if config['paused']:
+                for event, _ in self.active.values():
+                    event.set()
+                return
+            limit = config['parallel_downloads'] if config['fastshare_session'] else 1
+            exclusive = bool(target and self.priority['mode'] == 'exclusive')
+            if target:
+                others = [key for key in reversed(self.active) if key != target['id']]
+                if exclusive:
+                    victims = others
+                    limit = 1
+                elif target['id'] not in self.active and target['retry_at'] <= time.time():
+                    needed = max(0, len(self.active) - limit + 1)
+                    # An already stopping transfer frees a slot; don't stop another
+                    # transfer on each scheduler tick while waiting for that slot.
+                    needed -= sum(self.active[key][0].is_set() for key in others)
+                    victims = [key for key in others if not self.active[key][0].is_set()][:max(0, needed)]
+                else:
+                    victims = []
+                for key in victims:
+                    self.active[key][0].set()
+            waiting = self.store.query("SELECT * FROM jobs WHERE status='queued' AND retry_at<=? ORDER BY queue_order,id", (time.time(),))
+            if target:
+                waiting.sort(key=lambda job: job['id'] != target['id'])
+                if exclusive:
+                    waiting = [job for job in waiting if job['id'] == target['id']]
+            for job in waiting:
+                if len(self.active) >= limit or self.stop.is_set():
+                    break
+                if job['id'] in self.active:
+                    continue
+                cancel = threading.Event()
+                self.store.update(job['id'], status='resolving', error='', speed=0, eta=None)
+                future = self.pool.submit(self.download, job, config, cancel)
+                self.active[job['id']] = (cancel, future)
 
     def download(self, job, config, cancel):
         client = FastShare(config['fastshare_session'])
         response = None
         job_id = job['id']
         try:
+            if cancel.is_set() or self.stop.is_set():
+                return
             root = Path(config['download_dir']).resolve()
             root.mkdir(parents=True, exist_ok=True)
             target = Path(job['path']) if job['path'] else None
@@ -156,6 +215,8 @@ class Engine:
                 raise ProviderError('A partial file must not be a symbolic link.')
             offset = partial.stat().st_size if partial and partial.exists() else 0
             response, hint = client.download(job['url'], offset, job['validator'])
+            if cancel.is_set() or self.stop.is_set():
+                return
             if target is None:
                 name = response_name(response, hint)
                 base = Path(name)

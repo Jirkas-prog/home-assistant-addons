@@ -7,7 +7,7 @@ import threading
 import time
 
 from flask import Flask, Response, jsonify, request, send_from_directory
-from waitress import serve
+from waitress import create_server
 from werkzeug.exceptions import HTTPException
 
 from .engine import Engine
@@ -16,6 +16,8 @@ from .mqtt import Publisher
 from .provider import FastShare, ProviderError, safe_url
 from urllib.parse import urlsplit
 from .storage import Settings, Store
+from .media import install_media
+from .local_web import install_local_web, load_secret, lan_application, LAN_CONTAINER_PORT
 
 
 def create_app(directory=None, start=True):
@@ -28,6 +30,7 @@ def create_app(directory=None, start=True):
     ha = HomeAssistant(directory)
     publisher = Publisher(engine)
     web = Path(__file__).resolve().parent.parent / 'www'
+    secret = load_secret(directory)
     app = Flask(__name__, static_folder=None)
     app.config['MAX_CONTENT_LENGTH'] = 32 * 1024
     app.extensions.update(engine=engine, settings=settings, store=store, homeassistant=ha, publisher=publisher)
@@ -36,7 +39,7 @@ def create_app(directory=None, start=True):
     def access():
         # Trust only the actual TCP peer, never X-Forwarded-For supplied by clients.
         allowed = {'172.30.32.2'} if os.environ.get('SUPERVISOR_TOKEN') else {'127.0.0.1', '::1'}
-        if request.remote_addr not in allowed:
+        if not request.environ.get('fastshare.lan') and request.remote_addr not in allowed:
             return jsonify(error='Access this page through Home Assistant Ingress.'), 403
         if request.method not in ('GET', 'HEAD', 'OPTIONS'):
             if request.headers.get('X-FastShare-Request') != '1' or not request.is_json:
@@ -44,12 +47,15 @@ def create_app(directory=None, start=True):
             if not isinstance(request.get_json(silent=True), dict):
                 return jsonify(error='Expected a JSON object.'), 400
 
+    install_local_web(app, settings, ha, secret, web)
+    install_media(app, settings, secret)
+
     @app.after_request
     def headers(response):
         response.headers['Cache-Control'] = 'no-store'
         response.headers['X-Content-Type-Options'] = 'nosniff'
         response.headers['Referrer-Policy'] = 'same-origin'
-        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+        response.headers['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; media-src 'self'; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
         return response
 
     @app.errorhandler(Exception)
@@ -57,7 +63,7 @@ def create_app(directory=None, start=True):
         if isinstance(error, (ValueError, ProviderError)):
             return jsonify(error=str(error)), 400
         if isinstance(error, HTTPException):
-            return jsonify(error=error.name), error.code
+            return jsonify(error=error.description if error.code in (401, 429) else error.name), error.code
         # Exception strings may contain provider URLs with tokens or passwords.
         logging.error('Request failed (%s)', type(error).__name__)
         return jsonify(error='The operation failed. Check your connection and settings.'), 500
@@ -69,7 +75,7 @@ def create_app(directory=None, start=True):
 
     @app.get('/<name>')
     def assets(name):
-        if name not in {'app.js', 'style.css', 'workflow-fastshare.js', 'translations.js', 'cs.json', 'icon.svg'}:
+        if name not in {'app.js', 'player.js', 'local-login.js', 'style.css', 'workflow-fastshare.js', 'translations.js', 'cs.json', 'icon.svg'}:
             return jsonify(error='Nenalezeno.'), 404
         return send_from_directory(web, name)
 
@@ -156,7 +162,12 @@ def create_app(directory=None, start=True):
 
     @app.post('/api/jobs/<int:job_id>/<action>')
     def job_action(job_id, action):
-        engine.action(job_id, action)
+        engine.action(job_id, action, request.get_json().get('mode'))
+        return jsonify(ok=True)
+
+    @app.post('/api/priority-clear')
+    def clear_priority():
+        engine.clear_priority()
         return jsonify(ok=True)
 
     @app.post('/api/email-test')
@@ -177,7 +188,10 @@ def create_app(directory=None, start=True):
         path = request.get_json().get('dashboard') or None
         if path is not None and (not isinstance(path, str) or len(path) > 200):
             raise ValueError('Invalid dashboard.')
-        return jsonify(ha.add_view(path))
+        rows = request.get_json().get('rows', 'auto')
+        if str(rows) not in ('auto', '2', '3', '4'):
+            raise ValueError('Choose Auto or 2, 3, 4 rows.')
+        return jsonify(ha.add_view(path, 'auto' if rows == 'auto' else int(rows)))
 
     if start:
         engine.start()
@@ -200,15 +214,26 @@ def create_app(directory=None, start=True):
 
 if __name__ == '__main__':
     app = create_app()
+    servers = []
 
     def close(*args):
         app.extensions['engine'].close()
         app.extensions['publisher'].close()
+        for server in servers:
+            server.close()
         raise SystemExit(0)
 
     signal.signal(signal.SIGTERM, close)
     signal.signal(signal.SIGINT, close)
     logging.basicConfig(level=logging.INFO, format='%(levelname)s %(message)s')
     logging.getLogger('urllib3').setLevel(logging.WARNING)
-    serve(app, host='0.0.0.0' if os.environ.get('SUPERVISOR_TOKEN') else '127.0.0.1',
-          port=int(os.environ.get('PORT', '8099')), threads=8)
+    cfg = app.extensions['settings'].get()
+    server = create_server(app, host='0.0.0.0' if os.environ.get('SUPERVISOR_TOKEN') else '127.0.0.1',
+                           port=int(os.environ.get('PORT', '8099')), threads=12, map={})
+    servers.append(server)
+    if os.environ.get('SUPERVISOR_TOKEN') or cfg['lan_enabled']:
+        local_server = create_server(lan_application(app), host='0.0.0.0',
+                                     port=LAN_CONTAINER_PORT if os.environ.get('SUPERVISOR_TOKEN') else cfg['lan_port'], threads=12, map={})
+        servers.append(local_server)
+        threading.Thread(target=local_server.run, daemon=True).start()
+    server.run()

@@ -5,5 +5,5 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY fastshare_app ./fastshare_app
 COPY www ./www
-EXPOSE 8099
+EXPOSE 8099 8098
 CMD ["python", "-m", "fastshare_app.app"]
