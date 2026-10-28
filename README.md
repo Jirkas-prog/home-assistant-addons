@@ -1,6 +1,6 @@
 # Home Assistant Add-ons
 
-Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev** and **WorkFlow Timers**.
+Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev** **WorkFlow Timers** and **WorkFlow FastShare**.
 
 ## Add this repository to Home Assistant
 
@@ -8,6 +8,10 @@ Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge At
 2. Open the menu and select **Repositories**.
 3. Add `https://github.com/Jirkas-prog/home-assistant-addons`.
 4. Select the add-on you want to install.
+
+## WorkFlow FastShare
+
+[WorkFlow FastShare](workflow_fastshare/README.md) brings an email-triggered FastShare download queue, visual search with image previews, and a live MQTT dashboard card to Home Assistant. Configure everything in its own Ingress web interface and add the card to a dashboard with one action. English is the default; Czech can be selected in Settings. See the [setup guide](workflow_fastshare/DOCS.md).
 
 ## WorkFlow Timers
 

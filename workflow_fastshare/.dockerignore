@@ -1,0 +1,7 @@
+*
+!requirements.txt
+!fastshare_app/
+!fastshare_app/**
+!www/
+!www/**
+**/__pycache__
