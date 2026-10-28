@@ -13,6 +13,21 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 COOKIE = 'workflow_fastshare_session'
 LAN_CONTAINER_PORT = 8098
+VIEWER_CONTAINER_PORT = 8097
+VIEWER_ASSETS = {'viewer.js', 'player.js', 'workflow-fastshare.js', 'translations.js', 'cs.json', 'style.css', 'icon.svg'}
+
+
+def viewer_access(settings):
+    """The separate listener can only read media, even with an admin cookie."""
+    if not settings.get()['viewer_enabled']:
+        abort(403, description='Playback-only access is disabled.')
+    if request.method not in ('GET', 'HEAD'):
+        abort(403)
+    allowed = request.endpoint in {'media.listing', 'media.details', 'media.stream', 'media.subtitle', 'viewer_config'}
+    allowed |= request.endpoint == 'index' and request.path == '/'
+    allowed |= request.endpoint == 'assets' and request.view_args.get('name') in VIEWER_ASSETS
+    if not allowed or request.args.get('download') == '1':
+        abort(403)
 
 
 def load_secret(directory):
@@ -82,9 +97,10 @@ class LocalWeb:
         return response
 
     def configure(self, data):
-        if set(data) - {'lan_enabled', 'lan_port', 'lan_host', 'password', 'clear_password'}:
+        if set(data) - {'lan_enabled', 'lan_port', 'lan_host', 'password', 'clear_password',
+                        'viewer_enabled', 'viewer_port', 'viewer_host'}:
             raise ValueError('Unknown local web setting.')
-        patch = {key: value for key, value in data.items() if key.startswith('lan_')}
+        patch = {key: value for key, value in data.items() if key.startswith(('lan_', 'viewer_'))}
         password = data.get('password', '')
         if not isinstance(password, str) or (password and not 10 <= len(password) <= 256):
             raise ValueError('Use a local web password between 10 and 256 characters.')
@@ -99,13 +115,15 @@ class LocalWeb:
         if os.environ.get('SUPERVISOR_TOKEN'):
             info = self.ha.supervisor('GET', '/addons/self/info')
             mapping = dict(info.get('network') or {})
-            desired = proposed['lan_port'] if proposed['lan_enabled'] else None
-            if mapping.get(f'{LAN_CONTAINER_PORT}/tcp') != desired:
-                mapping[f'{LAN_CONTAINER_PORT}/tcp'] = desired
+            for prefix, port in [('lan', LAN_CONTAINER_PORT), ('viewer', VIEWER_CONTAINER_PORT)]:
+                desired = proposed[f'{prefix}_port'] if proposed[f'{prefix}_enabled'] else None
+                if mapping.get(f'{port}/tcp') != desired:
+                    mapping[f'{port}/tcp'] = desired
+                    restart = True
+            if restart:
                 self.ha.supervisor('POST', '/addons/self/options', {'network': mapping})
-                restart = True
         else:
-            restart = (proposed['lan_enabled'], proposed['lan_port']) != (current['lan_enabled'], current['lan_port'])
+            restart = any(proposed[key] != current[key] for key in ('lan_enabled', 'lan_port', 'viewer_enabled', 'viewer_port'))
         self.settings.save(patch, internal=True)
         if 'lan_auth_version' in patch:
             with self.lock:
@@ -179,5 +197,12 @@ def install_local_web(app, settings, ha, secret, web):
 def lan_application(app):
     def application(environ, start_response):
         environ['fastshare.lan'] = True
+        return app(environ, start_response)
+    return application
+
+
+def viewer_application(app):
+    def application(environ, start_response):
+        environ['fastshare.viewer'] = True
         return app(environ, start_response)
     return application

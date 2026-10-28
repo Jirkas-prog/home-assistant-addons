@@ -1,7 +1,7 @@
-import {setupPlayer} from './player.js?v=1.2.1';
+import {setupPlayer} from './player.js?v=1.3.0';
 if(new URLSearchParams(location.hash.slice(1)).has('ticket'))history.replaceState(null,'',location.pathname+location.search);
-import {ready,setLanguage,t,localize,observe} from './translations.js?v=1.2.1';
-import {bytes,duration,esc,labels} from './workflow-fastshare.js?v=1.2.1';
+import {ready,setLanguage,t,localize,observe} from './translations.js?v=1.3.0';
+import {bytes,duration,esc,labels} from './workflow-fastshare.js?v=1.3.0';
 const $=s=>document.querySelector(s);let state={},filter='active',settings={},toastTimer,refreshTimer;const queueNodes=new Map();
 async function api(path,data){const response=await fetch('api/'+path,{method:data===undefined?'GET':'POST',headers:data===undefined?{}:{'Content-Type':'application/json','X-FastShare-Request':'1'},body:data===undefined?undefined:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error||'The request failed.');return result;}
 function toast(message,error=false){$('#toast').textContent=message;$('#toast').classList.toggle('error',error);$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,error?9000:5000);}
@@ -35,8 +35,14 @@ function showPreview(item){$('#preview-name').textContent=item.name;$('#preview-
 $('#close-preview').onclick=()=>$('#preview').close();
 $('#preview').onclick=e=>{if(e.target===$('#preview'))$('#preview').close();};
 
-function localAddress(){const host=settings.lan_host||location.hostname;return `http://${host.includes(':')?'['+host+']':host}:${settings.lan_port}/`;}
+function localAddress(prefix='lan'){const host=settings[prefix+'_host']||location.hostname;return `http://${host.includes(':')?'['+host+']':host}:${settings[prefix+'_port']}/`;}
 function showLocalSettings(){
+  $('#viewer-badge').textContent=settings.viewer_enabled?'Enabled':'Disabled';
+  $('#viewer-address').textContent=settings.viewer_enabled?localAddress('viewer'):'';
+  $('#open-viewer').hidden=!settings.viewer_enabled;
+  $('#open-viewer').href=localAddress('viewer');
+  for(const input of $('#viewer-settings').elements)input.disabled=session.local;
+  if(session.local)$('#viewer-message').textContent='Manage local web access through Home Assistant.';
   $('#lan-badge').textContent=settings.lan_enabled?'Enabled':'Disabled';
   $('#lan-address').textContent=settings.lan_enabled?localAddress():'';
   $('#open-local-web').hidden=!settings.lan_enabled||session.local;
@@ -60,3 +66,9 @@ function showPriority(job){priorityJob=job.id;$('#priority-file').textContent=jo
 $('#close-priority').onclick=()=>$('#priority-dialog').close();
 for(const mode of ['slot','exclusive'])$('#priority-'+mode).onclick=e=>run(e.currentTarget,async()=>{await api(`jobs/${priorityJob}/priority`,{mode});$('#priority-dialog').close();await refresh();toast(mode==='exclusive'?'This file will download alone.':'This file has download priority.');});
 $('#clear-priority').onclick=e=>run(e.currentTarget,async()=>{await api('priority-clear',{});await refresh();toast('The normal queue has resumed.');});
+
+$('#viewer-settings').onsubmit=e=>{e.preventDefault();run(e.submitter,async()=>{
+  const result=await api('local-settings',readForm(e.target));
+  settings=result.settings;showLocalSettings();
+  $('#viewer-message').textContent=result.automatic_restart?'Settings saved. The add-on is restarting; reconnect in a moment.':result.restart_required?'Settings saved. Restart the local development server to apply the port.':'Settings saved.';
+});};

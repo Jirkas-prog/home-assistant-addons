@@ -5,7 +5,7 @@ import unittest
 from unittest.mock import patch
 
 import test_app
-from fastshare_app.local_web import COOKIE, lan_application
+from fastshare_app.local_web import COOKIE, lan_application, viewer_application
 from werkzeug.test import Client
 from werkzeug.wrappers import Response
 
@@ -124,6 +124,84 @@ class MediaTests(unittest.TestCase):
             with patch.object(ha,'supervisor',side_effect=ValueError('Port unavailable')):
                 with self.assertRaises(ValueError):local.configure({'lan_port':18100})
                 self.assertEqual(self.settings.get()['lan_port'],18099)
+
+    def test_viewer_plays_anonymously_but_cannot_access_management(self):
+        self.video()
+        self.video('movie.en.vtt', b'WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nTest\n')
+        viewer = Client(viewer_application(self.app), Response)
+        self.assertEqual(viewer.get('/').status_code, 403)
+        self.assertEqual(self.post('local-settings', {'viewer_enabled': True}).status_code, 200)
+        page = viewer.get('/')
+        self.assertEqual(page.status_code, 200)
+        self.assertIn('FastShare Play', page.text)
+        self.assertNotIn('id="settings"', page.text)
+        self.assertNotIn('data-goto="settings"', page.text)
+        self.assertNotIn('player-download', page.text)
+        self.assertNotIn('Set-Cookie', page.headers)
+        self.assertIn('id="settings"', self.client.get('/').text)
+        self.assertIn('player-download', self.client.get('/').text)
+        self.assertEqual(viewer.get('/api/player-config').json, {'language': 'en'})
+        item = viewer.get('/api/library').json['items'][0]
+        url = '/api/media/' + item['id']
+        details = viewer.get(url).json
+        self.assertEqual(viewer.get('/api/media/' + details['tracks'][0]['id'] + '/subtitle').status_code, 200)
+        with viewer.get(url + '/stream', headers={'Range': 'bytes=3-5'}) as result:
+            self.assertEqual(result.status_code, 206)
+            self.assertEqual(result.data, b'345')
+        with viewer.head(url + '/stream') as result:
+            self.assertEqual(result.status_code, 200)
+            self.assertEqual(result.headers['Content-Length'], '10')
+        self.assertEqual(viewer.get(url + '/stream?download=1').status_code, 403)
+        for path in ['/api/settings', '/api/state', '/api/session', '/api/dashboards',
+                     '/api/search?q=movie', '/api/thumbnail', '/app.js', '/local-login.js',
+                     '/widget', '/viewer.html', '/_player.html', '/unknown']:
+            self.assertEqual(viewer.get(path).status_code, 403, path)
+        for route in self.app.url_map.iter_rules():
+            path = str(route).replace('<int:job_id>', '1').replace('<action>', 'cancel').replace('<file_id>', item['id']).replace('<name>', 'app.js')
+            for method in ('POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'):
+                response = viewer.open(path, method=method, json={'paused': True}, headers={'X-FastShare-Request': '1'})
+                self.assertEqual(response.status_code, 403, (method, path))
+        self.assertFalse(self.settings.get()['paused'])
+        self.assertEqual(Path(self.settings.get()['download_dir'], 'movie.mp4').read_bytes(), b'0123456789')
+        for asset in ['viewer.js', 'player.js', 'workflow-fastshare.js', 'translations.js', 'cs.json', 'style.css', 'icon.svg']:
+            with viewer.get('/' + asset) as result:
+                self.assertEqual(result.status_code, 200, asset)
+
+    def test_viewer_cannot_be_spoofed_and_disable_takes_effect_immediately(self):
+        self.settings.save({'viewer_enabled': True, 'lan_enabled': True, 'lan_port': 18099}, internal=True)
+        viewer = Client(viewer_application(self.app), Response)
+        lan = Client(lan_application(self.app), Response)
+        headers = {'X-FastShare-Viewer': '1', 'X-FastShare-Lan': '1'}
+        self.assertEqual(self.client.get('/api/library', headers=headers, environ_base={'REMOTE_ADDR': '192.0.2.10'}).status_code, 403)
+        self.assertEqual(lan.get('/api/library', headers=headers).status_code, 401)
+        self.assertEqual(lan.post('/api/local-settings', json={'viewer_enabled': False}, headers={'X-FastShare-Request': '1'}).status_code, 401)
+        self.assertEqual(self.post('settings', {'viewer_enabled': True}).status_code, 400)
+        self.settings.save({'language': 'cs'})
+        self.assertEqual(viewer.get('/api/player-config').json, {'language': 'cs'})
+        self.post('local-settings', {'viewer_enabled': False})
+        self.assertEqual(viewer.get('/api/library').status_code, 403)
+        self.assertEqual(viewer.get('/').status_code, 403)
+
+    def test_viewer_network_mapping_preserves_admin_port_and_validates_settings(self):
+        local = self.app.extensions['local_web']; ha = self.app.extensions['homeassistant']
+        for values in [{'viewer_port': 80}, {'viewer_port': True}, {'viewer_enabled': 'yes'},
+                       {'viewer_host': 'bad_host'}, {'viewer_host': 'https://example.test'},
+                       {'viewer_enabled': True, 'lan_enabled': True, 'viewer_port': 8099}]:
+            self.assertEqual(self.post('local-settings', values).status_code, 400, values)
+        self.settings.save({'lan_enabled': True, 'lan_port': 18099}, internal=True)
+        with patch.dict(os.environ, {'SUPERVISOR_TOKEN': 'test'}):
+            self.settings.value['download_dir'] = '/media/FastShare'
+            mapping = {'8098/tcp': 18099, '8097/tcp': None}
+            with patch.object(ha, 'supervisor', side_effect=[{'network': mapping}, {}]) as call, patch('fastshare_app.local_web.threading.Timer'):
+                result = local.configure({'viewer_enabled': True, 'viewer_port': 18110, 'viewer_host': 'cinema.home'})
+                self.assertTrue(result['automatic_restart'])
+                self.assertEqual(call.call_args.args, ('POST', '/addons/self/options', {'network': {'8098/tcp': 18099, '8097/tcp': 18110}}))
+            with patch.object(ha, 'supervisor', side_effect=ValueError('Port unavailable')):
+                with self.assertRaises(ValueError): local.configure({'viewer_port': 18111})
+                self.assertEqual(self.settings.get()['viewer_port'], 18110)
+            with patch.object(ha, 'supervisor', side_effect=[{'network': {'8098/tcp': 18099, '8097/tcp': 18110}}, {}]) as call, patch('fastshare_app.local_web.threading.Timer'):
+                local.configure({'viewer_enabled': False})
+                self.assertEqual(call.call_args.args, ('POST', '/addons/self/options', {'network': {'8098/tcp': 18099, '8097/tcp': None}}))
 
 
 if __name__=='__main__':unittest.main()

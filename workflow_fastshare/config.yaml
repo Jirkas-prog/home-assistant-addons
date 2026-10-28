@@ -1,6 +1,6 @@
 name: WorkFlow FastShare
 slug: workflow_fastshare
-version: "1.2.1"
+version: "1.3.0"
 description: Email download queue, local movie library, web player and MQTT dashboard card
 url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/workflow_fastshare
 arch:
@@ -13,7 +13,9 @@ ingress: true
 ingress_port: 8099
 ports:
   8098/tcp: null
+  8097/tcp: null
 ports_description:
+  8097/tcp: Playback-only web without sign-in (managed in FastShare settings)
   8098/tcp: Authenticated local web (managed in FastShare settings)
 panel_icon: mdi:cloud-download
 panel_title: FastShare

@@ -7,7 +7,7 @@ import time
 import requests
 import websocket
 
-RESOURCE = '/local/workflow-fastshare/workflow-fastshare.js?v=1.2.1'
+RESOURCE = '/local/workflow-fastshare/workflow-fastshare.js?v=1.3.0'
 
 
 class HomeAssistant:

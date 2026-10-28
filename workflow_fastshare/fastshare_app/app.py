@@ -6,7 +6,7 @@ import signal
 import threading
 import time
 
-from flask import Flask, Response, jsonify, request, send_from_directory
+from flask import Flask, Response, jsonify, request, send_from_directory, render_template
 from waitress import create_server
 from werkzeug.exceptions import HTTPException
 
@@ -17,7 +17,8 @@ from .provider import FastShare, ProviderError, safe_url
 from urllib.parse import urlsplit
 from .storage import Settings, Store
 from .media import install_media
-from .local_web import install_local_web, load_secret, lan_application, LAN_CONTAINER_PORT
+from .local_web import (install_local_web, load_secret, lan_application, LAN_CONTAINER_PORT,
+                        viewer_application, viewer_access, VIEWER_CONTAINER_PORT)
 
 
 def create_app(directory=None, start=True):
@@ -31,12 +32,14 @@ def create_app(directory=None, start=True):
     publisher = Publisher(engine)
     web = Path(__file__).resolve().parent.parent / 'www'
     secret = load_secret(directory)
-    app = Flask(__name__, static_folder=None)
+    app = Flask(__name__, static_folder=None, template_folder=str(web))
     app.config['MAX_CONTENT_LENGTH'] = 32 * 1024
     app.extensions.update(engine=engine, settings=settings, store=store, homeassistant=ha, publisher=publisher)
 
     @app.before_request
     def access():
+        if request.environ.get('fastshare.viewer'):
+            return viewer_access(settings)
         # Trust only the actual TCP peer, never X-Forwarded-For supplied by clients.
         allowed = {'172.30.32.2'} if os.environ.get('SUPERVISOR_TOKEN') else {'127.0.0.1', '::1'}
         if not request.environ.get('fastshare.lan') and request.remote_addr not in allowed:
@@ -71,11 +74,16 @@ def create_app(directory=None, start=True):
     @app.get('/')
     @app.get('/widget')
     def index():
-        return send_from_directory(web, 'index.html')
+        viewer = bool(request.environ.get('fastshare.viewer'))
+        return render_template('viewer.html' if viewer else 'index.html', viewer=viewer)
+
+    @app.get('/api/player-config')
+    def viewer_config():
+        return jsonify(language=settings.get()['language'])
 
     @app.get('/<name>')
     def assets(name):
-        if name not in {'app.js', 'player.js', 'local-login.js', 'style.css', 'workflow-fastshare.js', 'translations.js', 'cs.json', 'icon.svg'}:
+        if name not in {'app.js', 'viewer.js', 'player.js', 'local-login.js', 'style.css', 'workflow-fastshare.js', 'translations.js', 'cs.json', 'icon.svg'}:
             return jsonify(error='Nenalezeno.'), 404
         return send_from_directory(web, name)
 
@@ -236,4 +244,9 @@ if __name__ == '__main__':
                                      port=LAN_CONTAINER_PORT if os.environ.get('SUPERVISOR_TOKEN') else cfg['lan_port'], threads=12, map={})
         servers.append(local_server)
         threading.Thread(target=local_server.run, daemon=True).start()
+    if os.environ.get('SUPERVISOR_TOKEN') or cfg['viewer_enabled']:
+        viewer_server = create_server(viewer_application(app), host='0.0.0.0',
+                                     port=VIEWER_CONTAINER_PORT if os.environ.get('SUPERVISOR_TOKEN') else cfg['viewer_port'], threads=12, map={})
+        servers.append(viewer_server)
+        threading.Thread(target=viewer_server.run, daemon=True).start()
     server.run()

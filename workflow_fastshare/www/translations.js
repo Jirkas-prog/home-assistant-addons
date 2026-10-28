@@ -1,7 +1,7 @@
 let catalog = {};
 let language = 'en';
 const originals = new WeakMap();
-export const ready = fetch(new URL('./cs.json?v=1.2.1', import.meta.url)).then(r=>r.json()).then(data=>{catalog=data;}).catch(()=>{});
+export const ready = fetch(new URL('./cs.json?v=1.3.0', import.meta.url)).then(r=>r.json()).then(data=>{catalog=data;}).catch(()=>{});
 export function setLanguage(value){language=value==='cs'?'cs':'en';}
 export function t(text, values={}, locale=language){let value=locale==='cs'?(catalog[text]??text):text;return value.replace(/\{(\w+)\}/g,(all,key)=>values[key]??all);}
 function translate(text,locale){

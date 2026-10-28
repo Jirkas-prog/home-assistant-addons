@@ -11,6 +11,7 @@ DEFAULTS = {
     'language': 'en',
     'media_dirs': [],
     'lan_enabled': False, 'lan_port': 8099, 'lan_host': '',
+    'viewer_enabled': False, 'viewer_port': 8110, 'viewer_host': '',
     'lan_password_hash': '', 'lan_auth_version': '',
     'download_dir': '/media/FastShare', 'parallel_downloads': 3, 'paused': False,
     'email_enabled': False, 'email_provider': 'seznam', 'email_host': 'imap.seznam.cz',
@@ -51,7 +52,7 @@ class Settings:
         with self.lock:
             value = self.get()
             for key, item in patch.items():
-                if key not in DEFAULTS or (not internal and (key == 'fastshare_session' or key.startswith('lan_'))):
+                if key not in DEFAULTS or (not internal and (key == 'fastshare_session' or key.startswith(('lan_', 'viewer_')))):
                     raise ValueError('Unknown setting.')
                 if key in ('email_password', 'mqtt_password') and item == '' and not internal:
                     continue  # Blank in the UI preserves an existing password.
@@ -59,7 +60,8 @@ class Settings:
                     raise ValueError('Invalid setting type: ' + key)
                 value[key] = item
             for key, low, high in [('parallel_downloads', 1, 8), ('email_port', 1, 65535),
-                                   ('mqtt_port', 1, 65535), ('email_interval', 30, 3600), ('lan_port', 1024, 65535)]:
+                                   ('mqtt_port', 1, 65535), ('email_interval', 30, 3600),
+                                   ('lan_port', 1024, 65535), ('viewer_port', 1024, 65535)]:
                 if not low <= value[key] <= high:
                     raise ValueError('Value out of range: ' + key)
             if value['language'] not in ('en', 'cs'):
@@ -93,10 +95,13 @@ class Settings:
                 target = Path(directory).resolve()
                 if not any(target == root or root in target.parents for root in roots):
                     raise ValueError('Media folders must be inside /media or /share (inside the data directory for local development).')
-            host = value['lan_host']
-            if host and (len(host) > 253 or not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?', host)
-                         or any(not label or len(label) > 63 or label.startswith('-') or label.endswith('-') for label in host.split('.'))):
-                raise ValueError('Enter a DNS name or IPv4 address without a scheme, path or port.')
+            for key in ('lan_host', 'viewer_host'):
+                host = value[key]
+                if host and (len(host) > 253 or not re.fullmatch(r'[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?', host)
+                             or any(not label or len(label) > 63 or label.startswith('-') or label.endswith('-') for label in host.split('.'))):
+                    raise ValueError('Enter a DNS name or IPv4 address without a scheme, path or port.')
+            if value['lan_enabled'] and value['viewer_enabled'] and value['lan_port'] == value['viewer_port']:
+                raise ValueError('Use different ports for local web and playback-only access.')
             if len(value['email_senders']) > 4000:
                 raise ValueError('The sender list is too long.')
             if dry_run:

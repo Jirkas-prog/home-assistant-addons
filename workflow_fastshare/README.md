@@ -55,6 +55,14 @@ In **Settings → Local web & player**, enable access and choose an unused host 
 
 **Open local web** generates a one-use, 60-second sign-in link from Home Assistant. Alternatively set a separate local web password (10–256 characters) for direct visits. A local sign-in lasts 14 days in that browser. Password changes, password removal and disabling LAN access invalidate sessions. Sign-out clears the current browser session. Local web credentials and port settings can only be managed through Ingress. The hostname opens an HTTP URL; TLS may be supplied by the user's reverse proxy. A local web sign-in grants access to the queue, media and normal add-on settings, so share it only with trusted users.
 
+## Playback-only web without sign-in
+
+In **Settings → Playback-only web**, enable playback and choose an unused port (default **8110**). **Open player** opens a separate page with only the movie library, search, folder filter and player. It uses the same configured media folders and language as the add-on. Seeking, fullscreen, subtitles and remembered position work as in the main player. A DNS name can be entered for the link; configure the DNS record yourself.
+
+Anyone who can reach this port can browse and play the library without an account. There are no queue, settings, file download, delete, rename or move controls. The server permits only GET/HEAD requests for the player assets, library, video streams and subtitles. Administrative routes and all mutation requests are denied, even if the browser has an administrator session. The full local web keeps its existing authentication. Playback-only access is disabled by default and can be configured only through Home Assistant Ingress. The container's port 8097 maps to the selected external port; changing it restarts the add-on.
+
+This is read-only playback, not copy protection: a browser necessarily receives the media bytes to play them. The page does not offer a file download action or modify the source files.
+
 ## Security and backups
 
 No host port is exposed by default. Ingress checks the actual proxy IP. The optional LAN listener requires its own signed, HttpOnly, SameSite cookie. Passwords are hashed and login attempts are rate limited. Port 8098 inside the container is mapped to the chosen external port; 8099 remains Ingress-only. Modifications require JSON plus a custom header, and LAN requests reject a mismatched Origin. Image previews use a bounded proxy restricted to the provider's image server. File links and redirects are restricted to provider hosts.

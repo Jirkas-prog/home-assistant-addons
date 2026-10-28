@@ -12,4 +12,6 @@ For a separate address, enable **Local web & player**, choose a port and optiona
 
 The dashboard card supports **Auto / 2 / 3 / 4 rows**, selectable in the card editor. Compact sizes retain all counts and show zero, one or two transfers respectively. Auto grows with the content.
 
+For a separate player without sign-in, enable **Settings → Playback-only web** and choose a free port (default **8110**). **Open player** opens only the library and playback controls. Anyone who can reach that port can watch the videos; settings, queue actions and file changes are blocked on the server. The normal local web still requires sign-in. Both modes share the same media folders and language.
+
 See README.md for limits, configuration, backup and privacy details.

@@ -357,5 +357,17 @@
   "The normal queue has resumed.": "Běžná fronta byla obnovena.",
   "Only waiting files can be reordered.": "Pořadí lze změnit pouze u čekajících souborů.",
   "Only waiting or active files can be prioritized.": "Přednost lze nastavit pouze čekajícím nebo stahovaným souborům.",
-  "Choose Free one slot or Download alone.": "Vyberte Uvolnit jeden slot nebo Stáhnout samostatně."
+  "Choose Free one slot or Download alone.": "Vyberte Uvolnit jeden slot nebo Stáhnout samostatně.",
+  "Playback-only web": "Web pouze pro přehrávání",
+  "Enable playback without sign-in": "Povolit přehrávání bez přihlášení",
+  "Anyone who can reach this port can browse and play your library without signing in. Only playback, search, subtitles and fullscreen are available. Settings, downloads and file changes are unavailable.": "Kdokoliv s přístupem k tomuto portu může procházet a přehrávat knihovnu bez přihlášení. K dispozici je přehrávání, hledání, titulky a celá obrazovka. Nastavení, stahování a úpravy souborů tu nejsou dostupné.",
+  "Save playback-only web": "Uložit web pro přehrávání",
+  "Open player ↗": "Otevřít přehrávač ↗",
+  "Your home cinema": "Vaše domácí kino",
+  "Your movie library. Just press play.": "Vaše filmová knihovna. Stačí pustit.",
+  "No videos found. Try another search or refresh the library.": "Žádná videa nenalezena. Zkuste jiné hledání nebo obnovte knihovnu.",
+  "This browser could not play the video. Check the connection. Video and audio compatibility depends on the file's codecs.": "Prohlížeč video nepřehrál. Zkontrolujte připojení. Podpora obrazu a zvuku závisí na kodecích souboru.",
+  "Some library folders are unavailable.": "Některé složky knihovny nejsou dostupné.",
+  "Only part of the library is shown.": "Zobrazena je pouze část knihovny.",
+  "Use different ports for local web and playback-only access.": "Pro místní web a samostatný přehrávač použijte různé porty."
 }

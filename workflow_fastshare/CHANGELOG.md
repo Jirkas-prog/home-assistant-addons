@@ -1,3 +1,11 @@
+# 1.3.0
+
+- Optional playback-only web on its own configurable port, without sign-in.
+- Separate library screen with search, folder filters, subtitles, fullscreen and remembered playback position; no download or management controls.
+- Server-side read-only allowlist blocks settings, queue operations, authentication routes and every mutation request on the player port.
+- Shared library/player templates preserve the existing design and functionality in both interfaces; English and Czech supported.
+- Automated checks cover anonymous streaming and seeking, rejected admin routes, port mapping, immediate disabling and preserved full-web authentication.
+
 # 1.2.1
 
 - Preserve the selected row height inside the Home Assistant card wrapper and add-on preview.
