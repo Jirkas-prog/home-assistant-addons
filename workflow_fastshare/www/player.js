@@ -1,5 +1,5 @@
-import {bytes,esc} from './workflow-fastshare.js?v=1.2.0';
-import {t} from './translations.js?v=1.2.0';
+import {bytes,esc} from './workflow-fastshare.js?v=1.2.1';
+import {t} from './translations.js?v=1.2.1';
 
 export function setupPlayer({api,run,toast}) {
   const $=selector=>document.querySelector(selector), video=$('#movie'), dialog=$('#player');

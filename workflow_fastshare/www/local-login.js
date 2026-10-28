@@ -1,4 +1,4 @@
-import {ready,setLanguage,observe} from './translations.js?v=1.2.0';
+import {ready,setLanguage,observe} from './translations.js?v=1.2.1';
 const form=document.querySelector('#local-login'), message=document.querySelector('#login-message');
 // Remove the one-time credential from the address bar before any network request.
 const ticket=new URLSearchParams(location.hash.slice(1)).get('ticket');

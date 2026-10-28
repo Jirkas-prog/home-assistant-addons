@@ -1,4 +1,4 @@
-import {ready,localize} from './translations.js?v=1.2.0';
+import {ready,localize} from './translations.js?v=1.2.1';
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const bytes = (v=0) => {let n=Number(v)||0,i=0;while(n>=1024&&i<4){n/=1024;i++;}return `${n.toLocaleString('cs-CZ',{maximumFractionDigits:i?1:0})} ${['B','kB','MB','GB','TB'][i]}`;};
 const duration = v => v == null ? 'Calculating…' : v < 1 ? 'Done' : v >= 3600 ? `${Math.floor(v/3600)} h ${Math.floor(v%3600/60)} min` : v>=60 ? `${Math.floor(v/60)} min ${Math.floor(v%60)} s` : `${Math.ceil(v)} s`;
@@ -62,7 +62,7 @@ class FastShareStatus extends HTMLElement {
 if(!customElements.get('fastshare-status'))customElements.define('fastshare-status',FastShareStatus);
 
 class WorkflowFastShareCard extends HTMLElement {
-  constructor(){super();this.attachShadow({mode:'open'});this.shadowRoot.innerHTML='<style>:host{display:block;height:auto}fastshare-status{height:auto;min-height:0}</style><fastshare-status></fastshare-status>';}
+  constructor(){super();this.attachShadow({mode:'open'});this.shadowRoot.innerHTML='<style>:host{display:block;height:auto}fastshare-status{min-height:0}</style><fastshare-status></fastshare-status>';}
   setConfig(config){this.config=config;this.shadowRoot.querySelector('fastshare-status').config={...config,url:config.addon?'/'+config.addon:undefined};}
   set hass(hass){const entity=this.config?.entity?hass.states[this.config.entity]:Object.values(hass.states).find(s=>s.attributes?.fastshare_widget);const data=entity?.attributes||{};this.shadowRoot.querySelector('fastshare-status').state={...data,online:!['unavailable','unknown'].includes(entity?.state)&&Boolean(data.online)};}
   getCardSize(){return Math.ceil((this.getBoundingClientRect().height||350)/50);}

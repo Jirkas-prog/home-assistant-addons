@@ -1,6 +1,6 @@
 name: WorkFlow FastShare
 slug: workflow_fastshare
-version: "1.2.0"
+version: "1.2.1"
 description: Email download queue, local movie library, web player and MQTT dashboard card
 url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/workflow_fastshare
 arch:

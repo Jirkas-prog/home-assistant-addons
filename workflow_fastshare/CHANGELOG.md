@@ -1,3 +1,7 @@
+# 1.2.1
+
+- Preserve the selected row height inside the Home Assistant card wrapper and add-on preview.
+
 # 1.2.0
 
 - Persistent queue ordering, one-slot priority and exclusive downloads with automatic return to normal limits.

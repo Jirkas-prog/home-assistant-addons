@@ -110,7 +110,7 @@ input::placeholder { color: #9aadb6; }
 .language-box label { min-width: 200px; margin: 0; }
 .language-box .help { flex: 1; margin: 0; min-width: 200px; }
 .dashboard-grid { display: grid; grid-template-columns: minmax(320px, .9fr) 1.1fr; gap: 28px; }
-.dashboard-grid fastshare-status { height: auto; }
+
 hr { border: 0; border-top: 1px solid var(--line); margin: 25px 0; }
 .widget-link { margin-top: 5px; }
 footer { display: flex; gap: 20px; align-items: center; margin: 38px 0 25px; border-top: 1px solid var(--line); padding-top: 23px; font-size: 13px; font-weight: 650; letter-spacing: 1.3px; color: #a0b5bf; }
@@ -181,7 +181,7 @@ dialog::backdrop { background: #040c13e8; }
   footer span:last-child { display: none; }
   .language-box form { align-items: stretch; flex-direction: column; }
   .language-box .help { min-width: 0; }
-  .dashboard-grid fastshare-status { height: auto; }
+  
 }
 @media (max-width: 400px) { .add .primary { width: 100%; } .brand small { font-size: 9px; } h1 { font-size: 31px; } .queue-box { padding: 15px; } }
 @media (prefers-reduced-motion: reduce) { *, *::after { transition: none !important; animation: none !important; } }

@@ -1,7 +1,7 @@
-import {setupPlayer} from './player.js?v=1.2.0';
+import {setupPlayer} from './player.js?v=1.2.1';
 if(new URLSearchParams(location.hash.slice(1)).has('ticket'))history.replaceState(null,'',location.pathname+location.search);
-import {ready,setLanguage,t,localize,observe} from './translations.js?v=1.2.0';
-import {bytes,duration,esc,labels} from './workflow-fastshare.js?v=1.2.0';
+import {ready,setLanguage,t,localize,observe} from './translations.js?v=1.2.1';
+import {bytes,duration,esc,labels} from './workflow-fastshare.js?v=1.2.1';
 const $=s=>document.querySelector(s);let state={},filter='active',settings={},toastTimer,refreshTimer;const queueNodes=new Map();
 async function api(path,data){const response=await fetch('api/'+path,{method:data===undefined?'GET':'POST',headers:data===undefined?{}:{'Content-Type':'application/json','X-FastShare-Request':'1'},body:data===undefined?undefined:JSON.stringify(data)});const result=await response.json();if(!response.ok)throw new Error(result.error||'The request failed.');return result;}
 function toast(message,error=false){$('#toast').textContent=message;$('#toast').classList.toggle('error',error);$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,error?9000:5000);}
