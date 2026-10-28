@@ -181,7 +181,7 @@ dialog::backdrop { background: #040c13e8; }
   footer span:last-child { display: none; }
   .language-box form { align-items: stretch; flex-direction: column; }
   .language-box .help { min-width: 0; }
-  
+
 }
 @media (max-width: 400px) { .add .primary { width: 100%; } .brand small { font-size: 9px; } h1 { font-size: 31px; } .queue-box { padding: 15px; } }
 @media (prefers-reduced-motion: reduce) { *, *::after { transition: none !important; animation: none !important; } }
