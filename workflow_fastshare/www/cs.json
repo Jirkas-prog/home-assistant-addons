@@ -253,5 +253,6 @@
   "{active} downloading · {queued} queued": "{active} stahování · {queued} čeká",
   "Found {count} results (up to 60).": "Nalezeno {count} výsledků (nejvýše 60).",
   "Updated {time}": "Aktualizováno {time}",
-  "credit {credit} MB": "kredit {credit} MB"
+  "credit {credit} MB": "kredit {credit} MB",
+  "The card adapts to the Home Assistant grid and sizes itself to its content. Only longer download lists scroll inside the card.": "Karta se přizpůsobí mřížce Home Assistantu a výšku určuje obsah. Uvnitř se posouvá pouze delší seznam stahování."
 }

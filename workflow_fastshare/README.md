@@ -35,7 +35,7 @@ Default base topic: `mqtt_addon/fastshare`. Discovery prefix: `homeassistant`. A
 
 Ten entities report online status, FastShare and email availability, download activity, active/queued/completed/attention counts, total speed and remaining time for the longest active transfer. The waiting queue cannot be reliably timed before file sizes are known.
 
-Topics are `availability`, `state`, and `details`. LWT reports an unclean disconnect; state expires after 90 seconds. Discovery is republished after reconnect and HA birth messages. Old discovery is cleaned on prefix changes when the old broker is reachable; otherwise manual cleanup may be needed. The card includes up to 25 jobs and the web up to 60, while counts cover all jobs. Cards support the HA grid, including 6 columns × 3 rows; long queues scroll within the card.
+Topics are `availability`, `state`, and `details`. LWT reports an unclean disconnect; state expires after 90 seconds. Discovery is republished after reconnect and HA birth messages. Old discovery is cleaned on prefix changes when the old broker is reachable; otherwise manual cleanup may be needed. The card includes up to 25 jobs and the web up to 60, while counts cover all jobs. Cards support the HA grid with 6 or more columns and automatic height. Empty states grow naturally; only long job lists scroll inside the card.
 
 ## Security and backups
 

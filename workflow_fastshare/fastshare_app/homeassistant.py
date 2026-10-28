@@ -7,7 +7,7 @@ import time
 import requests
 import websocket
 
-RESOURCE = '/local/workflow-fastshare/workflow-fastshare.js?v=1.1.0'
+RESOURCE = '/local/workflow-fastshare/workflow-fastshare.js?v=1.1.1'
 
 
 class HomeAssistant:
@@ -84,7 +84,7 @@ class HomeAssistant:
             updated['views'].append({'title': 'FastShare', 'path': 'fastshare', 'icon': 'mdi:cloud-download',
                                      'type': 'sections', 'max_columns': 2, 'sections': [{'type': 'grid', 'cards': [
                                          {'type': 'custom:workflow-fastshare-card', 'title': 'FastShare',
-                                          'addon': self.slug, 'grid_options': {'columns': 12, 'rows': 6}}
+                                          'addon': self.slug, 'grid_options': {'columns': 12, 'rows': 'auto'}}
                                      ]}]})
             if call('lovelace/config', **args) != config:
                 raise ValueError('The dashboard changed in the meantime. Try again.')

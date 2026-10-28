@@ -1,3 +1,8 @@
+# 1.1.1
+
+- Content-sized app and dashboard cards; empty messages never become scroll panes.
+- Themed square scrollbars and safe wrapping on narrow screens.
+
 # 1.1.0
 
 - English by default, with a saved Czech language option for the app and card.
