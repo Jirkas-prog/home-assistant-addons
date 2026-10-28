@@ -1,4 +1,4 @@
-import {ready,localize} from './translations.js';
+import {ready,localize} from './translations.js?v=1.1.2';
 const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const bytes = (v=0) => {let n=Number(v)||0,i=0;while(n>=1024&&i<4){n/=1024;i++;}return `${n.toLocaleString('cs-CZ',{maximumFractionDigits:i?1:0})} ${['B','kB','MB','GB','TB'][i]}`;};
 const duration = v => v == null ? 'Calculating…' : v < 1 ? 'Done' : v >= 3600 ? `${Math.floor(v/3600)} h ${Math.floor(v%3600/60)} min` : v>=60 ? `${Math.floor(v/60)} min ${Math.floor(v%60)} s` : `${Math.ceil(v)} s`;

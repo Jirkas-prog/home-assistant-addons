@@ -70,6 +70,7 @@ h3 { font-size: 20px; font-weight: 650; margin: 24px 0 8px; }
 .filter.selected { color: var(--ink); background: #dce9e4; }
 .queue-empty { text-align: center; padding: 46px 18px; color: var(--muted); line-height: 1.7; background: linear-gradient(120deg, transparent 30%, #20343d 30%, #20343d 45%, transparent 45%); margin-top: 22px; border: 1px solid #334b56; }
 .queue-empty .empty-icon { margin: 0 auto 22px; display: grid; place-items: center; width: 68px; height: 68px; border: 1px solid #8ba98e; background: #2b433c; font-size: 36px; color: var(--accent); }
+.empty-icon svg { width: 54px; height: 54px; }
 .queue-empty b { display: block; color: #f3f7f6; font-size: 21px; font-weight: 650; margin-bottom: 8px; }
 .queue-empty p { font-size: 16px; }
 .job-item { border-bottom: 1px solid var(--line); padding: 23px 0; }

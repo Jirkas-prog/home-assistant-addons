@@ -1,3 +1,8 @@
+# 1.1.2
+
+- Custom film-inbox illustration for an empty download queue.
+- Versioned card translations to refresh cached resources after updates.
+
 # 1.1.1
 
 - Content-sized app and dashboard cards; empty messages never become scroll panes.

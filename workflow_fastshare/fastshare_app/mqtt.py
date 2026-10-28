@@ -33,7 +33,7 @@ class Publisher:
         cfg = self.config
         topic = cfg['mqtt_topic']
         device = {'identifiers': ['workflow_fastshare'], 'name': 'WorkFlow FastShare',
-                  'manufacturer': 'WorkFlow', 'model': 'FastShare add-on', 'sw_version': '1.1.1'}
+                  'manufacturer': 'WorkFlow', 'model': 'FastShare add-on', 'sw_version': '1.1.2'}
         definitions = [
             ('sensor', 'downloads', 'Downloading', 'active', 'mdi:download', None),
             ('sensor', 'queued', 'Queued', 'queued', 'mdi:playlist-play', None),
