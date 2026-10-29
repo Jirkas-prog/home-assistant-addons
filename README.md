@@ -1,6 +1,6 @@
 # Home Assistant Add-ons
 
-Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev** **WorkFlow Timers** and **WorkFlow FastShare**.
+Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev** **WorkFlow Timers**, **WorkFlow FastShare** and **FastShare Play**.
 
 ## Add this repository to Home Assistant
 
@@ -12,6 +12,10 @@ Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge At
 ## WorkFlow FastShare
 
 [WorkFlow FastShare](workflow_fastshare/README.md) brings an email-triggered FastShare download queue, visual search with image previews, and a live MQTT dashboard card to Home Assistant. Configure everything in its own Ingress web interface and add the card to a dashboard with one action. English is the default; Czech can be selected in Settings. See the [setup guide](workflow_fastshare/DOCS.md).
+
+## FastShare Play
+
+[FastShare Play](fastshare_play/README.md) combines the FastShare download queue, email monitoring, MQTT and dashboard card with a movie library, three cached video previews and saved playback positions. It can replace WorkFlow FastShare after migrating its private data. Both add-ons are installed and updated from this repository. See the [setup and migration guide](fastshare_play/DOCS.md).
 
 ## WorkFlow Timers
 

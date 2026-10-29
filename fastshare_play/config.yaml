@@ -1,0 +1,35 @@
+name: FastShare Play
+slug: fastshare_play
+version: "2.1.4"
+description: FastShare downloads, email queue, MQTT and a movie library with NOVA resume
+url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/fastshare_play
+arch:
+  - aarch64
+  - amd64
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 8099
+ports:
+  8098/tcp: null
+  8096/tcp: null
+ports_description:
+  8096/tcp: Authenticated local web (managed in the app settings)
+  8098/tcp: Playback web without sign-in (managed in the app settings)
+panel_icon: mdi:movie-open-play
+panel_title: FastShare Play
+homeassistant_api: true
+hassio_api: true
+hassio_role: default
+services:
+  - mqtt:want
+map:
+  - type: media
+    read_only: false
+  - type: share
+    read_only: false
+  - type: homeassistant_config
+    read_only: false
+options: {}
+schema: {}

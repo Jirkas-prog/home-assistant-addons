@@ -9,6 +9,11 @@
 - Keep documentation focused on the current product, its configuration and usage.
 - Preserve Fakturocel, MyBrowser and unrelated repository files.
 
+## FastShare releases
+
+- Maintain both `workflow_fastshare` and `fastshare_play` in this repository. Publish FastShare Play updates here, not in the former standalone repository.
+- Preserve each add-on's slug and private storage. Never commit runtime data, credentials, movie previews or migration backups.
+
 ## Knowledge Atlas release policy
 
 Maintain exactly two permanent Knowledge Atlas add-ons:
