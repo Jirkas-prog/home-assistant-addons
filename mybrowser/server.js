@@ -1341,7 +1341,8 @@ function serveLocalFile(res, file, extraHeaders = {}) {
 
 function braveRoute(pathname) {
   const marker = pathname.endsWith('/brave') ? pathname.length - '/brave'.length : pathname.lastIndexOf('/brave/');
-  if (marker < 0) return null;
+  // Browser control API requests belong to this server, not the desktop stream.
+  if (marker < 0 || pathname.slice(0, marker).endsWith('/api')) return null;
   return { prefix: pathname.slice(0, marker), upstreamPath: pathname.slice(marker) || '/brave/' };
 }
 

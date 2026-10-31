@@ -175,6 +175,23 @@ test('real Brave preserves device forms; the panel locks layout, persists pins, 
     await evaluate(uiTarget, 'window.originalFrame=document.getElementById("braveFrame");document.querySelectorAll("[role=tab]")[1].click()');
     await until(() => evaluate(uiTarget, `activeKey==='link:${a}' && !switching`));
     assert.equal(await evaluate(uiTarget, 'originalFrame===document.getElementById("braveFrame")'), true);
+    assert.equal(await evaluate(targetA, 'document.getElementById("setting").value'), 'unsaved brightness 73', 'Switching tabs must preserve the form');
+    assert.equal(await evaluate(uiTarget, 'document.getElementById("pageToolbar").hidden'), true, 'Pinned live pages have no second toolbar, even with a saved copy');
+    for (const [name, width, height] of [['panel-pinned-desktop', 1440, 900], ['panel-pinned-mobile', 390, 844], ['panel-pinned-narrow', 320, 640]]) {
+      await cdp('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: false });
+      await until(() => evaluate(uiTarget, `innerWidth===${width} && innerHeight===${height}`));
+      assert.ok(await evaluate(uiTarget, `(()=>{const tabs=document.getElementById('tabs').getBoundingClientRect(),edit=document.getElementById('editButton').getBoundingClientRect(),surface=document.getElementById('pageSurface').getBoundingClientRect();return Math.abs((tabs.top+tabs.bottom-edit.top-edit.bottom)/2)<2&&surface.top<80&&Math.abs(surface.bottom-innerHeight)<2&&document.documentElement.scrollWidth<=innerWidth})()`), 'Tabs and actions must share a compact row above a full-height page');
+      if (process.env.PANEL_SCREENSHOT_DIR) {
+        fs.mkdirSync(process.env.PANEL_SCREENSHOT_DIR, { recursive: true });
+        await cdp('Page.bringToFront');
+        const screenshot = await cdp('Page.captureScreenshot', { format: 'png' });
+        fs.writeFileSync(path.join(process.env.PANEL_SCREENSHOT_DIR, `${name}.png`), Buffer.from(screenshot.data, 'base64'));
+      }
+    }
+    // Exercise the saved-copy fallback using an unavailable cached health result.
+    await evaluate(uiTarget, `health['link:${a}']={reachable:false,checkedAt:new Date().toISOString()};updateHealth()`);
+    assert.equal(await evaluate(uiTarget, 'document.getElementById("pageToolbar").hidden'), false);
+    assert.ok(await evaluate(uiTarget, '["pageHeading","reloadButton","saveButton"].every(id=>document.getElementById(id).hidden)'), 'Pinned-page management controls stay hidden during an outage');
     await evaluate(uiTarget, 'document.getElementById("snapshotButton").click()');
     await until(() => evaluate(uiTarget, '!document.getElementById("snapshotFrame").hidden'));
     assert.equal(await evaluate(uiTarget, 'document.getElementById("snapshotFrame").getAttribute("sandbox")'), '');
@@ -182,8 +199,20 @@ test('real Brave preserves device forms; the panel locks layout, persists pins, 
     await evaluate(uiTarget, 'document.getElementById("liveButton").click()');
     await until(() => evaluate(uiTarget, '!switching && !offline'));
     assert.equal(await evaluate(targetA, 'document.getElementById("setting").value'), 'unsaved brightness 73');
+    await evaluate(targetA, 'window.panelReloadMarker=true');
+    assert.equal((await api('brave/state')).targetId, targetA.id, 'The device must be the active Brave target before reloading');
+    assert.deepEqual(await evaluate(uiTarget, '({activeKey,editing,offline,switching,loadFailed})'), { activeKey: `link:${a}`, editing: false, offline: false, switching: false, loadFailed: false });
+    await evaluate(uiTarget, 'pollHealth().then(()=>document.querySelector("[role=tab][aria-selected=true]").click())');
+    await until(() => evaluate(targetA, '!window.panelReloadMarker && window.deviceScriptRan'));
+    assert.equal(await evaluate(targetA, 'performance.getEntriesByType("navigation")[0].type'), 'reload');
+    assert.match(await evaluate(targetA, 'location.href'), /\/a\/subpage$/, 'Clicking the active tab reloads its current subpage');
+    assert.equal(await evaluate(uiTarget, 'originalFrame===document.getElementById("braveFrame")'), true, 'Reload keeps the stream iframe mounted');
     await evaluate(uiTarget, 'document.getElementById("editButton").click()');
     assert.equal(await evaluate(uiTarget, 'document.querySelectorAll("[data-unpin]").length'), 2);
+    await evaluate(targetA, 'document.getElementById("setting").value="editing keeps the form"');
+    await evaluate(uiTarget, 'document.querySelector("[role=tab][aria-selected=true]").click()');
+    await until(() => evaluate(uiTarget, '!switching'));
+    assert.equal(await evaluate(targetA, 'document.getElementById("setting").value'), 'editing keeps the form', 'Selecting a tab while editing must not reload it');
     await evaluate(uiTarget, `document.querySelector('[data-move="1"]').click()`);
     await until(() => evaluate(uiTarget, '!mutation && document.querySelector("[role=tab]").textContent.trim()==="Desk lights"'));
     await evaluate(uiTarget, `document.querySelector('[data-key="link:${b}"] [data-unpin]').click()`);
@@ -216,6 +245,7 @@ test('real Brave preserves device forms; the panel locks layout, persists pins, 
     await evaluate(uiTarget, `document.querySelector('#libraryItems [data-key="link:${b}"]').click()`);
     await until(() => evaluate(uiTarget, `activeKey==='link:${b}' && !switching`));
     assert.equal(await evaluate(uiTarget, 'pins().length'), 2, 'Opening an unpinned page must not pin it');
+    assert.equal(await evaluate(uiTarget, 'document.getElementById("pageToolbar").hidden'), false, 'Unpinned pages retain their address and actions');
     if (process.env.PANEL_SCREENSHOT_DIR) {
       await cdp('Page.bringToFront');
       const screenshot = await cdp('Page.captureScreenshot', { format: 'png' });

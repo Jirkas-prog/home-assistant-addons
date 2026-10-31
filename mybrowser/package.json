@@ -1,6 +1,6 @@
 {
   "name": "home-assistant-mybrowser",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "private": true,
   "description": "Home Assistant device setup panel with Brave, offline copies and local hosting",
   "license": "UNLICENSED",

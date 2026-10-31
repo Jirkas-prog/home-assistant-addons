@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.9.1
+
+- placed pinned tabs, Library, and Edit panel in one compact row and removed the panel branding;
+- hid the address, reload, and save-copy controls for pinned pages, while retaining saved-copy access when a page is unavailable;
+- made clicking the active live tab reload its current page; switching tabs still preserves unfinished forms and navigation.
+- fixed browser control API requests being incorrectly forwarded to the desktop stream, including reload commands under Home Assistant Ingress.
+
 ## 0.9.0
 
 - made device setup pages the default Home Assistant panel, without a second navigation sidebar;

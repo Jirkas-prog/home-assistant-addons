@@ -1,5 +1,5 @@
 ARG BUILD_FROM
-ARG BUILD_VERSION=0.9.0
+ARG BUILD_VERSION=0.9.1
 ARG BUILD_ARCH=amd64
 
 FROM node:24-bookworm-slim AS node-runtime
