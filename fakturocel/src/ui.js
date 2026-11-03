@@ -1,14 +1,14 @@
-import { esc } from './escape.js';
+import { esc, userText } from './escape.js';
 import { tr } from './i18n.js';
-export { esc };
+export { esc, userText };
 export const $ = s => document.querySelector(s);
 export const button = (action, label, cls = 'secondary') => `<button type="button" data-action="${esc(action)}" class="${cls}">${label}</button>`;
-export const field = (label, name, value = '', type = 'text', extra = '') => `<label>${esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;
-export const select = (label, name, options, value = '') => `<label>${esc(label)}<select name="${esc(name)}">${options.map(o => {
-  const [v, l] = Array.isArray(o) ? o : [o, o];
-  return `<option value="${esc(v)}" ${String(value) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
+export const field = (label, name, value = '', type = 'text', extra = '', literalLabel = false) => `<label>${literalLabel ? userText(label) : esc(label)}<input name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></label>`;
+export const select = (label, name, options, value = '', { literalLabel = false, literalOptions = false } = {}) => `<label>${literalLabel ? userText(label) : esc(label)}<select name="${esc(name)}">${options.map(o => {
+  const [v, l, literal = literalOptions] = Array.isArray(o) ? o : [o, o];
+  return `<option ${literal ? 'data-no-translate ' : ''}value="${esc(v)}" ${String(value) === String(v) ? 'selected' : ''}>${esc(l)}</option>`;
 }).join('')}</select></label>`;
-export const area = (label, name, value = '', extra = '') => `<label>${esc(label)}<textarea name="${esc(name)}" rows="3" ${extra}>${esc(value)}</textarea></label>`;
+export const area = (label, name, value = '', extra = '', literalLabel = false) => `<label>${literalLabel ? userText(label) : esc(label)}<textarea name="${esc(name)}" rows="3" ${extra}>${esc(value)}</textarea></label>`;
 export const table = (heads, rows) => `<div class="table-wrap"><table><thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.join('') || `<tr><td colspan="${heads.length}" class="empty">No records yet.</td></tr>`}</tbody></table></div>`;
 export const actions = new Map();
 export const on = (key, fn) => actions.set(key, fn);
@@ -475,7 +475,7 @@ export function picker(title, items, selected) {
     let rows = items,
       index = 0;
     const draw = () => {
-      $('#pickerResults').innerHTML = rows.map((r, i) => `<button type="button" data-pick="${i}" class="picker-row ${index === i ? 'selected' : ''}"><strong>${esc(r.label)}</strong><small>${esc(r.detail)}</small></button>`).join('') || "<p>No result.</p>";
+      $('#pickerResults').innerHTML = rows.map((r, i) => `<button type="button" data-pick="${i}" class="picker-row ${index === i ? 'selected' : ''}"><strong ${r.literal === false ? '' : 'data-no-translate'}>${esc(r.label)}</strong><small data-no-translate>${esc(r.detail)}</small></button>`).join('') || "<p>No result.</p>";
     };
     const search = s => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     $('#pickerSearch').oninput = e => {

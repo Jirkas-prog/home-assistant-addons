@@ -1,5 +1,12 @@
 # Changelog
 
+## 3.11.2
+
+- Keep record names, custom fields and choices, saved views, template content, calculator definitions and other user text literal when changing the interface language.
+- Apply translation exclusions to late-added text nodes, rich-text drafts and raw data blocks as well as complete elements.
+- Keep unchanged built-in calculator labels bilingual and add missing Czech labels without changing saved definitions.
+- Add browser checks for exact stored records, picker values, editable drafts and template text in both languages.
+
 ## 3.11.1
 
 - Renew stale security tokens without reloading the page or discarding edited forms, including after changes in another browser tab.

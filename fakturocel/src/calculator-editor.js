@@ -1,4 +1,5 @@
-import { $, esc, button, field, area, select, modal, on, setDirty, closeModal, validateForm, confirmDialog, toast } from './ui.js';
+import { $, esc, userText, button, field, area, select, modal, on, setDirty, closeModal, validateForm, confirmDialog, toast } from './ui.js';
+import { calculatorLabel } from './calculator-labels.js';
 import { calculatorsValue, defaultCalculators, validateCalculators, calculateFields, displayNumber, calculatorKinds } from './calculators-model.js';
 import { formulaHelp, numeric } from './formula.js';
 import { randomId as uid } from './crypto.js';
@@ -25,13 +26,13 @@ export function openCalculatorSettings(state, save) {
         enabled: true
       }]);
       const rows = calculateFields(current());
-      target.innerHTML = "<strong>Preview from default values</strong>" + rows.map(r => `<p>${esc(r.label)}: <strong>${r.error ? esc(r.error) : esc(displayNumber(r.value, r.decimals)) + ' ' + esc(r.unit)}</strong></p>`).join('');
+      target.innerHTML = "<strong>Preview from default values</strong>" + rows.map((r, i) => `<p>${userText(calculatorLabel(current(), 'label', 'results', i))}: <strong>${r.error ? esc(r.error) : esc(displayNumber(r.value, r.decimals)) + ' ' + userText(calculatorLabel(current(), 'unit', 'results', i))}</strong></p>`).join('');
     } catch (e) {
       target.innerHTML = "<strong>Edit settings</strong><p class=\"field-error\">" + esc(e.message) + '</p>';
     }
   }
   function paint() {
-    modal("Calculator settings", `<p>The order and custom calculators are saved in settings and a full backup. Changes apply to all users.</p><div class="calc-manager-actions">${button('calcNew', "+ New calculator", 'primary')}${button('calcDuplicate', "Make a copy")}${button('calcDelete', "Delete the calculator", 'danger')}${button('calcDefaults', "Restore default list")}</div><div class="calc-manager"><div id="calculatorList" class="calc-manager-nav">${draft.map((c, i) => `<section class="calc-manager-row">${button('calcSelectEdit:' + c.id, esc(c.name) + (c.enabled ? '' : " · hidden"), c.id === selected ? 'selected' : '')}<div><button type="button" data-action="calcMoveUp:${esc(c.id)}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(c.name)} up">↑</button><button type="button" data-action="calcMoveDown:${esc(c.id)}" ${i === draft.length - 1 ? 'disabled' : ''} aria-label="Move ${esc(c.name)} down">↓</button></div></section>`).join('')}</div><div>${form(current())}</div></div><div class="form-actions sticky-actions">${button('calcSettingsSave', "Save calculators", 'primary')}${button('closeModal', "Close")}</div>`, () => {
+    modal("Calculator settings", `<p>The order and custom calculators are saved in settings and a full backup. Changes apply to all users.</p><div class="calc-manager-actions">${button('calcNew', "+ New calculator", 'primary')}${button('calcDuplicate', "Make a copy")}${button('calcDelete', "Delete the calculator", 'danger')}${button('calcDefaults', "Restore default list")}</div><div class="calc-manager"><div id="calculatorList" class="calc-manager-nav">${draft.map((c, i) => `<section class="calc-manager-row">${button('calcSelectEdit:' + c.id, userText(calculatorLabel(c, 'name')) + (c.enabled ? '' : " · hidden"), c.id === selected ? 'selected' : '')}<div><button type="button" data-action="calcMoveUp:${esc(c.id)}" ${i === 0 ? 'disabled' : ''} aria-label="Move ${esc(c.name)} up">↑</button><button type="button" data-action="calcMoveDown:${esc(c.id)}" ${i === draft.length - 1 ? 'disabled' : ''} aria-label="Move ${esc(c.name)} down">↓</button></div></section>`).join('')}</div><div>${form(current())}</div></div><div class="form-actions sticky-actions">${button('calcSettingsSave', "Save calculators", 'primary')}${button('closeModal', "Close")}</div>`, () => {
       const f = $('#calculatorSettingsForm');
       f.oninput = f.onchange = e => {
         const name = e.target.name,

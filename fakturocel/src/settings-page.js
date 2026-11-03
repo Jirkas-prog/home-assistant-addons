@@ -1,4 +1,4 @@
-import { button, esc, select } from './ui.js';
+import { userText, button, esc, select } from './ui.js';
 import { session } from './api.js';
 import { languages, tr } from './i18n.js';
 import { appearanceValue } from './appearance-model.js';
@@ -27,7 +27,7 @@ export function settingsPage(state, { tab, backupTab, owner, native }) {
     const a = appearanceValue(state.settings.appearance);
     return `${intro('Appearance and readability', 'Adjust the workspace to your screen and eyesight.', owner ? button('appearance', 'Set appearance', 'primary') : '')}
       <section class="card"><div class="settings-grid"><div><h3>Current appearance</h3>${details([['Environment theme', tr({ light: 'Light', dark: 'Dark', system: 'By device', custom: 'Custom colors' }[a.theme])], ['Interface scale', a.scale + ' %'], ['Main text (px)', a.fontSize], ['Additional texts (px)', a.smallTextSize]])}</div>
-      <div class="workspace-preview"><div class="preview-sidebar"></div><div><strong>${esc(a.brandName)}</strong><span class="preview-line"></span><span class="preview-line short"></span><div class="status-badges"><span class="badge paid">Paid</span><span class="badge overdue">Overdue</span></div></div></div></div>
+      <div class="workspace-preview"><div class="preview-sidebar"></div><div><strong>${userText(a.brandName)}</strong><span class="preview-line"></span><span class="preview-line short"></span><div class="status-badges"><span class="badge paid">Paid</span><span class="badge overdue">Overdue</span></div></div></div></div>
       <p class="muted">Change the theme, colors, spacing, fonts, and logo. A readability check helps keep custom colors accessible.</p></section>`;
   }
 

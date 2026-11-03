@@ -8,6 +8,7 @@ npm test
 npm run build
 npx playwright install chromium
 npm run test:browser
+npm run test:language
 ```
 
 The automated suite covers:
@@ -26,6 +27,7 @@ The automated suite covers:
 - calculator parsing and formula limits without `eval` or `Function`;
 - synchronization pairing, certificate pinning, conflict comparison, merge rollback, and idempotent retry;
 - English default UI, persistent Czech selection, and unchanged action identifiers after translation;
+- protected user text in late DOM updates, rich-text drafts, custom choices, record tables, pickers, saved views, calculators and template previews;
 - grouped sidebar navigation, contextual tabs, settings search, split supplier/default forms, and mobile menu behavior;
 - direct encryption switches with confirmation, persistence, and unchanged invoice records;
 - custom error dialogs and absence of native `alert`, `confirm`, or `prompt` calls.
@@ -39,7 +41,7 @@ Google Drive tests use a local deterministic fake of the documented Google endpo
 When Docker is available, also run:
 
 ```sh
-docker build --build-arg BUILD_VERSION=3.11.1 --build-arg BUILD_ARCH=amd64 -t fakturocel-test .
+docker build --build-arg BUILD_VERSION=3.11.2 --build-arg BUILD_ARCH=amd64 -t fakturocel-test .
 ```
 
 Automated tests reduce regression risk but do not replace an independent security audit or validation on each supported Home Assistant architecture.

@@ -6,4 +6,6 @@ The workspace uses a main sidebar, contextual horizontal tabs, and searchable se
 
 The add-on starts empty and contains no personal business data. English is the default interface language; Czech can be selected and is stored under **Settings → General → Language**.
 
+Interface translation preserves user-entered names, notes, custom choices, saved views and template content, including text that matches a button label such as `Save`. Unchanged built-in calculator labels follow the selected language; renamed and custom definitions remain literal. Stored records, field IDs, formulas and document formats are unchanged.
+
 Install it from `https://github.com/Jirkas-prog/home-assistant-addons`. See [DOCS.md](DOCS.md) for configuration, backup, recovery, deletion, and network-endpoint details.

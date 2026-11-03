@@ -1,4 +1,4 @@
-import { $, esc, button, field, select, modal, on, setDirty, closeModal, validateForm, toast } from './ui.js';
+import { userText, $, esc, button, field, select, modal, on, setDirty, closeModal, validateForm, toast } from './ui.js';
 import { appearanceValue, defaultAppearance, palettes, validateAppearance, contrastReport } from './appearance-model.js';
 import { applyAppearance } from './appearance.js';
 const colorLabels = {
@@ -28,7 +28,7 @@ export function openAppearance(state, save, addLogo, logoUrl) {
     }
     const colors = draft.theme === 'custom' ? draft.colors : palettes[draft.theme === 'system' ? matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light' : draft.theme],
       checks = contrastReport(colors);
-    $('#appearancePreview').innerHTML = `<div class="preview-brand"><img src="${esc(logoUrl(draft, media))}" alt="Logo"><div><strong>${esc(draft.brandName)}</strong><small>${esc(draft.tagline)}</small></div></div><h3>Readability preview</h3><p>Invoice No. 20260001 · Regular text and document data.</p><small>Additional text and form labels.</small><div class="status-badges"><span class="badge draft">In progress</span><span class="badge issued">Unpaid</span><span class="badge paid">Paid</span><span class="badge overdue">Overdue</span></div><h3>Contrast control</h3><div class="contrast-report">${checks.map(check => `<div class="contrast-check ${check.ratio >= check.minimum ? 'pass' : 'fail'}"><strong>${check.ratio >= check.minimum ? 'Pass' : "Needs adjustment"} · ${check.ratio.toFixed(2)} : 1</strong><span>${esc(check.label)} · minimum ${check.minimum} : 1</span></div>`).join('')}</div>`;
+    $('#appearancePreview').innerHTML = `<div class="preview-brand"><img src="${esc(logoUrl(draft, media))}" alt="Logo"><div><strong>${userText(draft.brandName)}</strong><small>${userText(draft.tagline)}</small></div></div><h3>Readability preview</h3><p>Invoice No. 20260001 · Regular text and document data.</p><small>Additional text and form labels.</small><div class="status-badges"><span class="badge draft">In progress</span><span class="badge issued">Unpaid</span><span class="badge paid">Paid</span><span class="badge overdue">Overdue</span></div><h3>Contrast control</h3><div class="contrast-report">${checks.map(check => `<div class="contrast-check ${check.ratio >= check.minimum ? 'pass' : 'fail'}"><strong>${check.ratio >= check.minimum ? 'Pass' : "Needs adjustment"} · ${check.ratio.toFixed(2)} : 1</strong><span>${esc(check.label)} · minimum ${check.minimum} : 1</span></div>`).join('')}</div>`;
   }
   const repaint = () => {
     modal("Appearance and readability of the application", form(), () => {

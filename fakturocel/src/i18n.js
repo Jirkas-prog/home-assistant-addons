@@ -22,11 +22,17 @@ export function tr(value){
   return value;
 }
 
+const literalContent='script,style,pre,code,[data-no-translate]';
+const editableContent='textarea,[contenteditable]:not([contenteditable="false"])';
+function translateText(node){
+  if(!node.parentElement?.closest(`${literalContent},${editableContent}`))node.nodeValue=tr(node.nodeValue);
+}
 function translateElement(element){
-  if(element.matches?.('script,style,[data-no-translate]')||element.closest?.('[data-no-translate]'))return;
+  if(element.closest?.(literalContent)||element.parentElement?.closest(editableContent))return;
   for(const attribute of ['placeholder','title','aria-label'])if(element.hasAttribute?.(attribute))element.setAttribute(attribute,tr(element.getAttribute(attribute)));
+  if(element.matches?.(editableContent))return;
   for(const node of element.childNodes||[]){
-    if(node.nodeType===Node.TEXT_NODE){if(!element.matches?.('textarea,[contenteditable="true"]'))node.nodeValue=tr(node.nodeValue);}
+    if(node.nodeType===Node.TEXT_NODE)translateText(node);
     else if(node.nodeType===Node.ELEMENT_NODE)translateElement(node);
   }
 }
@@ -38,7 +44,7 @@ export function setLanguage(value){
   try{localStorage.setItem('fakturocel-language',language);}catch{}
   document.documentElement.lang=language;
   if(!observer&&document.body){
-    observer=new MutationObserver(records=>{if(language!=='cs')return;for(const record of records)for(const node of record.addedNodes)if(node.nodeType===Node.ELEMENT_NODE)translateElement(node);else if(node.nodeType===Node.TEXT_NODE&&node.parentElement)node.nodeValue=tr(node.nodeValue);});
+    observer=new MutationObserver(records=>{if(language!=='cs')return;for(const record of records)for(const node of record.addedNodes)if(node.nodeType===Node.ELEMENT_NODE)translateElement(node);else if(node.nodeType===Node.TEXT_NODE&&node.parentElement)translateText(node);});
     observer.observe(document.body,{childList:true,subtree:true});
   }
   queueMicrotask(()=>translateTree(document.body));

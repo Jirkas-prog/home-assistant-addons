@@ -1855,6 +1855,18 @@
     "Paste or type the value, then choose Continue. Escape keeps this window open.": "Vložte nebo napište hodnotu a pak zvolte Pokračovat. Klávesa Escape toto okno nezavře.",
     "Enter your access PIN.": "Zadejte přístupový PIN.",
     "Enter the recovery key or original password.": "Zadejte obnovovací klíč nebo původní heslo.",
-    "Verifying…": "Ověřuji…"
+    "Verifying…": "Ověřuji…",
+    "Standard calculator": "Běžná kalkulačka",
+    "3D printing": "3D tisk",
+    "Costs and price of the entire order. Enter your own consumption and rates; the result does not include a separate VAT calculation.": "Náklady a cena celé zakázky. Zadejte vlastní spotřebu a sazby; výsledek nezahrnuje samostatný výpočet DPH.",
+    "Electricity price": "Cena elektřiny",
+    "Labour rate": "Hodinová sazba práce",
+    "Cost markup": "Přirážka k nákladům",
+    "pcs": "ks",
+    "Percentage and discount": "Procenta a sleva",
+    "Base value": "Základní hodnota",
+    "Percentage": "Procenta",
+    "Operating time per day": "Provozní doba za den",
+    "Store in M": "Uložit do M"
   }
 }

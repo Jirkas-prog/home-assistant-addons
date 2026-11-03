@@ -1,6 +1,6 @@
 {
   "name": "fakturocel-homeassistant",
-  "version": "3.11.1",
+  "version": "3.11.2",
   "private": true,
   "type": "module",
   "description": "Fakturocel for Home Assistant OS",
@@ -10,7 +10,8 @@
   "scripts": {
     "build": "node build.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:browser": "node tests/browser.mjs"
+    "test:browser": "node tests/browser.mjs",
+    "test:language": "node tests/i18n-browser.mjs && node tests/language-data-browser.mjs"
   },
   "dependencies": {
     "@noble/hashes": "2.0.1",
