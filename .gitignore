@@ -5,3 +5,6 @@ node_modules/
 fakturocel/build/
 *.zip
 *.tmp
+workflow_timers/test-results/
+workflow_timers/playwright-report/
+**/__pycache__/

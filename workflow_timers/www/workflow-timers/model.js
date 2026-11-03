@@ -1,3 +1,4 @@
+import {t as translate,uiError} from './i18n.js?v=1.0.5';
 export const TAG = 'workflow-timers:v1';
 export const SKIP = 'workflow-skip:';
 export const GROUP = 'workflow-group:';
@@ -18,7 +19,7 @@ export async function createVirtualSwitch(hass, name) {
     if(!entity)throw Error('Entita ještě není dostupná.');
     return {id:entity.entity_id,name:helper.name};
   } catch(error) {
-    throw Error(`Přepínač „${name}“ byl vytvořen, ale nepodařilo se jej automaticky vybrat. Vyhledejte jej podle názvu v seznamu zařízení.`,{cause:error});
+    throw uiError('Přepínač „{name}“ byl vytvořen, ale nepodařilo se jej automaticky vybrat. Vyhledejte jej podle názvu v seznamu zařízení.',{name},error);
   }
 }
 export const DAYS = ['mon','tue','wed','thu','fri','sat','sun'];
@@ -56,18 +57,18 @@ export function encodeTime({mode,time,offset}) {
   if (!['sunrise','sunset'].includes(mode) || !Number.isInteger(offset) || Math.abs(offset)>120) throw Error('Posun slunce musí být od −120 do +120 minut.');
   return `${mode}${offset<0?'-':'+'}${String(Math.floor(Math.abs(offset)/60)).padStart(2,'0')}:${String(Math.abs(offset)%60).padStart(2,'0')}:00`;
 }
-export function timeLabel(value) {
+export function timeLabel(value,language='cs') {
   const t = parseTime(value);
   if (t.mode === 'time') return t.time;
-  return `${t.mode==='sunrise'?'Východ':'Západ'}${t.offset ? ` ${t.offset>0?'+':'−'}${Math.abs(t.offset)} min` : ''}`;
+  return `${translate(language,t.mode==='sunrise'?'Východ':'Západ')}${t.offset ? ` ${t.offset>0?'+':'−'}${Math.abs(t.offset)} min` : ''}`;
 }
-export function dayLabel(s) {
-  if (s.start_date && s.start_date===s.end_date) return new Date(`${s.start_date}T12:00`).toLocaleDateString('cs-CZ');
+export function dayLabel(s,language='cs') {
+  if (s.start_date && s.start_date===s.end_date) return new Date(`${s.start_date}T12:00`).toLocaleDateString(language==='cs'?'cs-CZ':'en-GB');
   const d = s.weekdays || [];
-  if (d.includes('daily') || DAYS.every(x=>d.includes(x))) return 'Každý den';
-  if (d.length===5 && DAYS.slice(0,5).every(x=>d.includes(x))) return 'Po–Pá';
-  if (d.length===2 && d.includes('sat') && d.includes('sun')) return 'Víkend';
-  return d.map(x=>DAY_NAMES[DAYS.indexOf(x)] || ({workday:'Pracovní dny',weekend:'Víkend'}[x]) || x).join(' · ');
+  if (d.includes('daily') || DAYS.every(x=>d.includes(x))) return translate(language,'Každý den');
+  if (d.length===5 && DAYS.slice(0,5).every(x=>d.includes(x))) return translate(language,'Po–Pá');
+  if (d.length===2 && d.includes('sat') && d.includes('sun')) return translate(language,'Víkend');
+  return d.map(x=>translate(language,DAY_NAMES[DAYS.indexOf(x)] || ({workday:'Pracovní dny',weekend:'Víkend'}[x]) || x)).join(' · ');
 }
 export const isManaged = s => (s.tags || []).includes(TAG);
 export const isSkipped = (s,today) => (s.tags || []).includes(SKIP+today);

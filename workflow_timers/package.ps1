@@ -1,7 +1,7 @@
 param([string]$Destination)
 $ErrorActionPreference = 'Stop'
 $projectRoot = $PSScriptRoot
-$include = @('config.yaml','Dockerfile','.dockerignore','install.py','LICENSE','THIRD_PARTY.md','README.md','DOCS.md','CHANGELOG.md','package.json','package.ps1','custom_components','www','examples','tests','preview')
+$include = @('config.yaml','Dockerfile','.dockerignore','install.py','LICENSE','THIRD_PARTY.md','README.md','DOCS.md','CHANGELOG.md','package.json','package-lock.json','playwright.config.cjs','package.ps1','custom_components','www','examples','tests','preview')
 if (-not $Destination) { $Destination = Join-Path $projectRoot 'releases\workflow_timers' }
 $target = [IO.Path]::GetFullPath($Destination)
 if (Test-Path -LiteralPath $target) { throw "Destination already exists: $target. Choose a new empty destination." }

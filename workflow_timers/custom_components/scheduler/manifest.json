@@ -1,6 +1,6 @@
 {
   "domain": "scheduler",
-  "name": "Scheduler · WorkFlow Časovače",
+  "name": "Scheduler · WorkFlow Timers",
   "codeowners": ["@Jirkas-prog"],
   "config_flow": true,
   "dependencies": ["http", "websocket_api", "frontend", "panel_custom"],
@@ -8,5 +8,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Jirkas-prog/home-assistant-addons/issues",
   "requirements": [],
-  "version": "3.3.8+workflow.5"
+  "version": "3.3.8+workflow.6"
 }

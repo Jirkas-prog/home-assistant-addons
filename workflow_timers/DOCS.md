@@ -7,7 +7,7 @@ use the card in dashboards:
 
 1. Enable Advanced mode in your Home Assistant user profile if Resources is hidden.
 2. Open **Settings → Dashboards → Resources → Add resource**.
-3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.4`; type: **JavaScript Module**.
+3. URL: `/local/workflow-timers/workflow-timers.js?v=1.0.5`; type: **JavaScript Module**.
 4. Fully reload every Home Assistant browser window that was already open when
    the resource was added or updated (Ctrl+F5 on Windows). Switching views alone
    can leave an old resource list in memory and show a configuration error.
@@ -16,7 +16,6 @@ use the card in dashboards:
 
 ```yaml
 type: custom:workflow-timers-card
-title: Časovače
 ```
 
 [examples/dashboard-view.yaml](examples/dashboard-view.yaml) contains a complete
@@ -27,13 +26,13 @@ the sidebar panel; the panel also registers the card when its module loads.
 
 ## Creating a plan
 
-Choose an existing **Skupina časovačů** or **+ Nová skupina** in the editor to
-keep related plans under one heading. **Bez skupiny** removes a plan from its
+Choose an existing **Timer group** or **+ New group** in the editor to
+keep related plans under one heading. **Ungrouped** removes a plan from its
 group. Group names are also included in search. Grouping never changes the
 scheduled actions or enables/disables other plans.
 
-Under the target selector, expand **+ Vytvořit virtuální přepínač**, enter a name,
-and press **Vytvořit a vybrat**. This creates a standard Home Assistant
+Under the target selector, expand **+ Create virtual switch**, enter a name,
+and press **Create and select**. This creates a standard Home Assistant
 `input_boolean` helper and selects it as a target for both scheduled actions.
 Home Assistant generates a unique entity ID from the name; the editor displays
 the actual ID. The helper can be used in automations, Node-RED and other timers,
@@ -43,7 +42,7 @@ the editor or deleting the timer does not delete a helper used elsewhere.
 Helpers restore their previous state after restarts. Administrator access and
 the Home Assistant `input_boolean` integration are required.
 
-Select **Upravit přehled**, then **Nový časovač**. Enter a name, select weekdays
+Select **Edit overview**, then **New timer**. Enter a name, select weekdays
 or a calendar date, choose both times and select devices. Each selected device
 can have its own parameters. Brightness and fan percentage have number inputs;
 other service parameters can be entered as JSON objects under the selected device.
@@ -55,7 +54,7 @@ Light and switch targets use their `turn_on` and `turn_off` services; covers use
 `open_cover` and `close_cover`. Target selection is entity-based. Climate devices,
 arbitrary scripts and scenes are not included in this first editor.
 
-**Po–Pá** means Monday to Friday, including public holidays. Sunrise and sunset
+**Mon–Fri** means Monday to Friday, including public holidays. Sunrise and sunset
 require `sun.sun` and a correctly configured Home Assistant location. The offset
 range is −120 to +120 minutes. Time calculations and day boundaries use Home
 Assistant's time zone. A single-date plan stays visible after completion, paused.
@@ -65,9 +64,9 @@ Assistant's time zone. A single-date plan stays visible after completion, paused
 - The switch enables/disables the **plan**, without immediately changing the device.
   Disabling also suppresses its future off action. Use the device controls elsewhere
   in Home Assistant if you want to turn the device off immediately.
-- **Dnes vynechat** skips remaining activations on today's calendar date. Scheduled
+- **Skip today** skips remaining activations on today's calendar date. Scheduled
   `turn_off`/`close_cover` actions still run. It does not undo an activation that has
-  already happened. **Obnovit dnes** cancels the skip; missed actions are not replayed.
+  already happened. **Restore today** cancels the skip; missed actions are not replayed.
 - The skip date is determined and stored by the server. It survives restarts and
   automatically stops matching at local midnight, without a running browser.
 - Saving a plan or enabling it at a scheduled minute can execute that minute's

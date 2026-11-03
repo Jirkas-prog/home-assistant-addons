@@ -1,3 +1,11 @@
+# 1.0.5
+
+- Add English/Czech interface selection, following Home Assistant by default and remembering explicit browser choices.
+- Translate editor labels, validation messages, calendar labels and the standalone preview without changing user-defined names or service data.
+- Preserve open forms during external language changes; changing language sends no scheduling commands.
+- Use the permanent WorkFlow Timers product name in the sidebar and English documentation labels.
+- Verify the existing scheduler model and installer preservation checks plus browser language regressions. Scheduling rules and storage formats are unchanged.
+
 # 1.0.4
 
 - Create named Home Assistant toggle helpers directly in the timer editor and select them automatically.

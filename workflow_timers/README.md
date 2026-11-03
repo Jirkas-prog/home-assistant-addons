@@ -1,6 +1,6 @@
 # WorkFlow Timers
 
-A Czech timer panel for Home Assistant, with one full-width row per plan.
+An English/Czech timer panel for Home Assistant, with one full-width row per plan.
 Create a plan, choose one or more entities, set on/off times and selected weekdays,
 and optionally configure sunrise/sunset offsets or a single calendar date.
 No Node-RED wiring or per-timer YAML is needed.
@@ -11,7 +11,7 @@ with a new frontend and a persistent skip-today extension. It is installed throu
 the Home Assistant add-on store. The one-shot add-on installs files; scheduling
 then runs inside Home Assistant Core, including when browsers are closed.
 
-- Sidebar page: **Časovače**.
+- Sidebar page: **WorkFlow Timers**.
 - Dashboard card: `custom:workflow-timers-card`, including full-width Panel views.
 - Fixed times, weekdays, weekends, a single date, sunrise/sunset with ±120 minutes.
 - Lights, switches, fans, input booleans and covers; multiple targets in one plan.
@@ -31,7 +31,7 @@ Repository: `https://github.com/Jirkas-prog/home-assistant-addons`
 4. Restart **Home Assistant Core**.
 5. Open **Settings → Devices & services → Add integration**, search for **Scheduler**,
    and add it. Existing Scheduler installations keep their existing integration entry.
-6. Open **Časovače** from the sidebar. Select **Upravit přehled → Nový časovač**.
+6. Open **WorkFlow Timers** from the sidebar. Select **Edit overview → New timer**.
 
 If an official Scheduler installation already exists, the installer refuses to
 overwrite it by default. Make a Home Assistant backup, disable HACS updates for
@@ -42,6 +42,16 @@ integration domain and must not be updated independently.
 See [DOCS.md](DOCS.md) for dashboard setup, update/restore instructions and exact
 timer semantics. See [THIRD_PARTY.md](THIRD_PARTY.md) for source attribution.
 
+## Interface language
+
+Choose **EN** or **CZ** in the top bar. The initial language follows Home Assistant
+(or the browser in the standalone demo). An explicit choice is remembered in that
+browser. Custom card titles, timer names, groups, device names and JSON parameters
+are kept exactly as entered. Changing language sends no scheduling commands.
+
+If the Home Assistant profile language changes while an editor or confirmation is
+open, the current form stays intact; the new language applies after it closes.
+
 ## Preview and checks
 
 Run `python preview/serve.py`, then open the printed local URL. The demo uses
@@ -49,7 +59,10 @@ fictional entities and browser-local storage; it never connects to Home Assistan
 Append `?many=1` to the preview URL to test selection with 400 extra devices.
 
 ```sh
-node --test tests/model.test.js
+npm ci
+npm test
+npx playwright install chromium
+npm run test:browser
 python -m unittest discover -s tests -p test_local.py
 ```
 
@@ -60,6 +73,9 @@ python tests/test_core.py
 python tests/test_bootstrap.py
 ```
 
-Validated with Home Assistant Core 2026.10.3 and Python 3.14. The add-on installer
+The original scheduler integration was validated with Home Assistant Core 2026.10.3
+and Python 3.14. Version 1.0.5 was checked with 9 model/language tests, 6 Chromium
+language scenarios and 3 local installer/storage-preservation tests. The full Core
+tests were not rerun for this interface-only update. The add-on installer
 uses Python 3.13. Physical devices and a real Home Assistant Supervisor installation
 still require an installation smoke test. This version is marked experimental.
