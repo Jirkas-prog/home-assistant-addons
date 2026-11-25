@@ -48,6 +48,10 @@ Place copies of final JPEG/PNG posts and their caption files in PLANNED, or uplo
 
 The app discovers files periodically and offers a manual scan. Drag cards to reorder them. It updates numeric prefixes such as 0001__ and 0002__ on both image and caption; descriptive filename parts remain. Do not rename or overwrite files concurrently in another application while reordering.
 
+Select an image to open its full preview and complete caption. **Edit text** shows the photo alongside its editable caption. You can also use the up/down buttons to reorder on a phone or with a keyboard.
+
+Upload each photo and its matching TXT together. A photo without a TXT can be added, but the import result identifies the missing caption; use **Edit text** to add it. A TXT uploaded later on its own is rejected, because the managed photo has already been renamed. Ambiguous pairs, unsupported dimensions and invalid text are rejected before the batch is written. Import feedback reports the number of added posts.
+
 Keep original photographs and any other application's catalogued output folders outside the managed queue. Reordering is a real filesystem operation. Use a dedicated directory of copies, not another workflow's recorded source files.
 
 Instagram receives a separate JPEG copy. The publishing path checks image size and aspect ratio and prepares sRGB data. It does not invent a caption or change the scene. The shared image preparation accepts ratios from 4:5 to 1.91:1, a width of at least 320 pixels and a prepared JPEG smaller than 8 MB.
@@ -112,6 +116,8 @@ If no calendar exists, add **Local calendar** under **Settings → Devices & ser
 For one post daily at 16:00, create a **timed event with daily recurrence**, starting at 16:00 in the intended time zone, such as Europe/Prague. Each event start consumes one item from the front of the queue. All-day events are ignored. Event titles are shown for orientation and do not select a particular photograph.
 
 Edit event times and recurrence in Home Assistant or the original calendar provider. This app only reads them. Use a calendar dedicated to publication so ordinary appointments do not become posting instructions.
+
+The week controls load the selected seven-day range directly; they are not limited to the next fourteen posting slots. A failed calendar read is displayed as an error, not an empty schedule. The **Open Home Assistant calendar** link is available inside Home Assistant. This view does not create or modify events.
 
 Check upcoming events, time zone, account and queue before enabling publication. If Home Assistant cannot provide the selected calendar, the app must not switch silently to the internal schedule.
 

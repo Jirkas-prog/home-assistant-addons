@@ -2,7 +2,7 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const state = { data: null, view: 'queue', dragging: null, editing: null, resolving: null, busy: 0, loading: false, weekOffset: 0, connected: false, calendars: null, calendarsLoading: false, settingsDirty: false, calendarDirty: false, methodDirty: false, directChallenge: false, language: savedLanguage() };
+const state = { data: null, view: 'queue', dragging: null, editing: null, resolving: null, busy: 0, loading: false, weekOffset: 0, connected: false, calendars: null, calendarsLoading: false, settingsDirty: false, calendarDirty: false, methodDirty: false, directChallenge: false, previewing: null, calendarView: null, calendarRequest: 0, calendarLoadingKey: '', language: savedLanguage() };
 const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 const english = {
   'Přejít na obsah': 'Skip to content', 'Czech This View — fronta': 'Czech This View — queue', 'PRACOVNÍ PROSTOR': 'WORKSPACE', 'Hlavní navigace': 'Main navigation', 'Fronta': 'Queue', 'FRONTA': 'QUEUE', 'fronta': 'queue', 'Kalendář': 'Calendar', 'KALENDÁŘ': 'CALENDAR', 'kalendář': 'calendar', 'Historie': 'History', 'HISTORIE': 'HISTORY', 'historie': 'history', 'Nastavení': 'Settings', 'NASTAVENÍ': 'SETTINGS', 'nastavení': 'settings', 'Připojuji rozhraní': 'Connecting to server', 'VAŠE FOTKY. VÁŠ RYTMUS.': 'YOUR PHOTOS. YOUR RHYTHM.', 'Instagram nepřipojen': 'Instagram not connected', 'Jazyk rozhraní': 'Interface language',
@@ -19,6 +19,14 @@ const english = {
   'Home Assistant zatím neposkytuje žádný kalendář. Nejdřív přidej kalendář v jeho integracích.': 'Home Assistant has no calendars yet. Add a calendar integration first.', 'Kalendáře nejsou dostupné': 'Calendars unavailable', 'Vyber kalendář pro příspěvky': 'Select a calendar for posts', 'Vyplň platné datum a čas.': 'Enter a valid date and time.', 'Tento místní čas při přechodu na letní čas neexistuje. Vyber jiný čas.': 'This local time does not exist during the daylight saving transition. Choose another time.', 'Nejdřív vyber kalendář Home Assistantu pro publikování.': 'First select a Home Assistant calendar for publishing.', 'Automatické publikování je zapnuté.': 'Automatic publishing is enabled.', 'Automatické publikování je pozastavené.': 'Automatic publishing is paused.', 'Složka je načtená.': 'Folder scanned.', 'Příspěvky jsou přidané do fronty.': 'Posts added to the queue.', 'Popisek uložen.': 'Caption saved.', 'Vyber alespoň jeden den.': 'Select at least one day.', 'Pravidelný čas přidán.': 'Recurring time added.', 'Vyber termín v budoucnosti.': 'Select a future date and time.', 'Jednorázový termín přidán.': 'One-time slot added.', 'Časové pásmo uložené.': 'Time zone saved.', 'Vyber kalendář pro příspěvky.': 'Select a calendar for posts.', 'Publikování bude řídit vybraný kalendář Home Assistantu.': 'The selected Home Assistant calendar will control publishing.', 'Nastavení uložené.': 'Settings saved.', 'Vlož HTTPS odkaz na příspěvek na Instagramu.': 'Enter an HTTPS link to the Instagram post.', 'Ověřený výsledek uložen.': 'Verified result saved.', 'Spojení bylo ověřeno.': 'Connection checked.', 'Instagram je odpojen.': 'Instagram disconnected.', 'Server vrátil neplatnou přihlašovací adresu.': 'The server returned an invalid sign-in URL.', 'Failed to fetch': 'Failed to fetch'
 };
 Object.assign(english, {
+  'Pokročilé připojení': 'Advanced connection',
+  'příspěvky': 'posts',
+  'publikování pozastaveno': 'publishing paused',
+  'Počkej na dokončení předchozí akce.': 'Wait for the previous action to finish.',
+  'Složka příspěvků': 'Post folder',
+  'Fronta je prázdná': 'The queue is empty',
+  'Otevřít kalendář v Home Assistantu ↗': 'Open Home Assistant calendar ↗',
+  'Zavřít náhled': 'Close preview',
   'Průvodce nastavením': 'Setup checklist', 'PŘÍPRAVA K PUBLIKOVÁNÍ': 'PUBLISHING SETUP',
   'Čtyři kroky k prvnímu příspěvku': 'Four steps to your first post',
   'Tři kroky k prvnímu příspěvku': 'Three steps to your first post',
@@ -63,9 +71,29 @@ Object.assign(english, {
   'Vyplň uživatelské jméno a heslo.': 'Enter your username and password.', 'Zadej ověřovací kód.': 'Enter the verification code.',
   'Instagram je připojený.': 'Instagram is connected.', 'Přihlášení zatím nebylo potvrzené.': 'Sign-in has not been confirmed yet.'
 });
+Object.assign(english, {
+  'Fronta příspěvků': 'Post queue',
+  'Přidej fotky, uprav popisky a seřaď je pro publikování.': 'Add photos, edit captions and arrange the publishing order.',
+  'Plán publikování': 'Publishing schedule',
+  'Každý termín odešle jeden příspěvek z čela fronty.': 'Each slot sends one post from the front of the queue.',
+  'Zveřejněné příspěvky, odkazy a výsledky odesílání.': 'Published posts, links and delivery results.',
+  'Instagram účet a kalendář pro tvoje příspěvky.': 'Your Instagram account and publishing calendar.',
+  'K publikování zbývá:': 'Before publishing:',
+  'První příspěvek je připravený': 'The first post is ready',
+  'První příspěvek vyžaduje kontrolu': 'The first post needs attention',
+  'Přidej fotografie a popisky': 'Add photos and captions',
+  'Bez popisku': 'No caption',
+  'Nejdřív přihlas Instagram.': 'Sign in to Instagram first.',
+  'Nahrávám a kontroluji soubory…': 'Uploading and checking files…',
+  'Import se nepodařil. Zkontroluj frontu před opakováním.': 'Import failed. Check the queue before retrying.',
+  'Načítám vybraný týden…': 'Loading the selected week…',
+  'Termíny z Home Assistantu. Celodenní události se nepublikují.': 'Slots from Home Assistant. All-day events do not publish.',
+  'Termíny z interního plánu doplňku.': 'Slots from the add-on’s internal schedule.',
+  'Publikování je pozastavené': 'Publishing is paused'
+});
 const sourceTexts = new WeakMap();
 const sourceAttributes = new WeakMap();
-const excludedTranslation = '.queue-filename,.queue-caption:not(.no-caption),.row-error,.history-row h3,.history-row p,.no-translate,#queue-path,#caption-filename,#resolve-filename,#caption-text,#resolve-note,#warnings,#account-error';
+const excludedTranslation = '.queue-filename,.queue-caption:not(.no-caption),.row-error,.history-row h3,.history-row p,.no-translate,#queue-path,#caption-filename,#resolve-filename,#caption-text,#resolve-note,#warnings,#account-error,#upload-feedback,#preview-filename,#preview-caption';
 
 function savedLanguage() {
   try { return localStorage.getItem('reality-twins-language') === 'en' ? 'en' : 'cs'; } catch { return 'cs'; }
@@ -131,10 +159,10 @@ function setLanguage(language) {
 }
 const statusLabels = { queued: 'PŘIPRAVENO', publishing: 'PUBLIKUJE SE', published: 'ZVEŘEJNĚNO', error: 'CHYBA', uncertain: 'OVĚŘIT VÝSLEDEK', claimed: 'ZPRACOVÁNÍ', container_created: 'PŘIPRAVUJE SE' };
 const titles = {
-  queue: ['FRONTA', 'Připraveno. Seřazeno.', 'Ve správný čas.', 'Přesuň příspěvky do pořadí. Zbytek převezme tvůj kalendář.'],
-  calendar: ['KALENDÁŘ', 'Tvůj kalendář.', 'Tvůj publikační rytmus.', 'Začátek události v Home Assistantu převezme další příspěvek z fronty.'],
-  history: ['HISTORIE', 'Každý příspěvek.', 'Každý výsledek.', 'Přehled zveřejnění a případných chyb bez hledání v souborech.'],
-  settings: ['NASTAVENÍ', 'Jedno spojení.', 'Všechno připravené.', 'Přihlas Instagram a vyber kalendář pro své příspěvky.']
+  queue: ['FRONTA', 'Fronta příspěvků', '', 'Přidej fotky, uprav popisky a seřaď je pro publikování.'],
+  calendar: ['KALENDÁŘ', 'Plán publikování', '', 'Každý termín odešle jeden příspěvek z čela fronty.'],
+  history: ['HISTORIE', 'Historie publikování', '', 'Zveřejněné příspěvky, odkazy a výsledky odesílání.'],
+  settings: ['NASTAVENÍ', 'Nastavení', '', 'Instagram účet a kalendář pro tvoje příspěvky.']
 };
 
 function element(tag, className, text) {
@@ -194,7 +222,11 @@ async function api(path, options = {}) {
 
 async function run(action, trigger, success) {
   if (trigger?.disabled) return;
+  if (state.busy) { toast('Počkej na dokončení předchozí akce.'); return null; }
   if (trigger) trigger.disabled = true;
+  const fields = $$('input,select,textarea,button[type="submit"]').filter(node => !node.disabled);
+  fields.forEach(node => { node.disabled = true; });
+  if (trigger) trigger.setAttribute('aria-busy', 'true');
   state.busy++;
   try {
     const result = await action();
@@ -207,13 +239,21 @@ async function run(action, trigger, success) {
     return null;
   } finally {
     state.busy--;
+    fields.forEach(node => { if (node.isConnected) node.disabled = false; });
+    if (trigger) trigger.removeAttribute('aria-busy');
     if (trigger?.isConnected) trigger.disabled = false;
   }
 }
 
 async function loadState(force = false) {
-  if (state.loading || (!force && (state.dragging || state.editing || state.resolving || state.busy))) return;
+  if (state.loading) {
+    if (!force) return;
+    await state.loadTask;
+    return loadState(true);
+  }
+  if (!force && (state.dragging || state.editing || state.previewing || state.resolving || state.busy)) return;
   state.loading = true;
+  state.loadTask = (async () => {
   try {
     const data = await api('state');
     state.data = data;
@@ -231,11 +271,14 @@ async function loadState(force = false) {
     $('#global-error').hidden = false;
     $('#sync-label').textContent = 'STAV NEMUSÍ BÝT AKTUÁLNÍ';
   } finally { state.loading = false; }
+  })();
+  return state.loadTask;
 }
 
 function navigate(view) {
   if (!titles[view]) view = 'queue';
   state.view = view;
+  $('.metrics').hidden = view !== 'queue';
   $$('.view').forEach(node => { node.hidden = node.id !== `view-${view}`; });
   $$('.nav-item').forEach(node => {
     node.classList.toggle('active', node.dataset.view === view);
@@ -245,7 +288,7 @@ function navigate(view) {
   });
   const [breadcrumb, first, second, description] = titles[view];
   $('#breadcrumb-view').textContent = breadcrumb;
-  $('#page-title').replaceChildren(document.createTextNode(first), element('br'), element('span', '', second));
+  $('#page-title').textContent = first;
   $('#page-description').textContent = description;
   if (location.hash !== `#${view}`) history.replaceState(null, '', `#${view}`);
   if (view === 'calendar') renderCalendar();
@@ -263,16 +306,17 @@ function render() {
   const account = data.account || {};
   const enabled = Boolean(data.settings?.enabled);
   const next = data.next_slots?.[0];
-  $('#queue-total').replaceChildren(document.createTextNode(String(queue.length)), element('small', '', queue.length === 1 ? 'příspěvek' : 'příspěvků'));
-  $('#queue-detail').textContent = queue.length ? 'První na řadě: ' + queue[0].filename : 'Přidej první fotografie a popisky';
+  $('#queue-total').replaceChildren(document.createTextNode(String(queue.length)), element('small', '', queue.length === 1 ? 'příspěvek' : queue.length >= 2 && queue.length <= 4 ? 'příspěvky' : 'příspěvků'));
+  $('#queue-detail').textContent = queue.length ? (queue[0].status === 'queued' ? 'První příspěvek je připravený' : 'První příspěvek vyžaduje kontrolu') : 'Přidej fotografie a popisky';
   $('#queue-badge').textContent = queue.length;
   $('#nav-count').textContent = queue.length;
   $('#next-time').textContent = next ? formatDate(next.at, { day: undefined, month: undefined, hour: '2-digit', minute: '2-digit' }) : 'Bez termínu';
-  $('#next-detail').textContent = next ? `${formatDate(next.at, { weekday: 'short', hour: undefined, minute: undefined })} · ${enabled ? timezone() : 'publikování pozastaveno'}` : 'Přidej čas v kalendáři';
+  $('#next-detail').textContent = next ? `${formatDate(next.at, { weekday: 'short', hour: undefined, minute: undefined })} · ${enabled ? timezone() : translate('publikování pozastaveno')}` : 'Přidej čas v kalendáři';
   $('#automation-toggle').disabled = false;
   $('#automation-toggle').classList.toggle('running', enabled);
   $('#automation-toggle').setAttribute('aria-pressed', String(enabled));
   $('#automation-label').textContent = enabled ? 'Pozastavit publikování' : 'Zapnout publikování';
+  $('#automation-toggle').title = enabled ? 'Publikování je zapnuté' : 'Publikování je pozastavené';
   $('.automation-icon').textContent = enabled ? 'Ⅱ' : '▷';
   $('#account-name').textContent = account.connected ? `@${account.username || account.id}` : 'Nepřipojen';
   $('#account-short').textContent = account.connected ? `@${account.username || account.id}` : 'Instagram nepřipojen';
@@ -336,8 +380,9 @@ function goToSetupStep(step) {
   navigate(step.view);
   const target = $(step.target);
   if (!target) return;
-  const disclosure = target.closest('details');
-  if (disclosure) disclosure.open = true;
+  for (let parent = target.parentElement; parent; parent = parent.parentElement) {
+    if (parent.tagName === 'DETAILS') parent.open = true;
+  }
   if (target.tagName === 'DETAILS') target.open = true;
   if (!target.matches('button,input,select,textarea,a,summary')) target.setAttribute('tabindex', '-1');
   target.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -347,41 +392,25 @@ function goToSetupStep(step) {
 function renderOnboarding() {
   if (!state.data) return;
   const steps = onboardingSteps(state.data);
-  const done = steps.filter(step => step.complete).length;
-  const allComplete = done === steps.length;
   for (const selector of ['#queue-onboarding', '#settings-onboarding']) {
     const section = $(selector);
-    section.hidden = false;
     section.replaceChildren();
-    section.classList.toggle('complete', allComplete);
-    section.classList.toggle('official', steps.length === 4);
-    const heading = element('div', 'onboarding-heading');
-    const intro = element('div');
-    intro.append(element('div', 'eyebrow', 'PŘÍPRAVA K PUBLIKOVÁNÍ'), element('h2', '', allComplete ? 'Nastavení je připravené' : steps.length === 3 ? 'Tři kroky k prvnímu příspěvku' : 'Čtyři kroky k prvnímu příspěvku'));
-    const progress = element('div', 'onboarding-progress');
-    progress.append(element('strong', '', `${done} / ${steps.length}`), element('span', '', allComplete ? (state.data.settings?.enabled ? 'Publikování je zapnuté' : 'Nastavení je připravené') : 'Zbývá dokončit nastavení'));
-    heading.append(intro, progress);
-    const checklist = element('ol', 'onboarding-list');
-    for (const [index, step] of steps.entries()) {
-      const item = element('li', `setup-step${step.complete ? ' complete' : ''}${step.attention ? ' attention' : ''}`);
-      const top = element('div', 'setup-step-top');
-      const marker = element('span', 'setup-marker', step.complete ? '✓' : String(index + 1).padStart(2, '0'));
-      marker.setAttribute('aria-hidden', 'true');
-      top.append(marker, element('span', 'setup-status', step.complete ? 'Hotovo' : step.attention ? 'Zkontrolovat' : 'Doplnit'));
-      const action = button(step.action, 'setup-action', () => goToSetupStep(step));
-      const arrow = element('span', '', '↗');
-      arrow.setAttribute('aria-hidden', 'true');
-      action.append(arrow);
-      item.append(top, element('h3', '', step.title), element('p', '', step.detail), action);
-      checklist.append(item);
+    const missing = steps.filter(step => !step.complete);
+    section.hidden = !missing.length || selector === '#settings-onboarding';
+    section.classList.add('onboarding-inline');
+    if (section.hidden) continue;
+    section.append(element('strong', '', 'K publikování zbývá:'));
+    for (const step of missing) {
+      section.append(button(step.action, 'setup-action', () => goToSetupStep(step)));
     }
-    section.append(heading, checklist, element('p', 'onboarding-note', state.data.settings?.connection_method === 'official' ? 'Počítají se pouze uložené údaje. Veřejná dostupnost HTTPS se ověří při zapnutí publikování.' : 'Přehled vychází z uloženého nastavení a skutečného stavu fronty.'));
-    if (allComplete && !state.data.settings?.enabled) section.append(element('p', 'onboarding-ready', 'Nastavení samo nic nezveřejní. Až budeš připravený, zapni publikování nahoře.'));
   }
 }
 
 function renderQueue() {
   const queue = state.data?.queue || [];
+  const signature = JSON.stringify([state.language, queue]);
+  if (state.queueSignature === signature) return;
+  state.queueSignature = signature;
   const list = $('#queue-list');
   const locked = queue.some(item => item.status === 'publishing');
   list.replaceChildren();
@@ -399,6 +428,8 @@ function renderQueue() {
     thumbnail.alt = `Náhled ${item.filename}`;
     thumbnail.loading = 'lazy';
     thumbnail.draggable = false;
+    const preview = button('', 'preview-button', () => previewItem(item), `Náhled ${item.filename}`);
+    preview.append(thumbnail);
     const content = element('div', 'queue-content');
     const name = element('h3', 'queue-filename', item.filename);
     name.title = item.filename;
@@ -406,6 +437,8 @@ function renderQueue() {
     const meta = element('div', 'row-meta');
     meta.append(badge(item.status));
     if (index === 0) meta.append(element('span', 'slot-note', 'DALŠÍ NA ŘADĚ'));
+    if (!item.caption) meta.append(element('span', 'slot-note', 'Bez popisku'));
+    if (item.status === 'uncertain') meta.append(button('Ověřit výsledek', 'button secondary compact', () => navigate('history')));
     content.append(name, caption, meta);
     if (item.error) content.append(element('div', 'row-error', state.language === 'cs' ? item.error_cs || item.error : item.error));
     const controls = element('div', 'row-controls');
@@ -416,13 +449,13 @@ function renderQueue() {
     down.disabled = index === queue.length - 1 || locked;
     arrows.append(up, down);
     const edit = button('Upravit text', 'button secondary edit-caption', () => editCaption(item), `Upravit popisek ${item.filename}`);
-    edit.disabled = item.status === 'publishing';
+    edit.disabled = item.status !== 'queued' && item.status !== 'error';
     controls.append(edit, arrows);
     if (item.status === 'error') {
       const retry = button('↻', 'icon-button', event => run(() => api(`queue/${encodeURIComponent(item.id)}/retry`, { method: 'POST' }), event.currentTarget, 'Příspěvek je znovu připravený ve frontě.'), 'Znovu připravit příspěvek po chybě');
       controls.prepend(retry);
     }
-    row.append(handle, number, thumbnail, content, controls);
+    row.append(handle, number, preview, content, controls);
     row.addEventListener('dragstart', event => {
       if (locked || event.target.closest('input, textarea')) { event.preventDefault(); return; }
       state.dragging = item.id;
@@ -479,10 +512,23 @@ async function moveItem(id, delta) {
 function editCaption(item) {
   state.editing = item.id;
   $('#caption-filename').textContent = item.filename;
+  $('#caption-image').src = `api/queue/${encodeURIComponent(item.id)}/image`;
+  $('#caption-image').alt = item.filename;
+  $('#caption-image').hidden = false;
   $('#caption-text').value = item.caption || '';
   $('#caption-count').textContent = `${$('#caption-text').value.length} / 2200`;
   $('#caption-dialog').showModal();
   $('#caption-text').focus();
+}
+
+function previewItem(item) {
+  state.previewing = item.id;
+  $('#preview-image').src = `api/queue/${encodeURIComponent(item.id)}/image`;
+  $('#preview-image').alt = item.filename;
+  $('#preview-filename').textContent = item.filename;
+  $('#preview-caption').textContent = item.caption || translate('Bez popisku');
+  $('#image-preview-dialog').showModal();
+  $('#preview-close').focus();
 }
 
 function copySchedule() {
@@ -490,7 +536,25 @@ function copySchedule() {
 }
 
 async function saveSchedule(schedule, trigger, success) {
-  return run(() => api('schedule', { method: 'PUT', body: JSON.stringify(schedule) }), trigger, success);
+  return run(async () => { const result = await api('schedule', { method: 'PUT', body: JSON.stringify(schedule) }); state.calendarView = null; return result; }, trigger, success);
+}
+
+async function loadCalendarWeek(start, key) {
+  const requestId = ++state.calendarRequest;
+  state.calendarLoadingKey = key;
+  try {
+    const result = await api(`calendar/week?start=${encodeURIComponent(start)}`);
+    if (requestId !== state.calendarRequest) return;
+    state.calendarView = { ...result, key, fetched: Date.now() };
+  } catch (error) {
+    if (requestId !== state.calendarRequest) return;
+    state.calendarView = { key, slots: [], error: error.message, fetched: Date.now() };
+  } finally {
+    if (requestId === state.calendarRequest) {
+      state.calendarLoadingKey = '';
+      renderCalendar();
+    }
+  }
 }
 
 function renderCalendar() {
@@ -499,9 +563,9 @@ function renderCalendar() {
   const zone = schedule.timezone || 'Europe/Prague';
   const usesHA = state.data.settings?.schedule_source !== 'internal';
   $('#calendar-heading').textContent = usesHA ? 'Kalendář Home Assistantu' : 'Kalendář doplňku';
-  $('#calendar-description').textContent = usesHA ? 'Začátek události ve vybraném kalendáři publikuje jeden příspěvek.' : 'Pravidelné časy i jednotlivé termíny. Každý slot = jeden příspěvek.';
-  $('#calendar-range-note').textContent = usesHA ? 'Zobrazeny jsou pouze termíny načtené z Home Assistantu. Události i jejich opakování upravuj tam.' : 'Zobrazená pravidla pocházejí z interního plánu doplňku.';
-  if (!$('#timezone-form').contains(document.activeElement)) $('#timezone-input').value = zone;
+  $('#calendar-description').textContent = 'Každý termín odešle jeden příspěvek z čela fronty.';
+  $('.ha-calendar-panel').hidden = !usesHA;
+  if (!state.timezoneDirty && !$('#timezone-form').contains(document.activeElement)) $('#timezone-input').value = zone;
   $$('.timezone-label').forEach(node => { node.textContent = zone; });
   const todayKey = dateKey(new Date());
   const today = new Date(`${todayKey}T12:00:00Z`);
@@ -509,34 +573,33 @@ function renderCalendar() {
   monday.setUTCDate(today.getUTCDate() - (today.getUTCDay() + 6) % 7 + state.weekOffset * 7);
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
+  const start = monday.toISOString().slice(0, 10);
+  const key = `${start}:${zone}:${state.data.settings?.schedule_source}:${state.data.settings?.calendar_entity}`;
+  if (state.view === 'calendar' && state.calendarLoadingKey !== key && (state.calendarView?.key !== key || Date.now() - state.calendarView.fetched > 60000)) loadCalendarWeek(start, key);
+  const view = state.calendarView?.key === key ? state.calendarView : null;
+  const loading = state.calendarLoadingKey === key;
+  const note = $('#calendar-range-note');
+  note.classList.toggle('inline-error', Boolean(view?.error));
+  note.textContent = loading ? 'Načítám vybraný týden…' : view?.error || (usesHA ? 'Termíny z Home Assistantu. Celodenní události se nepublikují.' : 'Termíny z interního plánu doplňku.');
+  $('#week-prev').disabled = state.weekOffset <= -51;
+  $('#week-next').disabled = state.weekOffset >= 51;
   $('#week-label').textContent = `${monday.getUTCDate()}. ${monday.getUTCMonth() + 1}. – ${sunday.getUTCDate()}. ${sunday.getUTCMonth() + 1}. ${sunday.getUTCFullYear()}`;
   const grid = $('#week-grid');
+  grid.setAttribute('aria-busy', String(loading));
   grid.replaceChildren();
   for (let day = 0; day < 7; day++) {
     const date = new Date(monday);
     date.setUTCDate(monday.getUTCDate() + day);
-    const key = date.toISOString().slice(0, 10);
-    const cell = element('div', `week-day${key === todayKey ? ' today' : ''}`);
+    const dayKey = date.toISOString().slice(0, 10);
+    const cell = element('div', `week-day${dayKey === todayKey ? ' today' : ''}`);
     cell.append(element('span', 'day-name', days[day].toUpperCase()), element('span', 'date-number', date.getUTCDate()));
-    const slots = [];
-    if (usesHA) {
-      for (const slot of state.data.next_slots || []) {
-        if (dateKey(new Date(slot.at)) === key) slots.push({ time: formatDate(slot.at, { day: undefined, month: undefined }), type: 'weekly', label: slot.label || 'Home Assistant' });
-      }
-    } else {
-      for (const rule of schedule.weekly || []) {
-        if (rule.enabled && rule.days.includes(day)) slots.push({ time: rule.time, type: 'weekly', label: 'Pravidelně' });
-      }
-      for (const rule of schedule.once || []) {
-        if (rule.enabled && dateKey(new Date(rule.at)) === key) slots.push({ time: formatDate(rule.at, { day: undefined, month: undefined }), type: 'once', label: 'Jednorázově' });
-      }
-    }
-    for (const slot of slots.sort((a, b) => a.time.localeCompare(b.time))) {
-      const node = element('div', `calendar-slot ${slot.type}`);
-      node.append(element('strong', '', slot.time), element('small', usesHA ? 'no-translate' : '', slot.label));
+    const slots = (view?.slots || []).filter(slot => dateKey(new Date(slot.at)) === dayKey);
+    for (const slot of slots) {
+      const node = element('div', 'calendar-slot weekly');
+      node.append(element('strong', '', formatDate(slot.at, { day: undefined, month: undefined })), element('small', 'no-translate', slot.label));
       cell.append(node);
     }
-    if (!slots.length) cell.append(element('span', 'calendar-none', '—'));
+    if (!slots.length) cell.append(element('span', 'calendar-none', loading ? '…' : view?.error ? '?' : '—'));
     grid.append(cell);
   }
   renderRules('weekly', schedule.weekly || []);
@@ -615,7 +678,7 @@ function renderSettings() {
   $('#connection-method-note').textContent = method === 'direct' ? 'Aktivní je přímé přihlášení. Veřejná HTTPS adresa není potřeba.' : 'Aktivní je Oficiální Meta API. Jeho nastavení najdeš v pokročilých možnostech.';
   if (method !== 'direct') state.directChallenge = false;
   renderDirectLogin();
-  const editing = state.settingsDirty || $('#settings-form').contains(document.activeElement);
+  const editing = state.settingsDirty || !state.connected || $('#settings-form').contains(document.activeElement);
   if (!editing) {
     $('#app-id').value = settings.app_id || '';
     $('#public-url').value = settings.public_media_base_url || '';
@@ -626,13 +689,14 @@ function renderSettings() {
   $('#app-secret').placeholder = settings.has_app_secret ? 'Uloženo — ponech prázdné pro zachování' : 'Instagram App Secret';
   $('#access-token').placeholder = settings.has_token ? 'Token je uložený' : 'Instagram access token';
   $('#connection-status').textContent = account.connected ? `Připojeno jako @${account.username || account.id}` : 'Účet zatím není propojený.';
-  $('#account-error').hidden = !account.error;
-  $('#account-error').textContent = (state.language === 'cs' ? account.error_cs || account.error : account.error) || '';
+  $('#account-error').hidden = !account.error && !state.loginError;
+  $('#account-error').textContent = state.loginError || (state.language === 'cs' ? account.error_cs || account.error : account.error) || '';
   $('#disconnect-account').hidden = !(method === 'direct' ? settings.has_direct_session : settings.has_token) && !account.connected;
   updateCallback();
 }
 
 function renderDirectLogin() {
+  $('#direct-login-form').hidden = Boolean(state.data?.account?.connected && !state.directChallenge);
   $('#direct-credentials').hidden = state.directChallenge;
   $('#direct-two-factor').hidden = !state.directChallenge;
   $('#direct-login-reset').hidden = !state.directChallenge;
@@ -663,6 +727,7 @@ async function loadCalendars() {
     $('#calendars-error').textContent = `Kalendáře se nepodařilo načíst. ${error.message}`;
     $('#calendars-error').hidden = false;
     for (const selector of ['#ha-calendar-select', '#calendar-entity']) {
+      if (state.calendars || (selector === '#calendar-entity' ? state.settingsDirty : state.calendarDirty)) continue;
       const select = $(selector);
       select.replaceChildren();
       const option = element('option', '', state.data?.settings?.calendar_entity || 'Kalendáře nejsou dostupné');
@@ -737,10 +802,19 @@ function newId() {
 $$('[data-view]').forEach(node => node.addEventListener('click', () => navigate(node.dataset.view)));
 window.addEventListener('hashchange', () => navigate(location.hash.slice(1)));
 $('.brand').addEventListener('click', () => navigate('queue'));
-$('#account-shortcut').addEventListener('click', () => navigate('settings'));
+$('#account-shortcut').addEventListener('click', () => {
+  if (state.data) goToSetupStep(onboardingSteps(state.data).find(step => step.id === 'instagram'));
+  else navigate('settings');
+});
+$('#open-ha-calendar').hidden = window.self === window.top;
 $('#automation-toggle').addEventListener('click', event => {
   if (!state.data) return;
   const enabled = !state.data.settings?.enabled;
+  if (enabled && !state.data.account?.connected) {
+    goToSetupStep(onboardingSteps(state.data).find(step => step.id === 'instagram'));
+    toast('Nejdřív přihlas Instagram.');
+    return;
+  }
   if (enabled && state.data.settings?.schedule_source !== 'internal' && !state.data.settings?.calendar_entity) {
     toast('Nejdřív vyber kalendář Home Assistantu pro publikování.', true);
     navigate('calendar');
@@ -751,12 +825,30 @@ $('#automation-toggle').addEventListener('click', event => {
 $('#scan-button').addEventListener('click', event => run(() => api('queue/scan', { method: 'POST' }), event.currentTarget, 'Složka je načtená.'));
 for (const id of ['#import-button', '#empty-import']) $(id).addEventListener('click', () => $('#upload-files').click());
 $('#upload-files').addEventListener('change', async event => {
-  if (!event.target.files.length) return;
+  const input = event.target;
+  const files = [...input.files];
+  if (!files.length) return;
+  const feedback = $('#upload-feedback');
+  feedback.hidden = false;
+  feedback.classList.remove('error');
+  feedback.textContent = translate('Nahrávám a kontroluji soubory…');
   const data = new FormData();
-  for (const file of event.target.files) data.append('files', file);
-  await run(() => api('upload', { method: 'POST', body: data }), $('#import-button'), 'Příspěvky jsou přidané do fronty.');
-  event.target.value = '';
+  for (const file of files) data.append('files', file);
+  let failure = '';
+  const result = await run(async () => {
+    try { return await api('upload', { method: 'POST', body: data }); }
+    catch (error) { failure = error.message; throw error; }
+  }, $('#import-button'));
+  feedback.classList.toggle('error', !result);
+  if (result) {
+    feedback.textContent = state.language === 'en'
+      ? `Added ${result.imported} posts. ${result.captions_missing ? `${result.captions_missing} have no caption; use Edit text to add one.` : 'Captions have been paired with the photos.'}`
+      : `Přidané příspěvky: ${result.imported}. ${result.captions_missing ? `Bez popisku: ${result.captions_missing}; doplň ho přes Upravit text.` : 'Popisky jsou spárované s fotografiemi.'}`;
+  } else feedback.textContent = failure || translate('Import se nepodařil. Zkontroluj frontu před opakováním.');
+  input.value = '';
 });
+$('#preview-close').addEventListener('click', () => $('#image-preview-dialog').close());
+$('#image-preview-dialog').addEventListener('close', () => { state.previewing = null; loadState(); });
 $('#caption-text').addEventListener('input', event => { $('#caption-count').textContent = `${event.target.value.length} / 2200`; });
 for (const id of ['#caption-close', '#caption-cancel']) $(id).addEventListener('click', () => $('#caption-dialog').close());
 $('#caption-dialog').addEventListener('close', () => { state.editing = null; loadState(); });
@@ -790,11 +882,13 @@ $('#once-form').addEventListener('submit', event => {
     saveSchedule(schedule, $('button[type=submit]', event.target), 'Jednorázový termín přidán.');
   } catch (error) { toast(error.message, true); }
 });
-$('#timezone-form').addEventListener('submit', event => {
+$('#timezone-input').addEventListener('input', () => { state.timezoneDirty = true; });
+$('#timezone-form').addEventListener('submit', async event => {
   event.preventDefault();
   const schedule = copySchedule();
   schedule.timezone = $('#timezone-input').value.trim();
-  saveSchedule(schedule, $('button[type=submit]', event.target), 'Časové pásmo uložené.');
+  const result = await saveSchedule(schedule, $('button[type=submit]', event.target), 'Časové pásmo uložené.');
+  if (result) { state.timezoneDirty = false; renderCalendar(); }
 });
 $('#ha-calendar-select').addEventListener('change', () => { state.calendarDirty = true; });
 $('#ha-calendar-form').addEventListener('submit', async event => {
@@ -807,7 +901,7 @@ $('#ha-calendar-form').addEventListener('submit', async event => {
   }, $('button[type=submit]', event.target), 'Publikování bude řídit vybraný kalendář Home Assistantu.');
   if (result?.saved) { state.calendarDirty = false; renderCalendarOptions(); }
 });
-$('#reload-calendars').addEventListener('click', loadCalendars);
+$('#reload-calendars').addEventListener('click', () => { loadCalendars(); state.calendarView = null; renderCalendar(); });
 $('#week-prev').addEventListener('click', () => { state.weekOffset--; renderCalendar(); });
 $('#week-next').addEventListener('click', () => { state.weekOffset++; renderCalendar(); });
 $('#week-today').addEventListener('click', () => { state.weekOffset = 0; renderCalendar(); });
@@ -839,6 +933,7 @@ $('#direct-login-reset').addEventListener('click', () => {
 });
 $('#direct-login-form').addEventListener('submit', async event => {
   event.preventDefault();
+  state.loginError = '';
   if (state.data?.settings?.connection_method === 'official' || $('#connection-method').value !== 'direct') {
     toast('Nejdřív ulož zvolenou metodu připojení.', true);
     $('#direct-password').value = '';
@@ -860,6 +955,11 @@ $('#direct-login-form').addEventListener('submit', async event => {
       else if (response.connected) state.directChallenge = false;
       renderDirectLogin();
       return response;
+    } catch (error) {
+      state.loginError = error.message;
+      state.directChallenge = false;
+      renderDirectLogin();
+      throw error;
     } finally {
       delete payload.password;
       delete payload.verification_code;
@@ -879,6 +979,9 @@ $('#settings-form').addEventListener('submit', async event => {
   event.preventDefault();
   const settings = Object.fromEntries(new FormData(event.target).entries());
   for (const key of Object.keys(settings)) settings[key] = settings[key].trim();
+  if (state.data?.settings?.connection_method !== 'official') {
+    for (const key of ['app_id', 'app_secret', 'public_media_base_url', 'api_version', 'access_token']) delete settings[key];
+  }
   if (!settings.app_secret) delete settings.app_secret;
   if (!settings.access_token) delete settings.access_token;
   const result = await run(async () => {

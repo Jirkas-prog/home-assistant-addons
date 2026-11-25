@@ -7,11 +7,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
-from PIL import Image
 from waitress import create_server
 from werkzeug.exceptions import HTTPException
-from werkzeug.utils import secure_filename
 
+from .importing import import_posts
 from .instagram import InstagramError
 from .scheduling import validate_schedule
 from .service import Service
@@ -75,6 +74,10 @@ def create_apps(service, ingress=False):
     def calendars():
         return jsonify(calendars=service.calendars())
 
+    @admin.get('/api/calendar/week')
+    def calendar_week():
+        return jsonify(service.calendar_week(request.args.get('start', '')))
+
     @admin.post('/api/queue/scan')
     def scan():
         with service.queue_guard:
@@ -107,50 +110,12 @@ def create_apps(service, ingress=False):
     @admin.post('/api/upload')
     def upload():
         files = request.files.getlist('files')
-        if not files or len(files) > 100:
-            raise ValueError('Choose between 1 and 100 image or caption files.')
-        staged = []
         with service.queue_guard:
             try:
-                names = set()
-                for f in files:
-                    name = secure_filename(f.filename or '')
-                    suffix = Path(name).suffix.lower()
-                    if not name or suffix not in ('.jpg', '.jpeg', '.png', '.txt'):
-                        raise ValueError('Only JPEG, PNG and TXT files are supported.')
-                    target = service.queue.queue_dir / name
-                    if target.exists() or name.casefold() in names:
-                        raise ValueError('A file with this name already exists. Rename the imported file first.')
-                    names.add(name.casefold())
-                    data = f.read(16 * 1024 * 1024 + 1)
-                    if len(data) > 16 * 1024 * 1024:
-                        raise ValueError('Each uploaded file must be smaller than 16 MB.')
-                    if suffix == '.txt':
-                        if len(data.decode('utf-8-sig')) > 2200:
-                            raise ValueError('Captions must have at most 2200 characters.')
-                    else:
-                        import io
-                        with Image.open(io.BytesIO(data)) as im:
-                            if im.format not in ('JPEG', 'PNG') or im.width * im.height > 40_000_000:
-                                raise ValueError('Use JPEG or PNG images with at most 40 megapixels.')
-                            im.verify()
-                    staged.append((target, data))
-                written = []
-                try:
-                    for target, data in staged:
-                        with target.open('xb') as stream:
-                            stream.write(data)
-                            stream.flush()
-                            os.fsync(stream.fileno())
-                        written.append(target)
-                except Exception:
-                    for target in written:
-                        target.unlink(missing_ok=True)
-                    raise
-                service.queue.scan()
+                result = import_posts(service.queue, files)
             except (UnicodeError, OSError) as e:
                 raise ValueError('The import could not be read. Check the file format and folder permissions.') from e
-        return jsonify(ok=True)
+        return jsonify(result)
 
     @admin.put('/api/schedule')
     def schedule():

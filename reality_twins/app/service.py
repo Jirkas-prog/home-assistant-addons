@@ -5,9 +5,10 @@ import os
 import secrets
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
+from zoneinfo import ZoneInfo
 
 import requests
 from PIL import Image, ImageCms, ImageOps
@@ -15,7 +16,8 @@ from PIL import Image, ImageCms, ImageOps
 from .instagram import Instagram, InstagramError
 from .direct_instagram import DirectInstagram
 from .queue_store import QueueStore
-from .scheduling import due_slots, next_slots, validate_schedule
+from .scheduling import _slots, due_slots, next_slots, validate_schedule
+from .photo_validation import validate_photo_dimensions
 from .state import State
 
 
@@ -54,6 +56,57 @@ class Service:
 
     def calendars(self):
         return self.ha_get('calendars')
+
+    def calendar_week(self, start):
+        """Read seven local dates for the UI without changing publishing state."""
+        with self.state.lock:
+            source = self.state.data['schedule_source']
+            entity = self.state.data['calendar_entity']
+            schedule = json.loads(json.dumps(self.state.data['schedule']))
+        zone = ZoneInfo(schedule['timezone'])
+        try:
+            first_day = date.fromisoformat(start)
+            if first_day.isoformat() != start:
+                raise ValueError()
+        except (ValueError, TypeError):
+            raise ValueError('The calendar week must start with a date in YYYY-MM-DD format.') from None
+        if abs((first_day - datetime.now(zone).date()).days) > 366:
+            raise ValueError('Choose a calendar week within 366 days of today.')
+        first = datetime.combine(first_day, datetime.min.time(), tzinfo=zone)
+        end = datetime.combine(first_day + timedelta(days=7), datetime.min.time(), tzinfo=zone)
+        result = {'start': first.isoformat(), 'end': end.isoformat(),
+                  'timezone': zone.key, 'source': source, 'slots': []}
+        first_utc, end_utc = first.astimezone(timezone.utc), end.astimezone(timezone.utc)
+        if source == 'internal':
+            result['slots'] = _slots(schedule, first_utc, end_utc - timedelta(microseconds=1))
+            return result
+        if not entity:
+            raise ValueError('Select a Home Assistant calendar first.')
+        events = self.ha_get('calendars/' + entity,
+                             {'start': first.isoformat(), 'end': end.isoformat()})
+        if not isinstance(events, list):
+            raise ValueError('Home Assistant returned an invalid calendar response.')
+        for event in events:
+            if not isinstance(event, dict) or str(event.get('status', '')).lower() in ('cancelled', 'canceled'):
+                continue
+            event_start = event.get('start')
+            raw = event_start.get('dateTime') if isinstance(event_start, dict) else None
+            if not isinstance(raw, str):  # All-day events do not publish.
+                continue
+            try:
+                at = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+            except ValueError:
+                continue
+            if at.tzinfo is None or at.utcoffset() is None:
+                continue
+            at = at.astimezone(timezone.utc)
+            if not first_utc <= at < end_utc:
+                continue
+            identity = json.dumps([entity, event.get('uid', ''), at.isoformat()])
+            result['slots'].append({'key': 'ha-' + hashlib.sha256(identity.encode()).hexdigest(),
+                                    'at': at.isoformat(), 'label': event.get('summary') or 'Calendar event'})
+        result['slots'].sort(key=lambda slot: (slot['at'], slot['key']))
+        return result
 
     @property
     def account_client(self):
@@ -155,14 +208,9 @@ class Service:
         if hashlib.sha256(payload).hexdigest() != self.queue.get(item_id)['sha256']:
             raise ValueError('The image is missing or has changed since import. Restore the original file.')
         with Image.open(io.BytesIO(payload)) as im:
-            if im.width * im.height > 40_000_000:
-                raise ValueError('The image is too large; use at most 40 megapixels.')
+            validate_photo_dimensions(im)
             image = ImageOps.exif_transpose(im)
             ratio = image.width / image.height
-            if not 0.8 <= ratio <= 1.91:
-                raise ValueError('Instagram photos must have an aspect ratio between 4:5 and 1.91:1.')
-            if image.width < 320:
-                raise ValueError('Instagram photos must be at least 320 pixels wide.')
             if im.info.get('icc_profile'):
                 try:
                     image = ImageCms.profileToProfile(image, ImageCms.ImageCmsProfile(io.BytesIO(im.info['icc_profile'])),

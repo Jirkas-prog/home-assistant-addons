@@ -2,6 +2,13 @@
 
 # English is the code/API default. Add other application messages to this mapping.
 ERROR_TRANSLATIONS = {
+    "Existing TXT filenames must match their image filenames exactly, including letter case.": "Názvy existujících TXT musí přesně odpovídat názvům jejich obrázků, včetně velikosti písmen.",
+    "The calendar week must start with a date in YYYY-MM-DD format.": "Začátek týdne kalendáře zadej jako datum ve formátu RRRR-MM-DD.",
+    "Choose a calendar week within 366 days of today.": "Vyber týden kalendáře nejvýše 366 dní od dneška.",
+    "Home Assistant returned an invalid calendar response.": "Home Assistant vrátil neplatnou odpověď kalendáře.",
+    "Choose between 1 and 200 image or caption files.": "Vyber 1 až 200 souborů s obrázky nebo popisky.",
+    "Upload each TXT together with its matching JPG or PNG. For photos already in the queue, use Edit text.": "Nahraj každý TXT společně s odpovídajícím JPG nebo PNG. U fotek, které už jsou ve frontě, použij Upravit text.",
+    "Publishing is in progress. Add posts after it finishes.": "Právě probíhá publikace. Přidej příspěvky po jejím dokončení.",
     "The queue and data folders must not be symbolic links.": "Složka fronty ani dat nesmí být symbolický odkaz.",
     "The archive folder must not be a symbolic link.": "Archiv nesmí být symbolický odkaz.",
     "Invalid file name.": "Neplatný název souboru.",

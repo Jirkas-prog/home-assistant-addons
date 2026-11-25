@@ -328,6 +328,71 @@ class QueueStore:
                 raise QueueConflict("The image is missing or has changed since import. Restore the original file.")
             return path
 
+    def import_pairs(self, pairs):
+        """Stage complete upload pairs, then publish them with the existing journal.
+
+        Before the journal exists only hidden files are written. Once it exists,
+        every queue transaction recovers all image/caption moves and their records
+        before a scan or claim can see a partially imported post.
+        """
+        staged = []
+        try:
+            with self._transaction():
+                self._check_mutable()
+                active = self._active()
+                if len(active) + len(pairs) > 9999:
+                    raise QueueError("The queue supports at most 9999 active posts.")
+                transaction = uuid.uuid4().hex
+                imports = []
+                for index, pair in enumerate(pairs):
+                    original = self._file(pair['filename']).name
+                    image_bytes, caption_bytes = pair['image'], pair['caption']
+                    caption = caption_bytes.decode('utf-8-sig')
+                    if len(caption) > 2200:
+                        raise QueueError("The caption exceeds 2200 characters.")
+                    image_name = f'.upload-{transaction}-{index}{Path(original).suffix.lower()}'
+                    caption_name = pair.get('caption_source') or f'.upload-{transaction}-{index}.txt'
+                    payloads = [(image_name, image_bytes)]
+                    if pair.get('caption_source'):
+                        if self._file(caption_name).read_bytes() != caption_bytes:
+                            raise QueueConflict("The file changed during renaming.")
+                    else:
+                        payloads.append((caption_name, caption_bytes))
+                    for name, payload in payloads:
+                        path = self._file(name)
+                        digest = hashlib.sha256(payload).hexdigest()
+                        with path.open('xb') as stream:
+                            identity = os.fstat(stream.fileno())
+                            staged.append((path, digest, identity.st_dev, identity.st_ino))
+                            stream.write(payload)
+                            stream.flush()
+                            os.fsync(stream.fileno())
+                    now = _now()
+                    imports.append({
+                        'id': uuid.uuid4().hex, 'filename': image_name,
+                        'caption_filename': caption_name, 'original_filename': original,
+                        'slug': _slug(original), 'sha256': hashlib.sha256(image_bytes).hexdigest(),
+                        'caption': caption, 'status': 'queued', 'position': len(active) + index + 1,
+                        'error': '', 'archive_path': None, 'created_at': now, 'updated_at': now,
+                    })
+                self._sync_directory(self.queue_dir)
+                self._renumber(active + imports, imports=imports)
+                return self._active()
+        except BaseException:
+            # A journal owns its staging files until recovery finishes. Without one,
+            # remove only our unchanged hidden files; a hard process exit leaves
+            # hidden orphans that scan deliberately ignores, never a captionless post.
+            if not self.journal_path.exists():
+                for path, digest, device, inode in staged:
+                    try:
+                        stat = path.stat(follow_symlinks=False)
+                        if (not path.is_symlink() and (stat.st_dev, stat.st_ino) == (device, inode)
+                                and _hash(path) == digest):
+                            path.unlink()
+                    except OSError:
+                        pass
+            raise
+
     def scan(self):
         with self._transaction():
             active = self._active()

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+- Rebuild the interface with an angular layout, readable typography, a compact status strip and a coral/blue palette.
+- Put the queue first, with a single task navigation and concise setup actions instead of repeated welcome panels.
+- Add full-image previews with complete captions and a photo alongside the caption editor.
+- Preserve queue controls during unchanged background refreshes.
+- Validate image/caption pairing and image proportions before upload; report the imported count and missing captions.
+- Fetch the actual selected calendar week instead of displaying a truncated list of upcoming events as an empty week.
+- Keep publishing paused unless explicitly enabled; preserve the account, calendar, queue identity and storage paths.
+
 ## 0.2.0
 
 - Rename the app to Czech This View Publisher while preserving its technical slug, queue paths and existing data.
