@@ -6,7 +6,7 @@ import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Flask, abort, jsonify, request, send_file, send_from_directory
+from flask import Flask, Response, abort, jsonify, request, send_file, send_from_directory
 from waitress import create_server
 from werkzeug.exceptions import HTTPException
 
@@ -61,6 +61,8 @@ def create_apps(service, ingress=False):
     def state():
         from .i18n import translate_error
         result = service.snapshot()
+        for item in result['import_status']['errors']:
+            item['message_cs'] = translate_error(item['message'], 'cs')
         result['warnings'] = [{'message': translate_error(m, 'en'), 'message_cs': translate_error(m, 'cs')} for m in result['warnings']]
         for obj in [result['account'], *result['queue'], *result['history']]:
             if obj.get('error'):
@@ -83,6 +85,18 @@ def create_apps(service, ingress=False):
         with service.queue_guard:
             service.queue.scan()
         return jsonify(ok=True)
+
+    @admin.get('/api/import/folders')
+    def import_folders():
+        return jsonify(service.folder_importer.browse(request.args.get('path', '')))
+
+    @admin.post('/api/import/scan')
+    def import_scan():
+        from .i18n import translate_error
+        result = service.scan_import_folder()
+        for item in result['errors']:
+            item['message_cs'] = translate_error(item['message'], 'cs')
+        return jsonify(result)
 
     @admin.post('/api/queue/reorder')
     def reorder():
@@ -136,7 +150,7 @@ def create_apps(service, ingress=False):
                     raise ValueError('Save settings first, then enable publishing separately.')
                 service.enable()
             else:
-                service.state.update(data)
+                service.update_settings(data)
         if {'calendar_entity', 'schedule_source'} & data.keys():
             service.last_calendar_read = 0
             service.refresh_calendar(datetime.now(timezone.utc))
@@ -163,6 +177,40 @@ def create_apps(service, ingress=False):
             result['message_cs'] = translate_error(result['message'], 'cs')
         return jsonify(result)
 
+    def browser_client():
+        if service.state.data['connection_method'] != 'browser':
+            raise ValueError('Select browser sign-in in the connection settings first.')
+        return service.browser_instagram
+
+    @admin.post('/api/browser/start')
+    def browser_start():
+        with service.connection_guard:
+            return jsonify(browser_client().start())
+
+    @admin.get('/api/browser/status')
+    def browser_status():
+        return jsonify(browser_client().status())
+
+    @admin.get('/api/browser/frame')
+    def browser_frame():
+        return Response(browser_client().frame(), mimetype='image/jpeg')
+
+    @admin.post('/api/browser/input')
+    def browser_input():
+        if request.content_length and request.content_length > 8192:
+            abort(413)
+        return jsonify(browser_client().input(request.get_json()))
+
+    @admin.post('/api/browser/finish')
+    def browser_finish():
+        with service.connection_guard:
+            return jsonify(browser_client().finish())
+
+    @admin.post('/api/browser/close')
+    def browser_close():
+        with service.connection_guard:
+            return jsonify(browser_client().close_view())
+
     @admin.post('/api/oauth/start')
     def oauth():
         if service.state.data['connection_method'] != 'official':
@@ -172,6 +220,7 @@ def create_apps(service, ingress=False):
     @admin.post('/api/account/disconnect')
     def disconnect():
         with service.connection_guard:
+            service.browser_instagram.disconnect()
             service.direct_instagram.disconnect()
             with service.state.lock:
                 service.state.data.update(enabled=False, access_token='', account={'connected': False}, oauth_states={})
@@ -224,6 +273,7 @@ def main():
     threading.Thread(target=service.run, daemon=True).start()
     def shutdown(*_):
         service.stop.set()
+        service.browser_instagram.shutdown()
         admin_server.close()
         media_server.close()
     signal.signal(signal.SIGTERM, shutdown)

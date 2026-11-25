@@ -46,9 +46,9 @@ class ConnectionModesTests(unittest.TestCase):
         (folder / 'sample.txt').write_text('Example caption.', encoding='utf-8')
         return self.service.queue.scan()[0]
 
-    def test_new_install_defaults_direct_without_domain(self):
+    def test_new_install_defaults_browser_without_domain(self):
         settings = self.client.get('/api/state').get_json()['settings']
-        self.assertEqual(settings['connection_method'], 'direct')
+        self.assertEqual(settings['connection_method'], 'browser')
         self.assertFalse(settings['enabled'])
         self.assertEqual(settings['public_media_base_url'], '')
 

@@ -5,13 +5,14 @@ A Home Assistant app for a numbered Instagram photo queue. A timed event in a se
 - Home Assistant Ingress interface with saved English/Czech language selection.
 - Folder scanning, validated paired image/TXT upload, full-image previews, caption editing and keyboard-accessible ordering.
 - Existing Home Assistant calendars, plus an optional internal schedule.
-- Direct Instagram login and local photo upload, with no public domain or Meta app requirement.
-- Two-factor codes and private session reuse after restart.
+- Sign in on the real Instagram website in an app-owned browser, with local photo upload and no public domain requirement.
+- Complete Instagram verification in that browser and reuse its private profile after restart.
+- Choose a mounted import folder; stable photo/TXT pairs are copied into the queue once, without changing source files.
 - Optional official Instagram API connection for Creator and Business accounts.
 - Persistent publication history, crash recovery and manual review of ambiguous results.
 
 Install from [Jirkas-prog/home-assistant-addons](https://github.com/Jirkas-prog/home-assistant-addons), then select **Czech This View Publisher** in the Home Assistant app store. The app starts empty with publishing paused.
 
-Sign in directly inside the app using your Instagram username, password and a two-factor code if requested. Direct login does not require a professional account. It uses the unofficial instagrapi client; Instagram can request verification or restrict automated access. The dashboard remains behind Home Assistant Ingress. See [setup, calendar and recovery instructions](DOCS.md).
+Open **Settings → Instagram → Open Instagram sign-in**, complete the real Instagram page, then verify the displayed account. The browser runs inside the app, so the same private session is available for scheduled posts. The dashboard and browser view stay behind Home Assistant Ingress. Instagram may request further verification or change its web interface. See [setup, calendar and recovery instructions](DOCS.md).
 
-Version 0.3.0 introduces a compact angular interface, photo/caption previews, clearer import feedback and complete selected-week calendar loading. The technical slug and existing `reality_twins` data paths remain unchanged. Automated tests cover queue integrity, scheduling, authorization and simulated publishing; they do not establish that a real account login or publication has been verified.
+Version 0.4.0 adds browser sign-in and a selectable automatic import folder. Existing working direct/API connections remain available as advanced alternatives. The technical slug, calendar, queue and existing `reality_twins` data paths remain unchanged. Automated tests cover queue integrity, scheduling, authorization and simulated publishing; they do not establish that a real account login or publication has been verified.

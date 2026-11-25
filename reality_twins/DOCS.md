@@ -2,7 +2,7 @@
 
 Publish one prepared Instagram photo post at the start of each timed event in a selected Home Assistant calendar. Drag queue cards to change their order; the image and matching caption file are renamed together.
 
-New installations are paused. Direct Instagram login and Home Assistant calendars are the defaults. No calendar or Instagram account is selected automatically.
+New installations are paused. Browser sign-in and Home Assistant calendars are the defaults. No calendar, import folder or Instagram account is selected automatically.
 
 ## Install on Home Assistant OS
 
@@ -16,7 +16,7 @@ The package declares aarch64 and amd64 architectures. Raspberry Pi 5 with 64-bit
 
 The name changed in 0.2.0. The repository, technical slug `reality_twins` and data directories remain unchanged; update the existing app to retain its queue, settings and history.
 
-Management traffic uses Ingress on port 8099. The `homeassistant_api` permission allows calendar reads through the Supervisor proxy; its token stays on the server. Direct login needs no public port mapping, domain or reverse proxy. Protection mode can remain enabled.
+Management traffic uses Ingress on port 8099. The `homeassistant_api` permission allows calendar reads through the Supervisor proxy; its token stays on the server. Browser sign-in needs no public port mapping, domain or reverse proxy. Protection mode can remain enabled.
 
 For local development, copy the entire `reality_twins` directory to the device's local apps folder, for example `/addons/reality_twins`, and reload the store. A Samba or SSH app must have access to that folder. This is separate from `/config/custom_components`.
 
@@ -56,7 +56,27 @@ Keep original photographs and any other application's catalogued output folders 
 
 Instagram receives a separate JPEG copy. The publishing path checks image size and aspect ratio and prepares sRGB data. It does not invent a caption or change the scene. The shared image preparation accepts ratios from 4:5 to 1.91:1, a width of at least 320 pixels and a prepared JPEG smaller than 8 MB.
 
-## Connect Instagram directly
+## Automatic import folder
+
+In **Settings → Automatic import**, choose an existing directory under `/share` or `/media`, then enable automatic import and save. The directory picker lists folders mounted in Home Assistant, including network storage mounted there. A drive such as `D:` on another computer is not directly accessible inside the app; copy prepared files to shared storage or mount that storage in Home Assistant first.
+
+Use a dedicated source directory, for example `/share/instagram-import`. Keep it separate from PLANNED, PUBLISHED and private app data. The app checks it about every 30 seconds, even while publishing is paused. Each photo must have exactly one matching UTF-8 TXT, using the same stem or `__caption.txt`. Both files must remain unchanged across two checks at least ten seconds apart. Files still being copied wait for a later check.
+
+Ready pairs are copied in alphabetical order and appended to the managed queue. Originals are never renamed, moved or deleted. Image hashes retained in the queue database prevent repeat imports, including after restart, source renaming and successful publication. A new caption alone does not create another post from the same image; edit the queued caption in the dashboard. Subfolders are not imported recursively. The status shows imported, pending and duplicate counts plus file-specific problems. **Scan now** checks the saved folder manually, even when automatic import is off; it still observes the settling period.
+
+## Sign in with the app browser
+
+1. Open **Settings → Instagram → Open Instagram sign-in**.
+2. A separate browser view displays the real `instagram.com` page running inside the app. Enter credentials and complete any supported Instagram verification there.
+3. Choose **Finish and verify**. Confirm that the displayed account is the intended one, then enable publishing when the queue and calendar are ready.
+
+The app browser and your computer's ordinary browser have separate sessions. Simply signing in in another tab does not connect this app. The app-owned Chromium profile stays in private `/data/instagram-browser` and is reused after restart. Password saving is disabled; authenticated sessions remain sensitive private data. No cookies or browser debugging port are exposed by the dashboard, and the browser does not receive Home Assistant's Supervisor token.
+
+Opening sign-in pauses publishing. The interactive view expires after fifteen minutes without input; finish or close it before resuming the scheduler. The same browser session opens Instagram's post editor, preserves the original image proportions, enters the caption and submits Share once. If Instagram changes its interface or does not provide a verified publication receipt, the app reports the failure rather than assuming success or submitting again. A login cannot be guaranteed until verified on the intended account.
+
+New installs and disconnected direct connections without a saved session use browser sign-in. Working direct and official API connections are preserved during updates. **Disconnect** removes the app's private browser profile and pauses publishing.
+
+## Optional direct client connection
 
 1. Select the direct connection method in the app's Instagram settings.
 2. Enter the username and password for the intended account and start the connection.
@@ -70,7 +90,7 @@ The password stays only in memory during login and, if needed, the pending two-f
 
 ## Optional official Instagram API
 
-The advanced official connection is separate from direct login. It requires an Instagram **Creator or Business** account, a Meta application and public HTTPS for media and the OAuth callback. Instagram Login does not require a linked Facebook Page. For this method, enter the Instagram password only on Instagram's authorization page.
+The advanced official connection is separate from browser and direct login. It requires an Instagram **Creator or Business** account, a Meta application and public HTTPS for media and the OAuth callback. Instagram Login does not require a linked Facebook Page. For this method, enter the Instagram password only on Instagram's authorization page.
 
 1. Create a Meta application with the Instagram product and Instagram Login in [Meta for Developers](https://developers.facebook.com/). Add the account you own or manage as an app user/tester and accept any tester invitation in Instagram.
 2. Configure public HTTPS as described below. Register its exact OAuth redirect URI in Meta: the public base URL followed by /oauth/callback.
@@ -84,7 +104,7 @@ Manual connection accepts a valid long-lived **Instagram User access token** for
 
 ### Public HTTPS for the official method
 
-Meta downloads each photo from a URL. A local path, private network address or authenticated Home Assistant Ingress URL cannot provide that download. This section is unnecessary for direct login.
+Meta downloads each photo from a URL. A local path, private network address or authenticated Home Assistant Ingress URL cannot provide that download. This section is unnecessary for browser and direct login.
 
 | Port | Purpose | Access |
 | --- | --- | --- |

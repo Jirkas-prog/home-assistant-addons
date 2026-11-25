@@ -3,6 +3,9 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const state = { data: null, view: 'queue', dragging: null, editing: null, resolving: null, busy: 0, loading: false, weekOffset: 0, connected: false, calendars: null, calendarsLoading: false, settingsDirty: false, calendarDirty: false, methodDirty: false, directChallenge: false, previewing: null, calendarView: null, calendarRequest: 0, calendarLoadingKey: '', language: savedLanguage() };
+state.importDirty = false;
+state.folderRequest = 0;
+state.folderSelection = '';
 const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 const english = {
   'Přejít na obsah': 'Skip to content', 'Czech This View — fronta': 'Czech This View — queue', 'PRACOVNÍ PROSTOR': 'WORKSPACE', 'Hlavní navigace': 'Main navigation', 'Fronta': 'Queue', 'FRONTA': 'QUEUE', 'fronta': 'queue', 'Kalendář': 'Calendar', 'KALENDÁŘ': 'CALENDAR', 'kalendář': 'calendar', 'Historie': 'History', 'HISTORIE': 'HISTORY', 'historie': 'history', 'Nastavení': 'Settings', 'NASTAVENÍ': 'SETTINGS', 'nastavení': 'settings', 'Připojuji rozhraní': 'Connecting to server', 'VAŠE FOTKY. VÁŠ RYTMUS.': 'YOUR PHOTOS. YOUR RHYTHM.', 'Instagram nepřipojen': 'Instagram not connected', 'Jazyk rozhraní': 'Interface language',
@@ -90,6 +93,40 @@ Object.assign(english, {
   'Termíny z Home Assistantu. Celodenní události se nepublikují.': 'Slots from Home Assistant. All-day events do not publish.',
   'Termíny z interního plánu doplňku.': 'Slots from the add-on’s internal schedule.',
   'Publikování je pozastavené': 'Publishing is paused'
+});
+Object.assign(english, {
+  'Prohlížeč doplňku': 'Add-on browser',
+  'Prohlížeč doplňku — doporučeno': 'Add-on browser — recommended',
+  'Aktivní je prohlížeč doplňku. Přihlašuješ se na skutečné stránce Instagramu.': 'The add-on browser is active. You sign in on the real Instagram website.',
+  'Otevřít přihlášení v prohlížeči ↗': 'Open browser sign-in ↗',
+  'Přihlas se na skutečné stránce Instagramu v prohlížeči doplňku a dokonči případné ověření. Stejný prohlížeč potom publikuje fotografie.': 'Sign in on the real Instagram website in the add-on browser and complete any verification. The same browser then publishes your photos.',
+  'Přihlášená relace zůstává v soukromých datech doplňku. Veřejná doména není potřeba.': 'The signed-in session stays in the add-on’s private data. No public domain is required.',
+  'Prohlížeč se neotevřel. Povol v prohlížeči otevření tohoto okna a zkus to znovu.': 'The browser window did not open. Allow this pop-up and try again.',
+  'Importní složka': 'Import folder',
+  'Nové fotografie automaticky přidávej do fronty.': 'Automatically add new photos to the queue.',
+  'Složka v Home Assistantu': 'Folder in Home Assistant',
+  'Vybrat složku': 'Choose folder',
+  'Vyber složku v úložišti Home Assistantu /share nebo /media. Disk počítače musí být nejdřív připojený jako síťové úložiště HA.': 'Choose a folder in Home Assistant storage under /share or /media. A computer drive must first be mounted as HA network storage.',
+  'Automaticky zařazovat nové příspěvky': 'Automatically queue new posts',
+  'Sleduje se pouze tato složka, bez podsložek. Hotové dvojice JPG/PNG + TXT se kopírují v abecedním pořadí. Zdrojové soubory zůstávají beze změny.': 'Only this folder is watched, without subfolders. Complete JPG/PNG + TXT pairs are copied in alphabetical order. Source files stay unchanged.',
+  'TXT musí mít stejný název jako fotografie; podporovaná je i přípona __caption.txt. Neúplné nebo právě kopírované dvojice počkají. Stejná fotografie se znovu nezařadí.': 'TXT must have the same stem as the photo; the __caption.txt suffix is also supported. Incomplete pairs or files still being copied will wait. The same photo is not queued again.',
+  'Uložit importní složku': 'Save import folder',
+  'Zkontrolovat nové soubory': 'Check for new files',
+  'Import zatím není nastavený.': 'Import is not configured yet.',
+  'Automatický import je vypnutý.': 'Automatic import is off.',
+  'Čekám na první kontrolu složky.': 'Waiting for the first folder scan.',
+  'Nejdřív ulož importní složku.': 'Save the import folder first.',
+  'Importní složka uložená.': 'Import folder saved.',
+  'Vyber složku v Home Assistantu': 'Choose a folder in Home Assistant',
+  'Úložiště Home Assistantu': 'Home Assistant storage',
+  'O složku výš': 'Parent folder',
+  'Použít tuto složku': 'Use this folder',
+  'Načítám složky…': 'Loading folders…',
+  'Žádné další složky.': 'No subfolders.',
+  'Tato složka obsahuje spravovaná data. Vyber jinou podsložku.': 'This folder contains managed data. Choose another subfolder.',
+  'Složka vybraná. Ulož nastavení importu.': 'Folder selected. Save the import settings.',
+  'Kontrola složky dokončena.': 'Folder scan complete.',
+  'Vstupní složka není dostupná.': 'The import folder is unavailable.'
 });
 const sourceTexts = new WeakMap();
 const sourceAttributes = new WeakMap();
@@ -321,7 +358,7 @@ function render() {
   $('#account-name').textContent = account.connected ? `@${account.username || account.id}` : 'Nepřipojen';
   $('#account-short').textContent = account.connected ? `@${account.username || account.id}` : 'Instagram nepřipojen';
   $('#account-shortcut .dot').className = account.connected ? 'dot cyan' : 'dot';
-  $('#account-detail').textContent = account.connected ? (data.settings?.connection_method !== 'official' ? 'Přímé přihlášení z Home Assistantu' : account.expires_at ? `Přístup do ${formatDate(typeof account.expires_at === 'number' ? account.expires_at * 1000 : account.expires_at, { hour: undefined, minute: undefined })}` : 'Oficiální Instagram připojení') : 'Propoj účet v nastavení';
+  $('#account-detail').textContent = account.connected ? (data.settings?.connection_method !== 'official' ? (data.settings?.connection_method === 'browser' ? 'Prohlížeč doplňku' : 'Přímé přihlášení z Home Assistantu') : account.expires_at ? `Přístup do ${formatDate(typeof account.expires_at === 'number' ? account.expires_at * 1000 : account.expires_at, { hour: undefined, minute: undefined })}` : 'Oficiální Instagram připojení') : 'Propoj účet v nastavení';
   $('#queue-path').textContent = data.queue_path || 'PLANNED';
   const warnings = $('#warnings');
   warnings.replaceChildren();
@@ -352,7 +389,7 @@ function onboardingSteps(data) {
   const expiry = account.expires_at == null ? null : typeof account.expires_at === 'number'
     ? account.expires_at * 1000 : new Date(account.expires_at).getTime();
   const expired = official && expiry != null && Number.isFinite(expiry) && expiry <= now;
-  const accountReady = account.connected === true && (official ? settings.has_token === true : settings.has_direct_session === true) && !account.error && !expired;
+  const accountReady = account.connected === true && (official ? settings.has_token === true : settings.connection_method === 'browser' ? settings.has_browser_session === true : settings.has_direct_session === true) && !account.error && !expired;
   const head = data.queue?.[0];
   const queueReady = Boolean(head && (head.status === 'queued' || head.status === 'publishing'));
   const steps = [
@@ -360,7 +397,7 @@ function onboardingSteps(data) {
       detail: internal ? (calendarReady ? 'Interní plán obsahuje zapnutý budoucí nebo opakovaný termín.' : 'Do interního plánu přidej zapnutý termín.')
         : (calendarReady ? 'Vybraný HA kalendář je uložený. Termíny spravuj v Home Assistantu.' : 'Vyber a ulož samostatný kalendář pro příspěvky.'),
       action: calendarReady ? 'Otevřít kalendář' : 'Nastavit kalendář' },
-    { id: 'instagram', title: 'Instagram', complete: accountReady, attention: expired || Boolean(account.error), view: 'settings', target: accountReady ? '#check-account' : official ? '#oauth-connect' : '#direct-username',
+    { id: 'instagram', title: 'Instagram', complete: accountReady, attention: expired || Boolean(account.error), view: 'settings', target: accountReady ? '#check-account' : official ? '#oauth-connect' : settings.connection_method === 'direct' ? '#direct-username' : '#browser-login-open',
       detail: accountReady ? 'Poslední uložené ověření účtu potvrdilo připojení.' : expired ? 'Uložená platnost přístupu skončila. Připojení je potřeba obnovit.' : official ? 'Připoj profesionální účet a ověř spojení v nastavení.' : 'Přihlas Instagram v nastavení. Fotografie se odesílají přímo z Home Assistantu.',
       action: accountReady ? 'Otevřít připojení' : 'Připojit účet' },
     { id: 'queue', title: 'Fronta', complete: queueReady, attention: Boolean(head && !queueReady), view: 'queue', target: head ? '#queue-heading' : '#import-button',
@@ -671,11 +708,12 @@ function renderHistory() {
 function renderSettings() {
   const settings = state.data?.settings || {};
   const account = state.data?.account || {};
-  const method = settings.connection_method === 'official' ? 'official' : 'direct';
+  const method = ['browser', 'direct', 'official'].includes(settings.connection_method) ? settings.connection_method : 'browser';
   if (!state.methodDirty) $('#connection-method').value = method;
   $('#direct-connection').hidden = method !== 'direct';
+  $('#browser-connection').hidden = method !== 'browser';
   $('#official-connection').hidden = method !== 'official';
-  $('#connection-method-note').textContent = method === 'direct' ? 'Aktivní je přímé přihlášení. Veřejná HTTPS adresa není potřeba.' : 'Aktivní je Oficiální Meta API. Jeho nastavení najdeš v pokročilých možnostech.';
+  $('#connection-method-note').textContent = method === 'browser' ? 'Aktivní je prohlížeč doplňku. Přihlašuješ se na skutečné stránce Instagramu.' : method === 'direct' ? 'Aktivní je přímé přihlášení. Veřejná HTTPS adresa není potřeba.' : 'Aktivní je Oficiální Meta API. Jeho nastavení najdeš v pokročilých možnostech.';
   if (method !== 'direct') state.directChallenge = false;
   renderDirectLogin();
   const editing = state.settingsDirty || !state.connected || $('#settings-form').contains(document.activeElement);
@@ -691,7 +729,8 @@ function renderSettings() {
   $('#connection-status').textContent = account.connected ? `Připojeno jako @${account.username || account.id}` : 'Účet zatím není propojený.';
   $('#account-error').hidden = !account.error && !state.loginError;
   $('#account-error').textContent = state.loginError || (state.language === 'cs' ? account.error_cs || account.error : account.error) || '';
-  $('#disconnect-account').hidden = !(method === 'direct' ? settings.has_direct_session : settings.has_token) && !account.connected;
+  $('#disconnect-account').hidden = !(method === 'browser' ? settings.has_browser_session : method === 'direct' ? settings.has_direct_session : settings.has_token) && !account.connected;
+  renderImportSettings();
   updateCallback();
 }
 
@@ -910,7 +949,7 @@ $('#connection-method').addEventListener('change', () => { state.methodDirty = t
 $('#connection-method-form').addEventListener('submit', async event => {
   event.preventDefault();
   const connection_method = $('#connection-method').value;
-  const saved = state.data?.settings?.connection_method === 'official' ? 'official' : 'direct';
+  const saved = state.data?.settings?.connection_method || 'browser';
   if (connection_method === saved) { state.methodDirty = false; toast('Zvolená metoda už je aktivní.'); return; }
   const result = await run(async () => {
     await api('settings', { method: 'PUT', body: JSON.stringify({ connection_method }) });
@@ -1039,6 +1078,109 @@ function updateClock() {
   try { $('#clock').textContent = formatter({ weekday: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date()).toUpperCase(); }
   catch { $('#clock').textContent = '—'; }
 }
+
+
+
+
+function renderImportSettings() {
+  const settings = state.data?.settings || {};
+  if (!state.importDirty && !$('#import-settings-form').contains(document.activeElement)) {
+    $('#import-directory').value = settings.import_dir || '';
+    $('#import-enabled').checked = Boolean(settings.import_enabled);
+  }
+  $('#import-scan').disabled = !settings.import_dir || state.importDirty || state.busy > 0;
+  const result = state.data?.import_status;
+  const status = $('#import-status');
+  if (!settings.import_dir) status.textContent = translate('Import zatím není nastavený.');
+  else if (!result || result.checked_at == null) status.textContent = translate(settings.import_enabled ? 'Čekám na první kontrolu složky.' : 'Automatický import je vypnutý.');
+  else {
+    const when = typeof result.checked_at === 'number' ? new Date(result.checked_at * 1000) : new Date(result.checked_at);
+    const time = Number.isNaN(when.getTime()) ? '' : formatDate(when);
+    status.textContent = state.language === 'en'
+      ? `${settings.import_enabled ? 'Automatic import on.' : 'Automatic import off.'} Last scan${time ? ` ${time}` : ''}: added ${result.imported || 0}, waiting ${result.pending || 0}, already imported ${result.duplicates || 0}.`
+      : `${settings.import_enabled ? 'Automatický import zapnutý.' : 'Automatický import vypnutý.'} Poslední kontrola${time ? ` ${time}` : ''}: přidáno ${result.imported || 0}, čeká ${result.pending || 0}, již zařazeno ${result.duplicates || 0}.`;
+  }
+  const errors = $('#import-errors');
+  errors.replaceChildren();
+  if (result?.error) errors.append(element('li', '', state.language === 'cs' ? result.error_cs || result.error : result.error));
+  for (const error of result?.errors || []) {
+    const message = typeof error === 'string' ? error : (state.language === 'cs' ? error.message_cs || error.message : error.message);
+    errors.append(element('li', '', typeof error === 'object' && error.filename ? `${error.filename}: ${message}` : message));
+  }
+  errors.hidden = !errors.childElementCount;
+}
+
+async function browseFolders(path = '') {
+  const revision = ++state.folderRequest;
+  const list = $('#folder-list');
+  $('#folder-error').hidden = true;
+  $('#folder-choose').disabled = true;
+  $('#folder-parent').disabled = true;
+  list.replaceChildren(element('p', '', 'Načítám složky…'));
+  try {
+    const result = await api(`import/folders?path=${encodeURIComponent(path)}`);
+    if (revision !== state.folderRequest || !$('#folder-dialog').open) return;
+    state.folderSelection = result.path || '';
+    $('#folder-current').textContent = result.path || translate('Úložiště Home Assistantu');
+    $('#folder-parent').disabled = !result.path;
+    $('#folder-parent').dataset.path = result.parent || '';
+    $('#folder-choose').disabled = !result.path || result.selectable === false;
+    $('#folder-selection-hint').hidden = !result.path || result.selectable !== false;
+    const roots = $('#folder-roots');
+    roots.replaceChildren();
+    for (const root of result.roots || []) {
+      const target = typeof root === 'string' ? root : root.path;
+      roots.append(button(typeof root === 'string' ? root : root.name || root.path, 'button secondary compact no-translate', () => browseFolders(target)));
+    }
+    list.replaceChildren();
+    for (const folder of result.folders || []) {
+      const target = typeof folder === 'string' ? folder : folder.path;
+      const row = button(typeof folder === 'string' ? folder : folder.name || folder.path, 'folder-choice no-translate', () => browseFolders(target));
+      row.prepend(element('span', 'folder-symbol', '▰'));
+      row.append(element('span', 'folder-arrow', '→'));
+      list.append(row);
+    }
+    if (!list.childElementCount) list.append(element('p', '', 'Žádné další složky.'));
+  } catch (error) {
+    if (revision !== state.folderRequest) return;
+    list.replaceChildren(); $('#folder-error').textContent = error.message; $('#folder-error').hidden = false;
+  }
+}
+
+$('#browser-login-open').addEventListener('click', () => {
+  if (state.data?.settings?.connection_method !== 'browser' || $('#connection-method').value !== 'browser') { toast('Nejdřív ulož zvolenou metodu připojení.', true); return; }
+  const url = new URL('static/browser.html', location.href);
+  const popup = window.open(url.href, 'czech_this_view_browser', 'popup,width=1180,height=980');
+  if (popup) popup.opener = null;
+  else toast('Prohlížeč se neotevřel. Povol v prohlížeči otevření tohoto okna a zkus to znovu.', true);
+});
+window.addEventListener('focus', () => { if (!document.hidden) loadState(); });
+$('#import-settings-form').addEventListener('input', () => { state.importDirty = true; $('#import-scan').disabled = true; });
+$('#import-settings-form').addEventListener('change', () => { state.importDirty = true; $('#import-scan').disabled = true; });
+$('#import-settings-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const payload = { import_dir: $('#import-directory').value.trim(), import_enabled: $('#import-enabled').checked };
+  const result = await run(() => api('settings', { method: 'PUT', body: JSON.stringify(payload) }), $('button[type=submit]', event.target), 'Importní složka uložená.');
+  if (result) { state.importDirty = false; renderImportSettings(); }
+});
+$('#import-scan').addEventListener('click', async event => {
+  if (state.importDirty || !state.data?.settings?.import_dir) { toast('Nejdřív ulož importní složku.', true); return; }
+  await run(() => api('import/scan', { method: 'POST' }), event.currentTarget, 'Kontrola složky dokončena.');
+  renderImportSettings();
+});
+$('#import-browse').addEventListener('click', () => {
+  $('#folder-dialog').showModal(); browseFolders('');
+});
+$('#folder-parent').addEventListener('click', event => browseFolders(event.currentTarget.dataset.path || ''));
+$('#folder-choose').addEventListener('click', () => {
+  if (!state.folderSelection || $('#folder-choose').disabled) return;
+  $('#import-directory').value = state.folderSelection;
+  state.importDirty = true; $('#import-scan').disabled = true;
+  $('#folder-dialog').close(); toast('Složka vybraná. Ulož nastavení importu.');
+});
+for (const id of ['#folder-close', '#folder-cancel']) $(id).addEventListener('click', () => $('#folder-dialog').close());
+$('#folder-dialog').addEventListener('close', () => { state.folderRequest++; });
+
 
 const languageObserver = new MutationObserver(records => {
   for (const record of records) {

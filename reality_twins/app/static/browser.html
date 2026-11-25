@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Czech This View · Instagram</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="browser.js" defer></script>
+</head>
+<body class="browser-page">
+  <main class="browser-shell">
+    <header class="browser-heading"><div><div class="eyebrow">CZECH THIS VIEW</div><h1 data-text="title">Přihlášení k Instagramu</h1></div><a class="button secondary" id="return-link" href="../#settings" data-text="return">Zpět do nastavení</a></header>
+    <p class="help" data-text="intro">Tady ovládáš skutečný Instagram v prohlížeči doplňku. Přihlas se a dokonči případné ověření. Potom zvol Hotovo, ověřit účet.</p>
+    <div class="browser-toolbar"><div class="browser-address"><span class="dot cyan" aria-hidden="true"></span><code id="browser-url">https://www.instagram.com/</code></div><span id="browser-status" role="status" aria-live="polite"></span></div>
+    <div id="browser-error" class="notice error" role="alert" hidden></div>
+    <div class="browser-viewport"><img id="browser-screen" width="1100" height="760" tabindex="0" draggable="false" alt="Instagram v prohlížeči doplňku" aria-label="Instagram v prohlížeči doplňku" hidden><div id="browser-loading" class="browser-loading" role="status" data-text="starting">Spouštím prohlížeč…</div></div>
+    <p class="browser-help" data-text="controls">Klikni do stránky a piš klávesnicí. Na telefonu můžeš vložit text do vybraného pole pomocí formuláře níže.</p>
+    <form id="browser-text-form" class="browser-text-form" autocomplete="off"><label for="browser-text" data-text="textLabel">Text pro vybrané pole Instagramu</label><div class="browser-text-row"><input id="browser-text" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="1024" aria-label="Text pro vybrané pole Instagramu"><button class="button secondary" type="submit" data-text="insert">Vložit text</button></div><small data-text="textNote">Nejdřív klikni do cílového pole ve stránce. Text se po vložení ihned vymaže.</small></form>
+    <div class="browser-keyboard"><button class="button secondary compact" type="button" data-key="Tab">Tab ↹</button><button class="button secondary compact" type="button" data-key="Enter">Enter ↵</button><button class="button secondary compact" type="button" data-key="Backspace">⌫</button><button class="button secondary compact" type="button" data-key="Control+A" data-text="selectAll">Vybrat vše</button><button class="button secondary compact" type="button" data-scroll="-520" data-text="up">Posunout nahoru</button><button class="button secondary compact" type="button" data-scroll="520" data-text="down">Posunout dolů</button></div>
+    <div class="browser-actions"><button id="browser-restart" type="button" class="button secondary" hidden data-text="reopen">Znovu otevřít prohlížeč</button><button id="browser-finish" type="button" class="button primary" disabled data-text="finish">Hotovo, ověřit účet</button><button id="browser-close" type="button" class="button text-button" data-text="close">Zavřít bez ověření</button></div>
+    <p id="browser-complete" class="notice" role="status" hidden></p>
+  </main>
+</body>
+</html>

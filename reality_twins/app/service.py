@@ -15,6 +15,8 @@ from PIL import Image, ImageCms, ImageOps
 
 from .instagram import Instagram, InstagramError
 from .direct_instagram import DirectInstagram
+from .browser_instagram import BrowserInstagram, BrowserNotSent
+from .folder_import import FolderImporter
 from .queue_store import QueueStore
 from .scheduling import _slots, due_slots, next_slots, validate_schedule
 from .photo_validation import validate_photo_dimensions
@@ -29,6 +31,9 @@ class Service:
         self.queue = QueueStore(Path(queue_dir), self.data_dir)
         self.instagram = Instagram(self.state)
         self.direct_instagram = DirectInstagram(self.state)
+        self.browser_instagram = BrowserInstagram(self.state)
+        self.folder_importer = FolderImporter(self.queue)
+        self.import_status = {'imported': 0, 'pending': 0, 'duplicates': 0, 'errors': [], 'checked_at': None}
         self.stop = threading.Event()
         self.queue_guard = threading.RLock()
         self.connection_guard = threading.RLock()
@@ -110,7 +115,36 @@ class Service:
 
     @property
     def account_client(self):
-        return self.direct_instagram if self.state.data['connection_method'] == 'direct' else self.instagram
+        method = self.state.data['connection_method']
+        return {'browser': self.browser_instagram, 'direct': self.direct_instagram,
+                'official': self.instagram}[method]
+
+    def update_settings(self, changes):
+        changes = dict(changes)
+        with self.queue_guard:
+            folder = changes.get('import_dir', self.state.data['import_dir'])
+            enabled = changes.get('import_enabled', self.state.data['import_enabled'])
+            if folder and ('import_dir' in changes or ('import_enabled' in changes and enabled)):
+                changes['import_dir'] = self.folder_importer.validate_folder(folder)
+            self.state.update(changes)
+
+    def scan_import_folder(self, automatic=False):
+        with self.queue_guard:
+            with self.state.lock:
+                folder = self.state.data['import_dir']
+                enabled = self.state.data['import_enabled']
+            if automatic and not enabled:
+                return self.import_status
+            if not folder:
+                raise ValueError('Choose an import folder first.')
+            try:
+                result = self.folder_importer.scan(folder)
+            except (ValueError, OSError) as error:
+                message = str(error) if isinstance(error, ValueError) else 'The import folder could not be read. Check its availability and permissions.'
+                result = {'imported': 0, 'pending': 0, 'duplicates': 0,
+                          'errors': [{'filename': '', 'message': message}]}
+            self.import_status = result | {'checked_at': datetime.now(timezone.utc).isoformat()}
+            return self.import_status
 
     def enable(self):
         with self.connection_guard:
@@ -185,7 +219,8 @@ class Service:
         return {'queue': self.queue.list_items(), 'schedule': schedule,
                 'next_slots': self.slots(now), 'history': self.queue.history(),
                 'settings': self.state.settings(), 'account': account,
-                'server_time': now.isoformat(), 'queue_path': str(self.queue.queue_dir), 'warnings': warnings}
+                'server_time': now.isoformat(), 'queue_path': str(self.queue.queue_dir), 'warnings': warnings,
+                'import_status': json.loads(json.dumps(self.import_status))}
 
     def verify_public_endpoint(self):
         with self.state.lock:
@@ -268,12 +303,19 @@ class Service:
         prepared = None
         try:
             with self.connection_guard:
-                if self.state.data['connection_method'] == 'direct':
-                    self.direct_instagram.check()
+                if self.state.data['connection_method'] in ('browser', 'direct'):
+                    client = self.account_client
+                    client.check()
                     prepared = self.prepare_image(attempt['item_id'])
-                    self.queue.update_attempt(attempt_id, state='publishing')
-                    publish_started = True
-                    result = self.direct_instagram.upload(prepared, attempt['caption'])
+                    def before_share():
+                        nonlocal publish_started
+                        self.queue.update_attempt(attempt_id, state='publishing')
+                        publish_started = True
+                    if self.state.data['connection_method'] == 'browser':
+                        result = client.upload(prepared, attempt['caption'], before_share=before_share)
+                    else:
+                        before_share()
+                        result = client.upload(prepared, attempt['caption'])
                     media_id = str(result['id'])
                     if not media_id:
                         raise InstagramError('Instagram did not confirm the published post. Check the profile before retrying.')
@@ -313,7 +355,7 @@ class Service:
                 self.queue.finish(attempt_id, media_id, permalink)
         except Exception as e:
             safe = str(e) if isinstance(e, (ValueError, InstagramError)) else 'Publication was interrupted. Check the Instagram profile before retrying.'
-            self.queue.fail(attempt_id, safe, uncertain=publish_started)
+            self.queue.fail(attempt_id, safe, uncertain=publish_started and not isinstance(e, BrowserNotSent))
         finally:
             if prepared is not None:
                 prepared.unlink(missing_ok=True)
@@ -340,6 +382,7 @@ class Service:
                 if time.monotonic() - self.last_scan > 30:
                     with self.queue_guard:
                         self.queue.scan()
+                        self.scan_import_folder(automatic=True)
                     self.cleanup_media()
                     self.last_scan = time.monotonic()
                 if time.monotonic() - self.last_calendar_read > 30:

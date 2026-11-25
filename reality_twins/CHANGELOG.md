@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.4.0
+
+- Add an app-owned Instagram browser view for real website sign-in and account verification, using its persistent private session for scheduled publication.
+- Keep browser access behind Ingress with restricted navigation, bounded input and an expiring interactive view; opening sign-in pauses publishing.
+- Submit each browser publication once and require a confirmed media receipt; ambiguous results remain blocked for review.
+- Add a mounted-folder picker and optional automatic import of stable photo/TXT pairs, preserving source files and deduplicating across restarts and published history.
+- Preserve the existing calendar, queue, storage identity and working connection methods during migration.
+- Add browser fixture, import recovery, source integrity, settings migration and authorization tests.
+
+The browser fixture uses synthetic pages and does not establish successful login or publication on a real Instagram account.
+
 ## 0.3.0
 
 - Rebuild the interface with an angular layout, readable typography, a compact status strip and a coral/blue palette.
