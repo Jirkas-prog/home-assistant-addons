@@ -1,0 +1,31 @@
+name: Reality Twins Publisher
+version: "0.1.0"
+slug: reality_twins
+url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/reality_twins
+description: Schedule Instagram posts from a numbered photo queue with calendar events and drag-to-reorder controls.
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+stage: experimental
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:instagram
+panel_title: Reality Twins
+panel_admin: true
+homeassistant_api: true
+map:
+  - type: share
+    read_only: false
+ports:
+  8098/tcp: null
+ports_description:
+  8098/tcp: HTTPS proxy for temporary media links and OAuth callbacks only; the dashboard uses Ingress.
+options:
+  queue_dir: /share/reality_twins/PLANNED
+  timezone: Europe/Prague
+schema:
+  queue_dir: str
+  timezone: str
