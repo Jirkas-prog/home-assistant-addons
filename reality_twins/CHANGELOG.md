@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.5.0
+
+- Add **Publish next now** to publish the first queued post immediately, in addition to scheduled posts.
+- Show the selected photo, caption and destination account before manual publication.
+- Preserve calendar events and the scheduler's enabled or paused state; manual posting is available while scheduling is paused.
+- Reuse publication history, account verification and recovery checks, with protection against duplicate requests and a changed queue head.
+- Add regression coverage for immediate publication, concurrent requests, failure handling and unchanged scheduling.
+
 ## 0.4.1
 
 - Recognize signed-in profile navigation with account names, avatar labels and Czech/English text instead of requiring the exact word `Profile`.

@@ -2,6 +2,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import secrets
 import threading
 import time
@@ -17,7 +18,7 @@ from .instagram import Instagram, InstagramError
 from .direct_instagram import DirectInstagram
 from .browser_instagram import BrowserInstagram, BrowserNotSent
 from .folder_import import FolderImporter
-from .queue_store import QueueStore
+from .queue_store import QueueConflict, QueueStore
 from .scheduling import _slots, due_slots, next_slots, validate_schedule
 from .photo_validation import validate_photo_dimensions
 from .state import State
@@ -165,6 +166,61 @@ class Service:
             self.account_client.check()
             self.state.update({'enabled': True})
 
+    @staticmethod
+    def _manual_result(attempt, expected_post_id, replayed):
+        if attempt['item_id'] != expected_post_id:
+            raise QueueConflict('The manual request belongs to a different post. Refresh the queue before publishing.')
+        return {'ok': attempt['state'] == 'published', 'replayed': replayed, 'attempt': attempt}
+
+    def publish_next(self, data):
+        """Publish one explicitly selected head, without changing its calendar.
+
+        The existing attempts table is the idempotency receipt. A retry after an
+        HTTP timeout returns that receipt, including an in-flight/uncertain state,
+        instead of consuming the next item. The connection lock rejects concurrent
+        manual requests rather than putting several publications into a wait queue.
+        """
+        if (not isinstance(data, dict) or set(data) != {'expected_post_id', 'request_id'}
+                or not isinstance(data.get('expected_post_id'), str)
+                or not re.fullmatch(r'[0-9a-f]{32}', data['expected_post_id'])
+                or not isinstance(data.get('request_id'), str)
+                or not re.fullmatch(r'[A-Za-z0-9_-]{16,80}', data['request_id'])):
+            raise ValueError('The manual publication request is invalid. Refresh the queue and try again.')
+        expected = data['expected_post_id']
+        event_key = 'manual:' + data['request_id']
+        previous = self.queue.attempt_for_event(event_key)
+        if previous:
+            return self._manual_result(previous, expected, True)
+        if not self.connection_guard.acquire(blocking=False):
+            raise QueueConflict('Another publication or account operation is in progress. Wait for it to finish.')
+        try:
+            with self.queue_guard:
+                # Another request may have completed between the first lookup
+                # and taking the lock. Recheck before authentication or claiming.
+                previous = self.queue.attempt_for_event(event_key)
+                if previous:
+                    return self._manual_result(previous, expected, True)
+                with self.state.lock:
+                    method = self.state.data['connection_method']
+                    connected = self.state.data['account'].get('connected')
+                if not connected:
+                    raise QueueConflict('Connect and verify Instagram before publishing a post.')
+                if method == 'browser' and self.browser_instagram.status()['active']:
+                    raise QueueConflict('Finish or close Instagram sign-in before publishing a post.')
+                # Reordering must not bypass an unresolved external result.
+                if self.queue.open_attempts():
+                    raise QueueConflict('Resolve the pending or uncertain publication in History before publishing another post.')
+                attempt = self.queue.claim(event_key, expected_item_id=expected)
+                if attempt is None:
+                    previous = self.queue.attempt_for_event(event_key)
+                    if previous:
+                        return self._manual_result(previous, expected, True)
+                    raise QueueConflict('The next post could not be claimed. Refresh the queue and check its files.')
+            self.publish(attempt)
+            return self._manual_result(self.queue.get_attempt(attempt['attempt_id']), expected, False)
+        finally:
+            self.connection_guard.release()
+
     def refresh_calendar(self, now):
         with self.state.lock:
             entity = self.state.data['calendar_entity']
@@ -216,11 +272,13 @@ class Service:
         warnings = [m for m in (self.calendar_error, self.worker_error) if m]
         if self.state.data['schedule_source'] == 'home_assistant' and not self.state.data['calendar_entity']:
             warnings.append('Select a Home Assistant calendar to schedule posts.')
+        browser_status = self.browser_instagram.status()
         return {'queue': self.queue.list_items(), 'schedule': schedule,
                 'next_slots': self.slots(now), 'history': self.queue.history(),
                 'settings': self.state.settings(), 'account': account,
                 'server_time': now.isoformat(), 'queue_path': str(self.queue.queue_dir), 'warnings': warnings,
-                'import_status': json.loads(json.dumps(self.import_status))}
+                'import_status': json.loads(json.dumps(self.import_status)),
+                'browser_status': {key: browser_status[key] for key in ('active', 'busy')}}
 
     def verify_public_endpoint(self):
         with self.state.lock:
@@ -395,6 +453,12 @@ class Service:
                             with self.state.lock:
                                 if not self.state.data['enabled']:
                                     break
+                            # A manual publication/account operation may have held
+                            # this lock. Never replay a calendar slot after its
+                            # normal grace window merely because we waited here.
+                            age = (datetime.now(timezone.utc) - datetime.fromisoformat(slot['at'])).total_seconds()
+                            if not 0 <= age <= 90:
+                                continue
                             with self.queue_guard:
                                 attempt = self.queue.claim(slot['key'])
                             if attempt:

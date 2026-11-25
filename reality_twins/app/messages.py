@@ -1,4 +1,13 @@
 MESSAGES = {
+    'The manual request belongs to a different post. Refresh the queue before publishing.': 'Tento ruční požadavek patří jinému příspěvku. Před publikováním obnov frontu.',
+    'The manual publication request is invalid. Refresh the queue and try again.': 'Požadavek na ruční publikování není platný. Obnov frontu a zkus to znovu.',
+    'Another publication or account operation is in progress. Wait for it to finish.': 'Právě probíhá publikování nebo práce s účtem. Počkej na dokončení.',
+    'Connect and verify Instagram before publishing a post.': 'Před publikováním příspěvku připoj a ověř Instagram.',
+    'Finish or close Instagram sign-in before publishing a post.': 'Před publikováním dokonči nebo zavři přihlášení k Instagramu.',
+    'Resolve the pending or uncertain publication in History before publishing another post.': 'Před odesláním dalšího příspěvku vyřeš probíhající nebo nejasnou publikaci v historii.',
+    'The next post could not be claimed. Refresh the queue and check its files.': 'Další příspěvek nelze připravit k odeslání. Obnov frontu a zkontroluj jeho soubory.',
+    'The next post changed. Refresh the queue and try again.': 'První příspěvek ve frontě se změnil. Obnov frontu a zkus to znovu.',
+    'The next post is not ready. Resolve its error or uncertain result first.': 'První příspěvek není připravený. Nejdřív vyřeš jeho chybu nebo nejasný výsledek.',
     'The signed-in Instagram account could not be identified. Open your own profile in this browser and verify again.': 'Přihlášený instagramový účet se nepodařilo rozpoznat. Otevři v tomto prohlížeči svůj profil a zkus ověření znovu.',
     'The post could not be prepared for publication. No post was sent.': 'Příspěvek se nepodařilo připravit ke zveřejnění. Nic nebylo odesláno.',
     'Choose browser login, direct login or the official API.': 'Vyber přihlášení v prohlížeči, přímého klienta nebo oficiální API.',

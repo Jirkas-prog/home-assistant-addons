@@ -56,6 +56,14 @@ Keep original photographs and any other application's catalogued output folders 
 
 Instagram receives a separate JPEG copy. The publishing path checks image size and aspect ratio and prepares sRGB data. It does not invent a caption or change the scene. The shared image preparation accepts ratios from 4:5 to 1.91:1, a width of at least 320 pixels and a prepared JPEG smaller than 8 MB.
 
+## Publish an extra post now
+
+In **Queue**, choose **Publish next now**. Review the first photo, its caption and the connected account, then confirm immediate publication. This publishes one extra post independently of the calendar. It does not remove or reschedule any calendar event, and it does not enable or pause automatic publishing. You can use it while scheduling is paused.
+
+After confirmed publication, the post moves to history and the remaining queue is renumbered. The next scheduled event publishes the new first post. If the queue changes while the preview is open, reopen the preview before sending. Duplicate requests for the same manual action do not publish an additional post.
+
+The account must be connected and the first post ready. If a publication is already running or a result needs review, resolve that state first. A missing confirmation or network error does not prove that nothing was published: check history and the Instagram profile before trying again.
+
 ## Automatic import folder
 
 In **Settings → Automatic import**, choose an existing directory under `/share` or `/media`, then enable automatic import and save. The directory picker lists folders mounted in Home Assistant, including network storage mounted there. A drive such as `D:` on another computer is not directly accessible inside the app; copy prepared files to shared storage or mount that storage in Home Assistant first.

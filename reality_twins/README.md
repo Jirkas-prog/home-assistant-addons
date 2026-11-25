@@ -5,6 +5,7 @@ A Home Assistant app for a numbered Instagram photo queue. A timed event in a se
 - Home Assistant Ingress interface with saved English/Czech language selection.
 - Folder scanning, validated paired image/TXT upload, full-image previews, caption editing and keyboard-accessible ordering.
 - Existing Home Assistant calendars, plus an optional internal schedule.
+- Publish the next queued post immediately as an extra post, without changing calendar times or the scheduler's paused/enabled state.
 - Sign in on the real Instagram website in an app-owned browser, with local photo upload and no public domain requirement.
 - Complete Instagram verification in that browser and reuse its private profile after restart.
 - Choose a mounted import folder; stable photo/TXT pairs are copied into the queue once, without changing source files.
@@ -15,4 +16,4 @@ Install from [Jirkas-prog/home-assistant-addons](https://github.com/Jirkas-prog/
 
 Open **Settings → Instagram → Open Instagram sign-in**, complete the real Instagram page, then verify the displayed account. The browser runs inside the app, so the same private session is available for scheduled posts. The dashboard and browser view stay behind Home Assistant Ingress. Instagram may request further verification or change its web interface. See [setup, calendar and recovery instructions](DOCS.md).
 
-Version 0.4.1 improves account recognition for current Instagram profile navigation and supports the `Post` creation entry point. Browser sign-in and automatic folder import are available in Settings. Existing working direct/API connections remain available as advanced alternatives. The technical slug, calendar, queue and existing `reality_twins` data paths remain unchanged. Automated tests cover queue integrity, scheduling, authorization and simulated publishing; they do not establish that a real account login or publication has been verified.
+Version 0.5.0 adds **Publish next now** to the queue. Review the first post, then publish it immediately; the next calendar event still publishes the next remaining post. Browser sign-in and automatic folder import are available in Settings. Existing working direct/API connections remain available as advanced alternatives. The technical slug, calendar, queue and existing `reality_twins` data paths remain unchanged. Automated tests cover queue integrity, scheduling, authorization and simulated publishing; they do not establish that a real account login or publication has been verified.

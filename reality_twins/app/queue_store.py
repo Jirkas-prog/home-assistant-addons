@@ -482,13 +482,24 @@ class QueueStore:
             self.db.execute("UPDATE items SET caption=?,updated_at=? WHERE id=?", (text, _now(), item_id))
             return self._row(item_id)
 
-    def claim(self, event_key):
+    def attempt_for_event(self, event_key):
+        """Return the durable receipt for a scheduling slot or manual request."""
+        with self._transaction():
+            row = self.db.execute('SELECT * FROM attempts WHERE event_key=?', (event_key,)).fetchone()
+            return dict(row) if row else None
+
+    def claim(self, event_key, expected_item_id=None):
         if not isinstance(event_key, str) or not 1 <= len(event_key) <= 500:
             raise QueueError("Invalid publishing slot identifier.")
         with self._transaction():
             if self.db.execute("SELECT 1 FROM attempts WHERE event_key=?", (event_key,)).fetchone():
                 return None
             active = self._active()
+            if expected_item_id is not None:
+                if not active or active[0]['id'] != expected_item_id:
+                    raise QueueConflict('The next post changed. Refresh the queue and try again.')
+                if active[0]['status'] != 'queued':
+                    raise QueueConflict('The next post is not ready. Resolve its error or uncertain result first.')
             if not active or active[0]["status"] != "queued" or any(item["status"] == "publishing" for item in active):
                 return None
             item = active[0]

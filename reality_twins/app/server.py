@@ -12,6 +12,7 @@ from werkzeug.exceptions import HTTPException
 
 from .importing import import_posts
 from .instagram import InstagramError
+from .queue_store import QueueConflict
 from .scheduling import validate_schedule
 from .service import Service
 
@@ -85,6 +86,17 @@ def create_apps(service, ingress=False):
         with service.queue_guard:
             service.queue.scan()
         return jsonify(ok=True)
+
+    @admin.post('/api/publish-next')
+    def publish_next():
+        try:
+            result = service.publish_next(request.get_json())
+        except QueueConflict as conflict:
+            return error(conflict)[0], 409
+        if result['attempt'].get('error'):
+            from .i18n import translate_error
+            result['attempt']['error_cs'] = translate_error(result['attempt']['error'], 'cs')
+        return jsonify(result)
 
     @admin.get('/api/import/folders')
     def import_folders():

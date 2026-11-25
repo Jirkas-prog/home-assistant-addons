@@ -1,5 +1,5 @@
 name: Czech This View Publisher
-version: "0.4.1"
+version: "0.5.0"
 slug: reality_twins
 url: https://github.com/Jirkas-prog/home-assistant-addons/tree/main/reality_twins
 description: Schedule Instagram posts from a numbered photo queue with calendar events and drag-to-reorder controls.

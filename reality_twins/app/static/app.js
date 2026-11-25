@@ -7,6 +7,8 @@ state.importDirty = false;
 state.settingsCalendarDirty = false;
 state.folderRequest = 0;
 state.folderSelection = '';
+state.manualPublish = null;
+state.manualOpening = false;
 const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 const english = {
   'Přejít na obsah': 'Skip to content', 'Czech This View — fronta': 'Czech This View — queue', 'PRACOVNÍ PROSTOR': 'WORKSPACE', 'Hlavní navigace': 'Main navigation', 'Fronta': 'Queue', 'FRONTA': 'QUEUE', 'fronta': 'queue', 'Kalendář': 'Calendar', 'KALENDÁŘ': 'CALENDAR', 'kalendář': 'calendar', 'Historie': 'History', 'HISTORIE': 'HISTORY', 'historie': 'history', 'Nastavení': 'Settings', 'NASTAVENÍ': 'SETTINGS', 'nastavení': 'settings', 'Připojuji rozhraní': 'Connecting to server', 'VAŠE FOTKY. VÁŠ RYTMUS.': 'YOUR PHOTOS. YOUR RHYTHM.', 'Instagram nepřipojen': 'Instagram not connected', 'Jazyk rozhraní': 'Interface language',
@@ -129,6 +131,37 @@ Object.assign(english, {
   'Kontrola složky dokončena.': 'Folder scan complete.',
   'Vstupní složka není dostupná.': 'The import folder is unavailable.'
 });
+Object.assign(english, {
+  'Publikovat další nyní': 'Publish next now',
+  'Publikovat tento příspěvek nyní': 'Publish this post now',
+  'RUČNÍ PUBLIKOVÁNÍ': 'MANUAL PUBLISHING',
+  'Příspěvek navíc, právě teď': 'One extra post, right now',
+  'Tento příspěvek se odešle ihned. Termíny v kalendáři i stav automatického publikování zůstanou stejné.': 'This post will be sent immediately. Calendar slots and the automatic publishing setting will stay the same.',
+  'Instagram účet': 'Instagram account',
+  'Jeden příspěvek navíc. Kalendář se nemění.': 'One extra post. The calendar stays unchanged.',
+  'Nejdřív přidej příspěvek do fronty.': 'Add a post to the queue first.',
+  'Nejdřív připoj a ověř účet Instagramu.': 'Connect and verify your Instagram account first.',
+  'Nejdřív zkontroluj nejasný výsledek v historii.': 'Review the uncertain result in History first.',
+  'První příspěvek vyžaduje kontrolu ve frontě.': 'The first post needs review in the queue.',
+  'Právě se publikuje. Počkej na výsledek.': 'Publishing is in progress. Wait for the result.',
+  'Nejdřív dokonči a zavři přihlašovací okno Instagramu.': 'Finish and close the Instagram sign-in window first.',
+  'Zkontrolovat výsledek': 'Check result',
+  'Publikuji příspěvek…': 'Publishing post…',
+  'Příspěvek byl zveřejněn.': 'The post was published.',
+  'Příspěvek se nepodařilo zveřejnit. Podrobnosti jsou v historii.': 'The post could not be published. See History for details.',
+  'Výsledek odeslání je nejasný. Zkontroluj profil Instagramu a vyřeš ho v historii. Příspěvek se automaticky neopakuje.': 'The publishing result is uncertain. Check your Instagram profile and resolve it in History. The post is not automatically retried.',
+  'Výsledek zatím není potvrzený. Obnov stav a zkontroluj historii; další odeslání se nespustí.': 'The result is not confirmed yet. Refresh the status and check History; this does not send another post.',
+  'Odeslání nebylo zahájeno. Obnov frontu a otevři nový náhled.': 'Publishing did not start. Refresh the queue and open a new preview.',
+  'Fronta, popisek nebo účet se změnily. Zavři náhled a zkontroluj aktuální příspěvek.': 'The queue, caption or account changed. Close this preview and check the current post.',
+  'Obnovit výsledek': 'Refresh result',
+  'Otevřít historii': 'Open History',
+  'Výsledek byl ručně ověřen v historii.': 'The result was manually verified in History.',
+  'Příspěvek už není v aktivní frontě. Výsledek ověř v historii.': 'This post is no longer in the active queue. Check the result in History.'
+});
+Object.assign(english, {
+  'Zopakovat původní odeslání': 'Retry the original request',
+  'Použije se tentýž požadavek. Již přijatý příspěvek se znovu neodešle.': 'The same request will be used. A post already accepted will not be sent again.'
+});
 const sourceTexts = new WeakMap();
 const sourceAttributes = new WeakMap();
 const excludedTranslation = '.queue-filename,.queue-caption:not(.no-caption),.row-error,.history-row h3,.history-row p,.no-translate,#queue-path,#caption-filename,#resolve-filename,#caption-text,#resolve-note,#warnings,#account-error,#upload-feedback,#preview-filename,#preview-caption';
@@ -241,16 +274,20 @@ function toast(message, error = false) {
   window.setTimeout(() => box.remove(), error ? 10000 : 5000);
 }
 
-async function api(path, options = {}) {
+async function api(path, options = {}, timeoutMs = 60000) {
   const headers = { 'X-RT-Language': state.language, ...options.headers };
   if (options.method && options.method !== 'GET') headers['X-RT-Request'] = '1';
   if (options.body && !(options.body instanceof FormData)) headers['Content-Type'] = 'application/json';
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 60000);
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(`api/${path}`, { credentials: 'same-origin', cache: 'no-store', ...options, headers, signal: controller.signal });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error((state.language === 'cs' ? data.error_cs : data.error) || data.error || data.detail || translate(`Požadavek se nezdařil (${response.status}).`));
+    if (!response.ok) {
+      const error = new Error((state.language === 'cs' ? data.error_cs : data.error) || data.error || data.detail || translate(`Požadavek se nezdařil (${response.status}).`));
+      error.status = response.status;
+      throw error;
+    }
     return data;
   } catch (error) {
     if (error.name === 'AbortError') throw new Error('Server neodpověděl včas. Obnov stav, než akci zopakuješ.');
@@ -369,6 +406,7 @@ function render() {
   renderHistory();
   renderSettings();
   renderOnboarding();
+  renderManualPublish();
 }
 
 function onboardingSteps(data) {
@@ -567,6 +605,152 @@ function previewItem(item) {
   $('#preview-caption').textContent = item.caption || translate('Bez popisku');
   $('#image-preview-dialog').showModal();
   $('#preview-close').focus();
+}
+
+function manualPublishReason(data = state.data) {
+  if (!data || !state.connected) return 'Čekám na data';
+  if ((data.queue || []).some(item => item.status === 'publishing') || (data.history || []).some(attempt => ['claimed', 'container_created', 'publishing'].includes(attempt.state))) return 'Právě se publikuje. Počkej na výsledek.';
+  if ((data.history || []).some(attempt => attempt.state === 'uncertain') || (data.queue || []).some(item => item.status === 'uncertain')) return 'Nejdřív zkontroluj nejasný výsledek v historii.';
+  if (!data.queue?.length) return 'Nejdřív přidej příspěvek do fronty.';
+  if (data.queue[0].status !== 'queued') return 'První příspěvek vyžaduje kontrolu ve frontě.';
+  if (!data.account?.connected) return 'Nejdřív připoj a ověř účet Instagramu.';
+  if (data.settings?.connection_method === 'browser' && (data.browser_status?.active || data.browser_status?.busy)) return 'Nejdřív dokonči a zavři přihlašovací okno Instagramu.';
+  return '';
+}
+
+function rememberManualPublish(manual) {
+  try {
+    if (manual && !manual.terminal) sessionStorage.setItem('reality-twins-manual-publish', JSON.stringify({ postId: manual.postId, requestId: manual.requestId }));
+    else sessionStorage.removeItem('reality-twins-manual-publish');
+  } catch { /* The in-memory request still remains stable for this page. */ }
+}
+
+function restoreManualPublish() {
+  try {
+    const saved = JSON.parse(sessionStorage.getItem('reality-twins-manual-publish') || 'null');
+    if (saved && /^[a-f0-9]{32}$/.test(saved.postId) && /^[A-Za-z0-9_-]{16,80}$/.test(saved.requestId)) {
+      state.manualPublish = { ...saved, submitted: true, unknown: true, sending: false, terminal: false, attempt: null, item: null };
+    }
+  } catch { /* A missing or invalid saved request never creates a new post. */ }
+}
+
+function acceptManualAttempt(manual, attempt) {
+  if (!attempt || attempt.item_id !== manual.postId || attempt.event_key !== `manual:${manual.requestId}`) return false;
+  manual.attempt = attempt;
+  manual.unknown = false;
+  manual.terminal = ['published', 'error', 'uncertain', 'confirmed_not_published'].includes(attempt.state);
+  manual.error = '';
+  if (manual.terminal) rememberManualPublish(null);
+  return true;
+}
+
+function renderManualPublish() {
+  const manual = state.manualPublish;
+  if (manual && !manual.terminal) {
+    const attempt = (state.data?.history || []).find(row => row.event_key === `manual:${manual.requestId}` && row.item_id === manual.postId);
+    if (attempt) acceptManualAttempt(manual, attempt);
+    if (!manual.item) manual.item = state.data?.queue?.find(item => item.id === manual.postId) || null;
+    if (!manual.accountId && state.data?.account?.connected) {
+      manual.accountId = state.data.account.id || state.data.account.username;
+      manual.account = `@${state.data.account.username || state.data.account.id}`;
+    }
+  }
+  const pending = Boolean(manual?.submitted && !manual.terminal);
+  const reason = manualPublishReason();
+  const open = $('#manual-publish-open');
+  open.textContent = pending ? 'Zkontrolovat výsledek' : 'Publikovat další nyní';
+  open.disabled = state.manualOpening || Boolean(manual?.sending) || state.busy > 0 || (!pending && Boolean(reason));
+  $('#manual-publish-hint').textContent = pending ? 'Výsledek zatím není potvrzený. Obnov stav a zkontroluj historii; další odeslání se nespustí.' : reason || 'Jeden příspěvek navíc. Kalendář se nemění.';
+  if (!manual || !$('#manual-publish-dialog').open) return;
+  const item = manual.item;
+  $('#manual-publish-filename').textContent = item?.filename || manual.attempt?.filename || manual.postId;
+  $('#manual-publish-caption').textContent = item?.caption || manual.attempt?.caption || '';
+  const image = $('#manual-publish-image');
+  image.hidden = !item;
+  const imageKey = `${manual.postId}:${item?.sha256 || ''}`;
+  if (item && image.dataset.imageKey !== imageKey) {
+    image.src = `api/queue/${encodeURIComponent(manual.postId)}/image?v=${encodeURIComponent(item.sha256 || '')}`;
+    image.alt = item.filename || '';
+    image.dataset.imageKey = imageKey;
+  }
+  $('#manual-publish-account').textContent = manual.account || (state.data?.account?.username ? `@${state.data.account.username}` : state.data?.account?.id || '—');
+  const result = $('#manual-publish-status');
+  let message = '';
+  if (manual.sending) message = 'Publikuji příspěvek…';
+  else if (manual.error) message = manual.error;
+  else if (manual.attempt?.state === 'published') message = 'Příspěvek byl zveřejněn.';
+  else if (manual.attempt?.state === 'uncertain') message = 'Výsledek odeslání je nejasný. Zkontroluj profil Instagramu a vyřeš ho v historii. Příspěvek se automaticky neopakuje.';
+  else if (manual.attempt?.state === 'error') message = 'Příspěvek se nepodařilo zveřejnit. Podrobnosti jsou v historii.';
+  else if (manual.attempt?.state === 'confirmed_not_published') message = 'Výsledek byl ručně ověřen v historii.';
+  else if (manual.submitted) message = manual.attempt ? 'Právě se publikuje. Počkej na výsledek.' : 'Výsledek zatím není potvrzený. Obnov stav a zkontroluj historii; další odeslání se nespustí.';
+  result.hidden = !message;
+  result.textContent = translate(message);
+  result.classList.toggle('error', Boolean(manual.error) || ['error', 'uncertain'].includes(manual.attempt?.state));
+  const detail = $('#manual-publish-error');
+  detail.textContent = (state.language === 'cs' ? manual.attempt?.error_cs || manual.attempt?.error : manual.attempt?.error) || '';
+  detail.hidden = !detail.textContent;
+  $('#manual-publish-confirm').hidden = manual.submitted || manual.terminal;
+  $('#manual-publish-confirm').disabled = manual.sending || state.busy > 0 || Boolean(reason);
+  $('#manual-publish-refresh').hidden = !manual.submitted;
+  $('#manual-publish-refresh').disabled = manual.sending || state.loading;
+  $('#manual-publish-history').hidden = !manual.submitted;
+  $('#manual-publish-retry').hidden = !manual.unknown || manual.terminal || Boolean(manual.attempt);
+  $('#manual-publish-retry').disabled = manual.sending || state.busy > 0 || !state.connected;
+  $('#manual-publish-retry-note').hidden = $('#manual-publish-retry').hidden;
+}
+
+async function openManualPublish() {
+  if (state.manualOpening || state.busy || state.manualPublish?.sending) return;
+  state.manualOpening = true; renderManualPublish();
+  try {
+    await loadState(true);
+    const existing = state.manualPublish;
+    if (!(existing?.submitted && !existing.terminal)) {
+      const reason = manualPublishReason();
+      if (reason) { toast(reason, true); return; }
+      const item = state.data.queue[0];
+      state.manualPublish = { postId: item.id, requestId: newId(), item: { ...item }, account: `@${state.data.account.username || state.data.account.id}`, accountId: state.data.account.id || state.data.account.username, submitted: false, sending: false, unknown: false, terminal: false, attempt: null };
+    }
+    $('#manual-publish-dialog').showModal(); renderManualPublish();
+    $('#manual-publish-cancel').focus();
+  } finally { state.manualOpening = false; renderManualPublish(); }
+}
+
+async function submitManualPublish(retry = false) {
+  const manual = state.manualPublish;
+  if (!manual || manual.sending || state.busy || manual.terminal || (manual.submitted && !(retry && manual.unknown && !manual.attempt))) return;
+  manual.sending = true; state.busy++; manual.error = ''; renderManualPublish();
+  try {
+    await loadState(true);
+    // Refresh can discover an earlier completed request without sending again.
+    if (manual.terminal || (retry && manual.attempt)) return;
+    if (!state.connected) throw new Error('Čekám na data');
+    const head = state.data?.queue?.[0];
+    if (!head || head.id !== manual.postId || head.caption !== manual.item?.caption || head.sha256 !== manual.item?.sha256 || (state.data.account.id || state.data.account.username) !== manual.accountId) {
+      if (!retry) manual.terminal = true;
+      else if (head?.id === manual.postId) {
+        manual.item = { ...head };
+        manual.accountId = state.data.account.id || state.data.account.username;
+        manual.account = `@${state.data.account.username || state.data.account.id}`;
+      }
+      throw new Error('Fronta, popisek nebo účet se změnily. Zavři náhled a zkontroluj aktuální příspěvek.');
+    }
+    if (!retry) {
+      const reason = manualPublishReason();
+      if (reason) throw new Error(reason);
+    }
+    manual.submitted = true; manual.unknown = true; rememberManualPublish(manual); renderManualPublish();
+    const result = await api('publish-next', { method: 'POST', body: JSON.stringify({ expected_post_id: manual.postId, request_id: manual.requestId }) }, 180000);
+    if (!acceptManualAttempt(manual, result.attempt)) throw new Error('Výsledek zatím není potvrzený. Obnov stav a zkontroluj historii; další odeslání se nespustí.');
+  } catch (error) {
+    if (!retry && manual.submitted && [400, 409].includes(error.status)) {
+      manual.terminal = true; manual.unknown = false; rememberManualPublish(null);
+    }
+    manual.error = error.message || 'Akci se nepodařilo dokončit.';
+  } finally {
+    manual.sending = false; state.busy--;
+    await loadState(true); renderManualPublish();
+  }
 }
 
 function copySchedule() {
@@ -886,6 +1070,13 @@ $('#upload-files').addEventListener('change', async event => {
   input.value = '';
 });
 $('#preview-close').addEventListener('click', () => $('#image-preview-dialog').close());
+$('#manual-publish-open').addEventListener('click', openManualPublish);
+$('#manual-publish-confirm').addEventListener('click', () => submitManualPublish());
+$('#manual-publish-retry').addEventListener('click', () => submitManualPublish(true));
+$('#manual-publish-refresh').addEventListener('click', async () => { await loadState(true); renderManualPublish(); });
+$('#manual-publish-history').addEventListener('click', () => { $('#manual-publish-dialog').close(); navigate('history'); });
+for (const id of ['#manual-publish-close', '#manual-publish-cancel']) $(id).addEventListener('click', () => $('#manual-publish-dialog').close());
+$('#manual-publish-dialog').addEventListener('close', () => { loadState(); renderManualPublish(); });
 $('#image-preview-dialog').addEventListener('close', () => { state.previewing = null; loadState(); });
 $('#caption-text').addEventListener('input', event => { $('#caption-count').textContent = `${event.target.value.length} / 2200`; });
 for (const id of ['#caption-close', '#caption-cancel']) $(id).addEventListener('click', () => $('#caption-dialog').close());
@@ -1194,6 +1385,7 @@ const languageObserver = new MutationObserver(records => {
 });
 languageObserver.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['aria-label', 'title', 'placeholder', 'alt'] });
 $$('[data-language]').forEach(node => node.addEventListener('click', () => setLanguage(node.dataset.language)));
+restoreManualPublish();
 if (titles[location.hash.slice(1)]) state.view = location.hash.slice(1);
 setLanguage(state.language);
 navigate(location.hash.slice(1));
