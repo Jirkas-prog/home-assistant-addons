@@ -1,4 +1,5 @@
 MESSAGES = {
+    'The signed-in Instagram account could not be identified. Open your own profile in this browser and verify again.': 'Přihlášený instagramový účet se nepodařilo rozpoznat. Otevři v tomto prohlížeči svůj profil a zkus ověření znovu.',
     'The post could not be prepared for publication. No post was sent.': 'Příspěvek se nepodařilo připravit ke zveřejnění. Nic nebylo odesláno.',
     'Choose browser login, direct login or the official API.': 'Vyber přihlášení v prohlížeči, přímého klienta nebo oficiální API.',
     'Choose an import folder before enabling automatic import.': 'Před zapnutím automatického importu vyber importní složku.',

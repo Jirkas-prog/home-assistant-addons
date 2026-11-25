@@ -13,7 +13,7 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.browser_instagram import (BrowserInstagram, BrowserInstagramError, BrowserNotSent, _Chromium,
                                    _instagram_url, _public_url, _receipt,
-                                   _username_from_profile, EXPIRED, SIGN_IN)
+                                   _username_from_profile, _profile_candidates, EXPIRED, SIGN_IN)
 from app.state import State
 
 
@@ -238,6 +238,15 @@ class BrowserInstagramTests(unittest.TestCase):
 
 
 class BrowserValidationTests(unittest.TestCase):
+    def test_profile_tooltip_name_must_match_destination_and_avatar_is_only_a_candidate(self):
+        strong, weak = _profile_candidates({'links': [
+            {'href': '/example_account/', 'labels': ['Profile • example_account']},
+            {'href': '/other_account/', 'labels': ['Profile • example_account']},
+            {'href': '/avatar_account/', 'labels': [], 'navigation': True,
+             'avatar': "avatar_account's profile picture"}]})
+        self.assertEqual(strong, {'example_account'})
+        self.assertEqual(weak, {'avatar_account'})
+
     def test_safe_urls_never_reflect_query_password_or_fragment(self):
         for url in ('http://www.instagram.com/', 'https://www.instagram.com.evil.example/',
                     'https://user:secret@www.instagram.com/', 'file:///data/settings.json',
@@ -302,7 +311,7 @@ _FIXTURE = '''<!doctype html><html lang="en"><body><nav id="navigation"></nav>
 <button onclick="document.cookie='fixture_login=1;path=/;max-age=3600';home()">Log in</button></main>
 <script>
 function home() {
- document.getElementById('navigation').innerHTML='<a href="/example_account/">Profile</a><button onclick="create()">Create</button>';
+ document.getElementById('navigation').innerHTML='<a href="/example_account/" aria-label="Profile • example_account"><img alt="example_account profile picture"></a><a href="/create/select/" onclick="create();return false"><svg aria-label="Post" width="12" height="12"></svg><span>Post</span></a>';
  app.innerHTML='';
 }
 function create() {
@@ -328,6 +337,84 @@ if (document.cookie.includes('fixture_login=1')) home();
 
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
+    def test_rendered_account_navigation_variants_and_owner_evidence(self):
+        cases = [
+            ('tooltip_en', '/', '<a href="/example_account/" aria-label="Profile • example_account"><img alt="Avatar"></a>', True),
+            ('tooltip_cs', '/', '<a href="/example_account/" title="Profil • example_account"><img alt="Profilový obrázek"></a>', True),
+            ('described_tooltip', '/', '<div><a href="/example_account/" aria-describedby="profile-tip"><img alt="Avatar"></a></div><div role="tooltip" id="profile-tip">Profile • example_account</div>', True),
+            ('svg_label', '/', '<div><a href="/example_account/"><svg aria-label="Profile • example_account" width="20" height="20"></svg></a></div>', True),
+            ('avatar_en', '/', '<nav><a href="/example_account/"><img alt="example_account\'s profile picture"></a></nav>', True),
+            ('avatar_cs', '/', '<aside><a href="/example_account/"><img alt="Profilový obrázek uživatele example_account"></a></aside>', True),
+            ('hidden_duplicate', '/', '<nav><a href="/example_account/">Profile</a><a style="display:none" href="/other_account/">Profile</a></nav><input type="password" hidden>', True),
+            ('own_profile_en', '/example_account/', '<main><a href="/accounts/edit/">Edit profile</a></main>', True),
+            ('own_profile_cs', '/example_account/', '<main><button>Upravit profil</button></main>', True),
+            ('other_profile', '/other_account/', '<h1>other_account</h1><article><a href="/other_account/"><img alt="other_account\'s profile picture"></a></article>', False),
+            ('signed_out', '/', '<nav><a href="/example_account/">Profile</a></nav><input type="password"><button>Log in</button>', False),
+            ('ambiguous', '/', '<nav><a href="/example_account/">Profile</a><a href="/other_account/">Profile</a></nav>', False),
+            ('foreign_avatar', '/', '<nav><a href="/other_account/"><img alt="other_account\'s profile picture"></a></nav>', False),
+            ('global_edit_menu', '/other_account/', '<header><nav><a href="/accounts/edit/">Edit profile</a></nav></header><main><h1>other_account</h1></main>', False),
+            ('identity_conflict', '/other_account/', '<nav><a href="/example_account/">Profile</a></nav><main><a href="/accounts/edit/">Edit profile</a></main>', False),
+            ('expected_profile', '/', '<main><h1>Home</h1></main>', True),
+            ('expected_profile_other_account', '/', '<main><h1>Home</h1></main>', False),
+        ]
+        current = {}
+        def route(request_route):
+            path = request_route.request.url.removeprefix('https://www.instagram.com')
+            body = current['body']
+            if current['name'] in ('avatar_en', 'avatar_cs', 'expected_profile') and path == '/example_account/':
+                body += '<main><a href="/accounts/edit/">Edit profile</a></main>'
+            request_route.fulfill(status=200, content_type='text/html; charset=utf-8', body='<!doctype html><body>' + body + '</body>')
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}), \
+                patch('app.browser_instagram.IDENTITY_TIMEOUT', 0.4):
+            runtime = _Chromium(Path(temp) / 'browser')
+            try:
+                runtime.context.unroute('**/*')
+                runtime.context.route('**/*', route)
+                for name, path, body, success in cases:
+                    with self.subTest(name=name):
+                        current.update(name=name, body=body)
+                        runtime.page.goto('https://www.instagram.com' + path, wait_until='domcontentloaded')
+                        expected = 'example_account' if name.startswith('expected_profile') else None
+                        if success:
+                            self.assertEqual(runtime.account(expected_username=expected)['username'], 'example_account')
+                            self.assertTrue(runtime._same_account('example_account'))
+                            self.assertFalse(runtime._same_account('other_account'))
+                        else:
+                            with self.assertRaises(BrowserInstagramError):
+                                runtime.account(expected_username=expected)
+            finally:
+                runtime.close()
+
+    def test_post_navigation_entry_supports_english_czech_and_icon_only_controls(self):
+        current = {}
+        def route(request_route):
+            request_route.fulfill(status=200, content_type='text/html; charset=utf-8',
+                                 body='<!doctype html><body>' + current['body'] + '</body>')
+        entries = [
+            '<a href="/create/select/" onclick="document.body.dataset.opened=1;return false">Post</a><button>Post</button>',
+            '<nav><button onclick="document.body.dataset.opened=1">Příspěvek</button></nav>',
+            '<div role="button" onclick="document.body.dataset.opened=1"><svg aria-label="Post" width="24" height="24"></svg></div>',
+            '<div role="button" style="display:none"><svg aria-label="Post" width="24" height="24"></svg></div><div role="button" onclick="document.body.dataset.opened=1"><svg aria-label="Post" width="24" height="24"></svg></div>',
+        ]
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
+            runtime = _Chromium(Path(temp) / 'browser')
+            try:
+                runtime.context.unroute('**/*')
+                runtime.context.route('**/*', route)
+                for body in entries:
+                    with self.subTest(body=body):
+                        current['body'] = body
+                        runtime.page.goto('https://www.instagram.com/', wait_until='domcontentloaded')
+                        runtime._one(runtime._post_controls()).click()
+                        self.assertEqual(runtime.page.locator('body').get_attribute('data-opened'), '1')
+                current['body'] = '<div role="button"><svg aria-label="Post" width="24" height="24"></svg></div>' * 2
+                runtime.page.goto('https://www.instagram.com/', wait_until='domcontentloaded')
+                with self.assertRaises(BrowserNotSent):
+                    runtime._one(runtime._post_controls())
+                self.assertIsNone(runtime.page.locator('body').get_attribute('data-opened'))
+            finally:
+                runtime.close()
+
     def test_real_chromium_input_session_restore_crop_caption_and_single_share(self):
         # All network is fulfilled by this synthetic fixture. This never signs
         # into Instagram or reads the user's normal browser profile.
@@ -344,7 +431,7 @@ class ChromiumFixtureTests(unittest.TestCase):
                      'user': {'username': 'example_account'},
                      'caption': {'text': 'Synthetic caption.\nSecond line.'}}}))
             elif request.url == 'https://www.instagram.com/':
-                request_route.fulfill(status=200, content_type='text/html', body=_FIXTURE)
+                request_route.fulfill(status=200, content_type='text/html; charset=utf-8', body=_FIXTURE)
             else:
                 request_route.abort()
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):

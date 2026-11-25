@@ -4,6 +4,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const state = { data: null, view: 'queue', dragging: null, editing: null, resolving: null, busy: 0, loading: false, weekOffset: 0, connected: false, calendars: null, calendarsLoading: false, settingsDirty: false, calendarDirty: false, methodDirty: false, directChallenge: false, previewing: null, calendarView: null, calendarRequest: 0, calendarLoadingKey: '', language: savedLanguage() };
 state.importDirty = false;
+state.settingsCalendarDirty = false;
 state.folderRequest = 0;
 state.folderSelection = '';
 const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
@@ -723,7 +724,7 @@ function renderSettings() {
     $('#api-version').value = settings.api_version || 'v26.0';
     $('#schedule-source').value = settings.schedule_source || 'home_assistant';
   }
-  if (state.calendars) renderCalendarOptions();
+  renderCalendarOptions();
   $('#app-secret').placeholder = settings.has_app_secret ? 'Uloženo — ponech prázdné pro zachování' : 'Instagram App Secret';
   $('#access-token').placeholder = settings.has_token ? 'Token je uložený' : 'Instagram access token';
   $('#connection-status').textContent = account.connected ? `Připojeno jako @${account.username || account.id}` : 'Účet zatím není propojený.';
@@ -765,24 +766,19 @@ async function loadCalendars() {
   } catch (error) {
     $('#calendars-error').textContent = `Kalendáře se nepodařilo načíst. ${error.message}`;
     $('#calendars-error').hidden = false;
-    for (const selector of ['#ha-calendar-select', '#calendar-entity']) {
-      if (state.calendars || (selector === '#calendar-entity' ? state.settingsDirty : state.calendarDirty)) continue;
-      const select = $(selector);
-      select.replaceChildren();
-      const option = element('option', '', state.data?.settings?.calendar_entity || 'Kalendáře nejsou dostupné');
-      option.value = state.data?.settings?.calendar_entity || '';
-      select.append(option);
-    }
+    renderCalendarOptions();
   } finally { state.calendarsLoading = false; }
 }
 
 function renderCalendarOptions() {
   for (const selector of ['#ha-calendar-select', '#calendar-entity']) {
     const select = $(selector);
-    if (select === document.activeElement) continue;
     const current = state.data?.settings?.calendar_entity || '';
     const previous = select.value;
-    const dirty = selector === '#calendar-entity' ? state.settingsDirty : state.calendarDirty;
+    const dirty = selector === '#calendar-entity' ? state.settingsCalendarDirty : state.calendarDirty;
+    const chosen = dirty ? previous : current;
+    if (select === document.activeElement && select.dataset.calendarInitialized && select.value === chosen
+        && (state.calendars === null || select.dataset.calendarListReady === 'true')) continue;
     select.replaceChildren();
     const empty = element('option', '', 'Vyber kalendář pro příspěvky');
     empty.value = '';
@@ -792,12 +788,15 @@ function renderCalendarOptions() {
       option.value = calendar.entity_id;
       select.append(option);
     }
-    if (current && !(state.calendars || []).some(calendar => calendar.entity_id === current)) {
-      const option = element('option', 'no-translate', `${current} · ${state.language === 'en' ? 'currently unavailable' : 'nyní není dostupný'}`);
-      option.value = current;
+    if (chosen && !(state.calendars || []).some(calendar => calendar.entity_id === chosen)) {
+      const label = state.calendars === null ? chosen : `${chosen} · ${state.language === 'en' ? 'currently unavailable' : 'nyní není dostupný'}`;
+      const option = element('option', 'no-translate', label);
+      option.value = chosen;
       select.append(option);
     }
-    select.value = dirty ? previous : current;
+    select.value = chosen;
+    select.dataset.calendarInitialized = 'true';
+    select.dataset.calendarListReady = String(state.calendars !== null);
   }
 }
 
@@ -1014,10 +1013,15 @@ $('#direct-login-form').addEventListener('submit', async event => {
 });
 $('#settings-form').addEventListener('input', () => { state.settingsDirty = true; });
 $('#settings-form').addEventListener('change', () => { state.settingsDirty = true; });
+$('#calendar-entity').addEventListener('change', () => { state.settingsCalendarDirty = true; });
 $('#settings-form').addEventListener('submit', async event => {
   event.preventDefault();
+  if (!state.data) { toast('Čekám na data', true); return; }
   const settings = Object.fromEntries(new FormData(event.target).entries());
   for (const key of Object.keys(settings)) settings[key] = settings[key].trim();
+  // An untouched selector may still show its loading placeholder. Only an
+  // explicit calendar change is allowed to overwrite the persisted selection.
+  if (!state.settingsCalendarDirty) delete settings.calendar_entity;
   if (state.data?.settings?.connection_method !== 'official') {
     for (const key of ['app_id', 'app_secret', 'public_media_base_url', 'api_version', 'access_token']) delete settings[key];
   }
@@ -1027,7 +1031,7 @@ $('#settings-form').addEventListener('submit', async event => {
     await api('settings', { method: 'PUT', body: JSON.stringify(settings) });
     return { saved: true };
   }, $('button[type=submit]', event.target), 'Nastavení uložené.');
-  if (result?.saved) { state.settingsDirty = false; $('#app-secret').value = ''; $('#access-token').value = ''; renderSettings(); }
+  if (result?.saved) { state.settingsDirty = false; state.settingsCalendarDirty = false; $('#app-secret').value = ''; $('#access-token').value = ''; renderSettings(); }
 });
 for (const id of ['#resolve-close', '#resolve-cancel']) $(id).addEventListener('click', () => $('#resolve-dialog').close());
 $('#resolve-published').addEventListener('change', toggleResolveFields);

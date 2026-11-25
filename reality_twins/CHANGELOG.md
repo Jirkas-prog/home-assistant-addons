@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.1
+
+- Recognize signed-in profile navigation with account names, avatar labels and Czech/English text instead of requiring the exact word `Profile`.
+- Verify account identity independently of the post creation control, and ignore hidden navigation duplicates.
+- Support the current `Post` entry point alongside the older `Create` navigation.
+- Preserve the private browser session, import folder, queue and calendar during the update.
+- Keep the saved calendar visible while loading the available calendars, so saving other settings cannot clear it accidentally.
+- Add real-browser regression fixtures for current profile navigation and rejection of unrelated profiles.
+
 ## 0.4.0
 
 - Add an app-owned Instagram browser view for real website sign-in and account verification, using its persistent private session for scheduled publication.

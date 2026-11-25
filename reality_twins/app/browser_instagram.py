@@ -21,6 +21,7 @@ from .state import atomic_json
 HOME = 'https://www.instagram.com/'
 WIDTH, HEIGHT = 1100, 760
 VIEW_SECONDS = 15 * 60
+IDENTITY_TIMEOUT = 12
 USERNAME = re.compile(r'[A-Za-z0-9_.]{1,30}')
 SHORTCODE = re.compile(r'[A-Za-z0-9_-]{1,64}')
 KEYS = {'Enter', 'Tab', 'Shift+Tab', 'Backspace', 'Delete', 'Escape',
@@ -29,8 +30,49 @@ KEYS = {'Enter', 'Tab', 'Shift+Tab', 'Backspace', 'Delete', 'Escape',
 BUSY = 'The Instagram browser is busy. Wait for the current operation to finish.'
 EXPIRED = 'The browser view expired. Open Instagram sign-in again.'
 SIGN_IN = 'Complete Instagram sign-in in the browser, then verify the connection.'
+ACCOUNT_UNRECOGNIZED = 'The signed-in Instagram account could not be identified. Open your own profile in this browser and verify again.'
 UNCERTAIN = 'Instagram did not confirm the uploaded post. Check your profile before retrying.'
 COMPOSER = 'The Instagram post editor changed or could not be opened. No post was sent.'
+PROFILE_LABEL = re.compile(r'^(?:Profile|Profil)(?:\s*[•·|:–—-]\s*@?([A-Za-z0-9_.]{1,30}))?$', re.I)
+
+# Read only rendered navigation metadata. Never return page HTML, form values,
+# cookie data, feed text or request headers to the app or its logs.
+PROFILE_NAVIGATION = r'''() => {
+  const visible = element => {
+    const style = getComputedStyle(element);
+    return style.display !== 'none' && style.visibility !== 'hidden' &&
+      element.getClientRects().length > 0;
+  };
+  const labels = element => [element.getAttribute('aria-label'), element.title,
+    element.innerText, ...['aria-labelledby', 'aria-describedby'].flatMap(attribute =>
+      (element.getAttribute(attribute) || '').split(/\s+/).filter(Boolean)
+        .map(id => document.getElementById(id)?.textContent)),
+    ...[...element.querySelectorAll('svg[aria-label], svg title, img[aria-label], img[title], img[alt]')]
+      .map(child => child.getAttribute('aria-label') || child.getAttribute('title') ||
+        child.getAttribute('alt') || child.textContent)]
+      .filter(value => typeof value === 'string').map(value => value.trim().slice(0, 180));
+  const links = [];
+  for (const anchor of document.querySelectorAll('a[href]')) {
+    if (!visible(anchor)) continue;
+    const names = labels(anchor);
+    const image = anchor.querySelector('img[alt]');
+    const inNavigation = Boolean(anchor.closest('nav, [role="navigation"], aside'));
+    if (names.some(value => /^(Profile|Profil)(\s*[•·|:–—-]|$)/i.test(value)) || (image && inNavigation)) {
+      links.push({href: anchor.getAttribute('href'), labels: names,
+        avatar: image?.getAttribute('alt') || '', navigation: inNavigation});
+    }
+  }
+  const edit = [...document.querySelectorAll('a[href], button, [role="button"]')].some(element =>
+    visible(element) && element.closest('main, [role="main"], header') &&
+    !element.closest('nav, [role="navigation"], aside, [role="menu"]') &&
+    labels(element).some(value => /^(Edit profile|Upravit profil)$/i.test(value)) &&
+    (!element.hasAttribute('href') || /^\/accounts\/edit\/?(?:[?#]|$)/.test(element.getAttribute('href'))));
+  const signedOut = [...document.querySelectorAll('input[type="password"]')].some(visible) ||
+    [...document.querySelectorAll('a[href]')].some(element => visible(element) &&
+      /^\/accounts\/login\/?(?:[?#]|$)/.test(element.getAttribute('href')) &&
+      labels(element).some(value => /^(Log in|Log In|Přihlásit se)$/i.test(value)));
+  return {links, edit, signedOut};
+}'''
 
 
 class BrowserInstagramError(InstagramError):
@@ -66,6 +108,28 @@ def _username_from_profile(href):
         'accounts', 'explore', 'direct', 'create', 'reels', 'stories', 'p', 'reel', 'settings'}:
         return name
     return None
+
+
+def _profile_candidates(snapshot):
+    """A named Profile control is stronger evidence than an arbitrary avatar."""
+    strong, weak = set(), set()
+    for link in snapshot.get('links', []):
+        username = _username_from_profile(link.get('href'))
+        if not username:
+            continue
+        for label in link.get('labels', []):
+            match = PROFILE_LABEL.fullmatch(label)
+            if not match:
+                continue
+            named = match.group(1)
+            if named and named.casefold() != username.casefold():
+                continue
+            # A tooltip explicitly identifies the account. A bare Profile label
+            # must be in navigation; elsewhere it needs owner-page verification.
+            (strong if named or link.get('navigation') else weak).add(username)
+        if link.get('navigation') and re.search(r'profile|profil', link.get('avatar', ''), re.I):
+            weak.add(username)
+    return strong, weak - strong
 
 
 def _receipt(response, expected_username=None, expected_caption=None):
@@ -166,32 +230,79 @@ class _Chromium:
     def home(self):
         self.page.goto(HOME, wait_until='domcontentloaded')
 
-    def account(self):
-        if not _instagram_url(self.page.url) or '/accounts/' in urlsplit(self.page.url).path:
+    def account(self, expected_username=None):
+        if not _instagram_url(self.page.url):
             raise BrowserInstagramError(SIGN_IN)
-        if self.page.locator('input[type="password"]').count():
+        path = urlsplit(self.page.url).path
+        if path.startswith(('/accounts/login', '/accounts/signup', '/accounts/password', '/challenge/', '/checkpoint/')):
             raise BrowserInstagramError(SIGN_IN)
-        profile = self.page.get_by_role('link', name=re.compile(r'^Profile$', re.I))
-        try:
-            profile = self._one([profile])
-            create = self._one([
-                self.page.get_by_role('link', name=re.compile(r'^Create$', re.I)),
-                self.page.get_by_role('button', name=re.compile(r'^(Create|New post)$', re.I))])
-        except BrowserInstagramError:
-            raise BrowserInstagramError(SIGN_IN) from None
-        username = _username_from_profile(profile.get_attribute('href'))
-        if not username:
-            raise BrowserInstagramError(SIGN_IN)
-        return {'connected': True, 'id': 'browser:' + username, 'username': username,
-                'connection_method': 'browser', 'checked_at': time.time()}
+        deadline = time.monotonic() + IDENTITY_TIMEOUT
+        checked_avatar = False
+        while time.monotonic() < deadline:
+            snapshot = self.page.evaluate(PROFILE_NAVIGATION)
+            if snapshot.get('signedOut'):
+                raise BrowserInstagramError(SIGN_IN)
+            strong, weak = _profile_candidates(snapshot)
+            owner = _username_from_profile(self.page.url) if snapshot.get('edit') else None
+            if owner and strong and strong != {owner}:
+                raise BrowserInstagramError(ACCOUNT_UNRECOGNIZED)
+            username = next(iter(strong)) if len(strong) == 1 else None
+            if not strong and owner:
+                username = owner
+            if username:
+                return {'connected': True, 'id': 'browser:' + username, 'username': username,
+                        'connection_method': 'browser', 'checked_at': time.time()}
+            if (not strong and not checked_avatar and isinstance(expected_username, str)
+                    and USERNAME.fullmatch(expected_username)):
+                # A previously verified account supplies a precise read-only
+                # fallback when a compact sidebar exposes its tooltip only on
+                # hover. A different signed-in account cannot edit this profile.
+                checked_avatar = True
+                self.page.goto(HOME + expected_username + '/', wait_until='domcontentloaded')
+                continue
+            if not strong and len(weak) == 1 and not checked_avatar:
+                # An avatar alone could belong to another person. Visit the
+                # candidate and require the account-owner Edit profile control.
+                candidate = next(iter(weak))
+                checked_avatar = True
+                self.page.goto(HOME + candidate + '/', wait_until='domcontentloaded')
+                continue
+            self.page.wait_for_timeout(150)
+        raise BrowserInstagramError(ACCOUNT_UNRECOGNIZED)
+
+    def _same_account(self, expected):
+        """Check the same rendered owner evidence without navigating a composer."""
+        snapshot = self.page.evaluate(PROFILE_NAVIGATION)
+        if snapshot.get('signedOut'):
+            return False
+        strong, _ = _profile_candidates(snapshot)
+        owner = _username_from_profile(self.page.url) if snapshot.get('edit') else None
+        if owner and strong and strong != {owner}:
+            return False
+        if strong:
+            return strong == {expected}
+        return owner == expected
+
+    def _post_controls(self):
+        page = self.page
+        post = re.compile(r'^(?:Post|Příspěvek)(?:\s+(?:Post|Příspěvek))*$', re.I)
+        return [page.get_by_role('link', name=post),
+                page.locator('nav, [role="navigation"], aside').get_by_role('button', name=post),
+                page.locator('svg[aria-label="Post"], svg[aria-label="Příspěvek"], '
+                             'svg[aria-label="New post"], svg[aria-label="Nový příspěvek"]'),
+                page.get_by_role('link', name=re.compile(r'^(Create|Vytvořit)$', re.I)),
+                page.get_by_role('button', name=re.compile(r'^(Create|New post|Vytvořit|Nový příspěvek)$', re.I))]
 
     @staticmethod
     def _one(locators):
         deadline = time.monotonic() + 12
         while time.monotonic() < deadline:
             for locator in locators:
-                if locator.count() == 1 and locator.is_visible():
-                    return locator
+                visible = [node for node in locator.all() if node.is_visible()]
+                if len(visible) == 1:
+                    return visible[0]
+                if len(visible) > 1:
+                    raise BrowserNotSent(COMPOSER)
             locators[0].page.wait_for_timeout(150)
         raise BrowserNotSent(COMPOSER)
 
@@ -199,14 +310,11 @@ class _Chromium:
         page = self.page
         try:
             self.home()
-            account = self.account()
+            account = self.account(self.expected_username)
             if self.expected_username and account['username'] != self.expected_username:
                 raise BrowserNotSent('The Instagram account changed. Verify the selected account before resuming publishing.')
-            self._one([
-                page.get_by_role('link', name=re.compile(r'^Create$', re.I)),
-                page.get_by_role('button', name=re.compile(r'^(Create|New post)$', re.I))
-            ]).click()
-            post = page.get_by_role('menuitem', name=re.compile(r'^Post$', re.I))
+            self._one(self._post_controls()).click()
+            post = page.get_by_role('menuitem', name=re.compile(r'^(Post|Příspěvek)$', re.I))
             if post.count() == 1 and post.is_visible():
                 post.click()
             file_input = page.locator('input[type="file"][accept*="image"]')
@@ -234,8 +342,7 @@ class _Chromium:
             share = self._one([page.get_by_role('button', name='Share', exact=True)])
             # The interaction lease is closed, and the owner thread serializes
             # all input. Recheck the self-profile link even behind the modal.
-            profile = page.get_by_role('link', name=re.compile(r'^Profile$', re.I), include_hidden=True)
-            if profile.count() != 1 or _username_from_profile(profile.get_attribute('href')) != account['username']:
+            if not self._same_account(account['username']):
                 raise BrowserNotSent(COMPOSER)
         except BrowserInstagramError as error:
             raise BrowserNotSent(str(error)) from None
@@ -398,7 +505,8 @@ class BrowserInstagram:
         if navigate:
             runtime.home()
         try:
-            account = runtime.account()
+            expected = None if allow_account_change else self.state.data['account'].get('username')
+            account = runtime.account(expected_username=expected)
             with self.state.lock:
                 previous = self.state.data['account']
                 # Pausing or closing the login viewer is not consent to switch

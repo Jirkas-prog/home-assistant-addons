@@ -27,6 +27,7 @@ jobs:
       - run: node --check reality_twins/app/static/app.js
       - run: node --check reality_twins/app/static/browser.js
       - run: node --test reality_twins/tests/test_browser_view.cjs
+      - run: node --test reality_twins/tests/test_calendar_settings.cjs
       - run: python -m compileall -q reality_twins/app
   image:
     needs: test
