@@ -1,6 +1,6 @@
 # Home Assistant Add-ons
 
-Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev**, **WorkFlow Timers**, **WorkFlow FastShare**, **FastShare Play** and **Reality Twins Publisher**.
+Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge Atlas**, **Knowledge Atlas Dev**, **WorkFlow Timers**, **WorkFlow FastShare**, **FastShare Play** and **Czech This View Publisher**.
 
 ## Add this repository to Home Assistant
 
@@ -9,9 +9,9 @@ Custom add-ons for Home Assistant: **Fakturocel**, **MyBrowser**, **Knowledge At
 3. Add `https://github.com/Jirkas-prog/home-assistant-addons`.
 4. Select the add-on you want to install.
 
-## Reality Twins Publisher
+## Czech This View Publisher
 
-[Reality Twins Publisher](reality_twins/README.md) publishes the next photo from a numbered queue when an event starts in a selected Home Assistant calendar. Reorder by dragging, edit caption TXT files, and inspect persistent publishing history in an English/Czech Ingress interface. Official Instagram Login requires a professional account and a public HTTPS endpoint for temporary media links. The app starts paused. See the [setup guide](reality_twins/DOCS.md).
+[Czech This View Publisher](reality_twins/README.md) publishes the next photo from a numbered queue when an event starts in a selected Home Assistant calendar. Reorder by dragging, edit caption TXT files, and inspect publishing history in an English/Czech Ingress interface. Direct Instagram login uploads local photos without a domain or Meta app. The official Meta API remains an advanced alternative. New installations start paused. See the [setup guide](reality_twins/DOCS.md).
 
 ## WorkFlow FastShare
 

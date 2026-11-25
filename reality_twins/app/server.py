@@ -3,6 +3,7 @@ import logging
 import os
 import signal
 import threading
+from datetime import datetime, timezone
 from pathlib import Path
 
 from flask import Flask, abort, jsonify, request, send_file, send_from_directory
@@ -162,29 +163,54 @@ def create_apps(service, ingress=False):
     @admin.put('/api/settings')
     def settings():
         data = request.get_json()
+        if not isinstance(data, dict):
+            raise ValueError('Invalid request.')
         with service.connection_guard:
             if data.get('enabled'):
-                service.verify_public_endpoint()
-                service.instagram.check()
-            service.state.update(data)
-        if 'calendar_entity' in data:
+                if set(data) != {'enabled'}:
+                    raise ValueError('Save settings first, then enable publishing separately.')
+                service.enable()
+            else:
+                service.state.update(data)
+        if {'calendar_entity', 'schedule_source'} & data.keys():
             service.last_calendar_read = 0
+            service.refresh_calendar(datetime.now(timezone.utc))
         return jsonify(ok=True)
 
     @admin.post('/api/account/check')
     def check():
         with service.connection_guard:
-            return jsonify(service.instagram.check())
+            return jsonify(service.account_client.check())
+
+    @admin.post('/api/account/login')
+    def login():
+        data = request.get_json()
+        if not isinstance(data, dict) or set(data) - {'username', 'password', 'verification_code'}:
+            raise ValueError('Invalid request.')
+        if any(not isinstance(v, str) or len(v) > 1024 for v in data.values()):
+            raise ValueError('Invalid request.')
+        with service.connection_guard:
+            if service.state.data['connection_method'] != 'direct':
+                raise ValueError('Select direct login in the connection settings first.')
+            result = service.direct_instagram.login(data.get('username', ''), data.get('password', ''), data.get('verification_code', ''))
+        if result.get('message'):
+            from .i18n import translate_error
+            result['message_cs'] = translate_error(result['message'], 'cs')
+        return jsonify(result)
 
     @admin.post('/api/oauth/start')
     def oauth():
+        if service.state.data['connection_method'] != 'official':
+            raise ValueError('Select the official API in the connection settings first.')
         return jsonify(url=service.instagram.oauth_url())
 
     @admin.post('/api/account/disconnect')
     def disconnect():
-        with service.connection_guard, service.state.lock:
-            service.state.data.update(enabled=False, access_token='', account={'connected': False}, oauth_states={})
-            service.state.save()
+        with service.connection_guard:
+            service.direct_instagram.disconnect()
+            with service.state.lock:
+                service.state.data.update(enabled=False, access_token='', account={'connected': False}, oauth_states={})
+                service.state.save()
         return jsonify(ok=True)
 
     @admin.post('/api/attempts/<attempt_id>/resolve')
@@ -205,6 +231,8 @@ def create_apps(service, ingress=False):
     @public.get('/oauth/callback')
     def callback():
         with service.connection_guard:
+            if service.state.data['connection_method'] != 'official':
+                raise ValueError('Select the official API in the connection settings first.')
             service.instagram.oauth_callback(request.args.get('code', ''), request.args.get('state', ''))
         return '<!doctype html><meta charset="utf-8"><title>Instagram connected</title><h1>Instagram connected / Instagram připojen</h1><p>You can close this window and return to Home Assistant.<br>Můžeš zavřít toto okno a vrátit se do Home Assistantu.</p>'
 
@@ -235,7 +263,7 @@ def main():
         media_server.close()
     signal.signal(signal.SIGTERM, shutdown)
     signal.signal(signal.SIGINT, shutdown)
-    print(f'Reality Twins Publisher ready: dashboard {admin_port}, isolated media {public_port}', flush=True)
+    print(f'Czech This View Publisher ready: dashboard {admin_port}, isolated media {public_port}', flush=True)
     admin_server.run()
 
 

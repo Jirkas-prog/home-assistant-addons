@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.2.0
+
+- Rename the app to Czech This View Publisher while preserving its technical slug, queue paths and existing data.
+- Make direct Instagram login the default, with local photo upload and no public domain or Meta app requirement.
+- Support two-factor codes and private session reuse after restart; keep passwords in memory only, with a ten-minute pending login lifetime.
+- Direct account checkpoints to the official Instagram app or website for verification.
+- Keep the official Instagram API connection as an advanced alternative.
+- Preserve calendar-driven posting and block blind retries after uncertain upload results.
+- Document adding a Home Assistant Local calendar when none is available.
+
+Direct login uses the unofficial instagrapi client. Live account login and publication require verification on the intended account; automated tests use simulated responses.
+
 ## 0.1.0
 
 - Add a numbered photo queue with paired caption files and drag-to-reorder filename updates.

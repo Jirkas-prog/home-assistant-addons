@@ -13,6 +13,7 @@ import requests
 from PIL import Image, ImageCms, ImageOps
 
 from .instagram import Instagram, InstagramError
+from .direct_instagram import DirectInstagram
 from .queue_store import QueueStore
 from .scheduling import due_slots, next_slots, validate_schedule
 from .state import State
@@ -25,6 +26,7 @@ class Service:
         self.state.data['schedule'] = validate_schedule(self.state.data['schedule'])
         self.queue = QueueStore(Path(queue_dir), self.data_dir)
         self.instagram = Instagram(self.state)
+        self.direct_instagram = DirectInstagram(self.state)
         self.stop = threading.Event()
         self.queue_guard = threading.RLock()
         self.connection_guard = threading.RLock()
@@ -43,6 +45,8 @@ class Service:
         try:
             r = requests.get('http://supervisor/core/api/' + path,
                              headers={'Authorization': f'Bearer {token}'}, params=params, timeout=(5, 12))
+            if r.status_code == 404 and path == 'calendars':
+                return []
             r.raise_for_status()
             return r.json()
         except (requests.RequestException, ValueError):
@@ -51,12 +55,37 @@ class Service:
     def calendars(self):
         return self.ha_get('calendars')
 
+    @property
+    def account_client(self):
+        return self.direct_instagram if self.state.data['connection_method'] == 'direct' else self.instagram
+
+    def enable(self):
+        with self.connection_guard:
+            with self.state.lock:
+                source = self.state.data['schedule_source']
+                entity = self.state.data['calendar_entity']
+                method = self.state.data['connection_method']
+            if source == 'home_assistant':
+                if not entity:
+                    raise ValueError('Select a Home Assistant calendar first.')
+                if not any(c.get('entity_id') == entity for c in self.calendars()):
+                    raise ValueError('The selected Home Assistant calendar is unavailable. Choose an existing calendar.')
+                self.refresh_calendar(datetime.now(timezone.utc))
+                if self.calendar_error:
+                    raise ValueError(self.calendar_error)
+            if method == 'official':
+                self.verify_public_endpoint()
+            self.account_client.check()
+            self.state.update({'enabled': True})
+
     def refresh_calendar(self, now):
         with self.state.lock:
             entity = self.state.data['calendar_entity']
+            source = self.state.data['schedule_source']
         self.last_calendar_read = time.monotonic()
-        if not entity:
+        if not entity or source != 'home_assistant':
             self.calendar_slots = []
+            self.calendar_error = ''
             return
         try:
             events = self.ha_get('calendars/' + entity, {
@@ -118,7 +147,7 @@ class Service:
         except (requests.RequestException, ValueError):
             raise ValueError('The public HTTPS URL does not reach this app media endpoint on port 8098.') from None
 
-    def media_url(self, item_id):
+    def prepare_image(self, item_id):
         source = self.queue.image_path(item_id)
         if source.stat().st_size > 16 * 1024 * 1024:
             raise ValueError('Each uploaded file must be smaller than 16 MB.')
@@ -154,6 +183,11 @@ class Service:
         if target.stat().st_size > 8_000_000:
             target.unlink()
             raise ValueError('The prepared JPEG exceeds the Instagram 8 MB limit.')
+        return target
+
+    def media_url(self, item_id):
+        target = self.prepare_image(item_id)
+        grant = target.stem
         with self.state.lock:
             self.state.data['grants'][grant] = {'file': target.name, 'expires': time.time() + 86400}
             self.state.save()
@@ -183,8 +217,22 @@ class Service:
     def publish(self, attempt):
         attempt_id = attempt['attempt_id']
         publish_started = False
+        prepared = None
         try:
             with self.connection_guard:
+                if self.state.data['connection_method'] == 'direct':
+                    self.direct_instagram.check()
+                    prepared = self.prepare_image(attempt['item_id'])
+                    self.queue.update_attempt(attempt_id, state='publishing')
+                    publish_started = True
+                    result = self.direct_instagram.upload(prepared, attempt['caption'])
+                    media_id = str(result['id'])
+                    if not media_id:
+                        raise InstagramError('Instagram did not confirm the published post. Check the profile before retrying.')
+                    permalink = result.get('permalink', '')
+                    self.queue.update_attempt(attempt_id, media_id=media_id, permalink=permalink)
+                    self.queue.finish(attempt_id, media_id, permalink)
+                    return
                 self.instagram.refresh_if_needed()
                 account = self.instagram.check()
                 user_id = account['id']
@@ -218,12 +266,15 @@ class Service:
         except Exception as e:
             safe = str(e) if isinstance(e, (ValueError, InstagramError)) else 'Publication was interrupted. Check the Instagram profile before retrying.'
             self.queue.fail(attempt_id, safe, uncertain=publish_started)
+        finally:
+            if prepared is not None:
+                prepared.unlink(missing_ok=True)
 
     def recover(self):
         for attempt in self.queue.open_attempts():
             if attempt.get('media_id'):
                 try:
-                    permalink = attempt.get('permalink') or self.instagram.permalink(attempt['media_id'])
+                    permalink = attempt.get('permalink') or self.account_client.permalink(attempt['media_id'])
                     self.queue.finish(attempt['attempt_id'], attempt['media_id'], permalink)
                     continue
                 except Exception:
@@ -249,13 +300,14 @@ class Service:
                     enabled = self.state.data['enabled']
                 if enabled:
                     for slot in self.slots(now, due=True):
-                        with self.state.lock:
-                            if not self.state.data['enabled']:
-                                break
-                        with self.queue_guard:
-                            attempt = self.queue.claim(slot['key'])
-                        if attempt:
-                            self.publish(attempt)
+                        with self.connection_guard:
+                            with self.state.lock:
+                                if not self.state.data['enabled']:
+                                    break
+                            with self.queue_guard:
+                                attempt = self.queue.claim(slot['key'])
+                            if attempt:
+                                self.publish(attempt)
                 self.worker_error = ''
             except Exception as e:
                 self.worker_error = str(e) if isinstance(e, ValueError) else 'The scheduler encountered an error. Check the queue before resuming.'

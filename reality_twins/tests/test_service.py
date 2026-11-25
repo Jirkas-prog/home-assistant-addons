@@ -73,7 +73,7 @@ class ServiceTests(unittest.TestCase):
         self.instagram = FakeInstagram()
         self.service.instagram = self.instagram
         self.service.state.data.update(public_media_base_url="https://media.example.test",
-                                       schedule_source="internal", access_token="TOKEN_SECRET_1324",
+                                       schedule_source="internal", connection_method="official", access_token="TOKEN_SECRET_1324",
                                        app_secret="APP_SECRET_5678",
                                        account={"connected": True, "id": "123456", "username": "test_account"})
         self.service.state.save()

@@ -33,7 +33,7 @@ class InstagramTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.state = State(self.root / "DATA")
-        self.state.data.update(app_id="123456", app_secret="APP_SECRET_123",
+        self.state.data.update(connection_method="official", app_id="123456", app_secret="APP_SECRET_123",
                                public_media_base_url="https://media.example.test",
                                access_token="ORIGINAL_TOKEN_123")
         self.state.save()
@@ -164,6 +164,7 @@ class InstagramTests(unittest.TestCase):
 
     def test_public_callback_without_valid_state_never_exchanges_code(self):
         service = Service(self.root / "SERVICE_DATA", self.root / "PLANNED")
+        service.state.data['connection_method'] = 'official'
         try:
             service.instagram = self.instagram
             admin, public = create_apps(service)
@@ -179,6 +180,7 @@ class InstagramTests(unittest.TestCase):
 
     def test_public_oauth_callback_page_contains_no_token_secret_or_code(self):
         service = Service(self.root / "SERVICE_DATA", self.root / "PLANNED")
+        service.state.data['connection_method'] = 'official'
         try:
             service.instagram = self.instagram
             self.oauth_responses()

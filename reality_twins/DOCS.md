@@ -1,25 +1,24 @@
-# Reality Twins Publisher
+# Czech This View Publisher
 
 Publish one prepared Instagram photo post at the start of each timed event in a selected Home Assistant calendar. Drag queue cards to change their order; the image and matching caption file are renamed together.
 
-New installations are paused. The default schedule source is Home Assistant, and no calendar or Instagram account is selected automatically.
+New installations are paused. Direct Instagram login and Home Assistant calendars are the defaults. No calendar or Instagram account is selected automatically.
 
 ## Install on Home Assistant OS
 
 The package declares aarch64 and amd64 architectures. Raspberry Pi 5 with 64-bit Home Assistant OS uses aarch64.
 
-1. Open the local apps folder using a Samba or SSH app that has access to it. Depending on the installed version and mapping, it appears as /addons or /local_apps. It is not /config/custom_components.
-2. Copy the entire reality_twins directory, including config.yaml, Dockerfile, requirements.txt, run.sh and app. For example, the configuration file should be /addons/reality_twins/config.yaml.
-3. Open **Settings → Apps → Install app**, or **Settings → Add-ons → Add-on store** on older versions, and reload the store.
-4. Install **Reality Twins Publisher** from the local section. The first build requires internet access to download the Python base image and dependencies.
-5. Keep queue_dir set to /share/reality_twins/PLANNED and timezone set to Europe/Prague, or configure a different shared queue folder and IANA time zone. A host computer's drive path is not a container path.
-6. Start the app and open its web interface. Enable its sidebar entry if desired.
+1. Open **Settings → Apps → Install app**, or **Settings → Add-ons → Add-on store** on older versions.
+2. In the store menu, choose **Repositories** and add `https://github.com/Jirkas-prog/home-assistant-addons` if it is not already listed.
+3. Reload the store and install **Czech This View Publisher**. The first build requires internet access to download the Python base image and dependencies.
+4. Keep `queue_dir` set to `/share/reality_twins/PLANNED` and `timezone` set to `Europe/Prague`, or configure another shared queue folder and IANA time zone. A host computer's drive path is not a container path.
+5. Start the app and open its web interface. Enable its sidebar entry if desired.
 
-When this app is available in the shared [Home Assistant repository](https://github.com/Jirkas-prog/home-assistant-addons), that repository can also provide installation and updates through the store. Keep the existing repository URL and installed app slug unchanged during updates.
+The name changed in 0.2.0. The repository, technical slug `reality_twins` and data directories remain unchanged; update the existing app to retain its queue, settings and history.
 
-The app does not require protection mode to be disabled or access to the Docker socket. Management traffic uses Ingress on port 8099. The declared homeassistant_api permission allows it to read calendars through the Supervisor proxy; the Supervisor token is never sent to the browser.
+Management traffic uses Ingress on port 8099. The `homeassistant_api` permission allows calendar reads through the Supervisor proxy; its token stays on the server. Direct login needs no public port mapping, domain or reverse proxy. Protection mode can remain enabled.
 
-If the local app does not appear, check the config.yaml location, architecture and Supervisor logs. Your Samba/SSH app may need its local apps folder mapping enabled.
+For local development, copy the entire `reality_twins` directory to the device's local apps folder, for example `/addons/reality_twins`, and reload the store. A Samba or SSH app must have access to that folder. This is separate from `/config/custom_components`.
 
 ## Standalone Docker
 
@@ -51,15 +50,27 @@ The app discovers files periodically and offers a manual scan. Drag cards to reo
 
 Keep original photographs and any other application's catalogued output folders outside the managed queue. Reordering is a real filesystem operation. Use a dedicated directory of copies, not another workflow's recorded source files.
 
-Instagram receives a separate JPEG copy. The publishing path checks image size and aspect ratio and prepares sRGB data. It does not invent a caption or change the scene. Photos must fit the documented 4:5 to 1.91:1 ratio, be at least 320 pixels wide and produce a JPEG smaller than 8 MB.
+Instagram receives a separate JPEG copy. The publishing path checks image size and aspect ratio and prepares sRGB data. It does not invent a caption or change the scene. The shared image preparation accepts ratios from 4:5 to 1.91:1, a width of at least 320 pixels and a prepared JPEG smaller than 8 MB.
 
-## Connect Instagram
+## Connect Instagram directly
 
-Official automatic publishing requires an Instagram **Creator or Business** account. Instagram Login does not require a linked Facebook Page. Enter the Instagram password only on Instagram's authorization page, never in this app or a chat.
+1. Select the direct connection method in the app's Instagram settings.
+2. Enter the username and password for the intended account and start the connection.
+3. If Instagram requests two-factor authentication, enter its current verification code. The pending login expires after ten minutes; start again if it expires.
+4. If an account checkpoint is required, complete it in the official Instagram app or website, then reconnect here.
+5. Check the displayed account, queue and next calendar event before enabling publishing.
+
+This connection uploads image data directly from the app. It needs no public domain, Meta application or Creator/Business account. It uses the [unofficial instagrapi client](https://github.com/subzeroid/instagrapi); Instagram can request revalidation or limit automated access.
+
+The password stays only in memory during login and, if needed, the pending two-factor step. It is not saved to disk. The authenticated session is stored in private app data and reused after restart. Expired or rejected sessions require a new login. Account verification and upload failures are shown in the dashboard rather than handled by repeated blind login or publication attempts.
+
+## Optional official Instagram API
+
+The advanced official connection is separate from direct login. It requires an Instagram **Creator or Business** account, a Meta application and public HTTPS for media and the OAuth callback. Instagram Login does not require a linked Facebook Page. For this method, enter the Instagram password only on Instagram's authorization page.
 
 1. Create a Meta application with the Instagram product and Instagram Login in [Meta for Developers](https://developers.facebook.com/). Add the account you own or manage as an app user/tester and accept any tester invitation in Instagram.
 2. Configure public HTTPS as described below. Register its exact OAuth redirect URI in Meta: the public base URL followed by /oauth/callback.
-3. In the app settings, enter the public media base URL, Instagram App ID and Instagram App Secret. Keep the secret on the device; do not put it in Git or screenshots.
+3. Select the official connection method, then enter the public media base URL, Instagram App ID and Instagram App Secret. Keep the secret on the device; do not put it in Git or screenshots.
 4. Start the Instagram connection, sign in to the intended account, and grant instagram_business_basic and instagram_business_content_publish.
 5. After returning, verify the displayed account. Review the queue and calendar before enabling the scheduler.
 
@@ -67,9 +78,9 @@ Accounts owned or managed by the app owner and added in Meta can use Standard Ac
 
 Manual connection accepts a valid long-lived **Instagram User access token** for the same Instagram Login flow. Facebook Page and obsolete Basic Display tokens are not interchangeable. Long-lived tokens need renewal before expiry. Revoked permissions or an expired token require reconnection. The app must be running to execute publishing and renewal work.
 
-## Public HTTPS for media and OAuth
+### Public HTTPS for the official method
 
-Meta downloads each photo from a URL. A local path, private network address or authenticated Home Assistant Ingress URL cannot provide that download.
+Meta downloads each photo from a URL. A local path, private network address or authenticated Home Assistant Ingress URL cannot provide that download. This section is unnecessary for direct login.
 
 | Port | Purpose | Access |
 | --- | --- | --- |
@@ -90,11 +101,13 @@ Replace the example domain with your own domain, DNS and public HTTPS. Set https
 
 The public listener provides only a limited endpoint identity response, the OAuth callback and unguessable time-limited image links. It does not provide the queue dashboard, account settings or directory listings. OAuth callbacks require a valid one-use login state. Meta must be able to access images without an additional proxy login.
 
-Before enabling publication, the app checks that the HTTPS address reaches this installation's media listener. This check cannot guarantee that Meta can retrieve every later image; verify the first real publication on the target installation.
+Before enabling publication through the official connection, the app checks that the HTTPS address reaches this installation's media listener. Verify the first real publication to confirm Meta's download and account permissions.
 
 ## Use an existing Home Assistant calendar
 
 Select **Home Assistant** as the schedule source. The app loads available calendar entities through the Supervisor. Choose the existing calendar entity intended for publication.
+
+If no calendar exists, add **Local calendar** under **Settings → Devices & services → Add integration**, give it a name, then refresh the app's calendar list. See the [Home Assistant Local calendar guide](https://www.home-assistant.io/integrations/local_calendar/).
 
 For one post daily at 16:00, create a **timed event with daily recurrence**, starting at 16:00 in the intended time zone, such as Europe/Prague. Each event start consumes one item from the front of the queue. All-day events are ignored. Event titles are shown for orientation and do not select a particular photograph.
 
@@ -116,15 +129,15 @@ An attempt is recorded before sending. A known successful post is removed from t
 
 When an attempt requires review, inspect the Instagram profile. Record either the verified post URL or a note confirming it was not published before returning it to the queue. A network error does not prove publication failed.
 
-Missing files, invalid captions, unavailable media URLs, expired permissions and Instagram processing errors can block the queue. Review the reported problem before continuing. External publishing is not an absolute delivery guarantee.
+Missing files, invalid captions, rejected sessions and Instagram processing errors can block the queue. Resolve the reported problem before continuing.
 
 ## Backups and updates
 
-Back up /data and the queue/archive directory together. Private state includes account credentials, so protect backups as account access. Pause scheduling before changing the installation, preserve those directories, update only app source files, rebuild, then check the account, queue and next event.
+Back up `/data` and the queue/archive directory together. Private state includes authenticated sessions, so protect backups as account access. Pause scheduling, preserve those directories, update the app, then check the account, queue and next event before resuming.
 
 ## Validation scope
 
-Local package configuration and management/media port separation have been checked. Container builds, installation on Home Assistant hardware, public DNS/TLS and actual Instagram publication require their respective environments. Do not interpret source availability or unit-test success as proof that those deployment checks passed.
+Automated checks cover queue integrity, scheduling, request authorization and simulated publication. They do not verify a real Instagram login or post. Validate the intended account connection and first authorized publication on the target installation.
 
 ## Technical references
 
@@ -133,6 +146,7 @@ Local package configuration and management/media port separation have been check
 - [Home Assistant Ingress](https://contributors.home-assistant.io/apps/guides/ingress/)
 - [Supervisor API access](https://contributors.home-assistant.io/apps/guides/communication/)
 - [Home Assistant calendar REST API](https://contributors.home-assistant.io/core/internals/rest-api/)
+- [instagrapi documentation and session persistence](https://github.com/subzeroid/instagrapi)
 - [Instagram Login and token lifecycle](https://developers.facebook.com/documentation/instagram-platform/instagram-api-with-instagram-login/business-login)
 - [Instagram content publishing](https://developers.facebook.com/documentation/instagram-platform/content-publishing)
 - [Instagram photo specifications](https://developers.facebook.com/documentation/instagram-platform/instagram-graph-api/reference/ig-user/media)

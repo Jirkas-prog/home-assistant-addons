@@ -2,10 +2,10 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
-const state = { data: null, view: 'queue', dragging: null, editing: null, resolving: null, busy: 0, loading: false, weekOffset: 0, connected: false, calendars: null, calendarsLoading: false, settingsDirty: false, calendarDirty: false, language: savedLanguage() };
+const state = { data: null, view: 'queue', dragging: null, editing: null, resolving: null, busy: 0, loading: false, weekOffset: 0, connected: false, calendars: null, calendarsLoading: false, settingsDirty: false, calendarDirty: false, methodDirty: false, directChallenge: false, language: savedLanguage() };
 const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 const english = {
-  'Přejít na obsah': 'Skip to content', 'Reality Twins — fronta': 'Reality Twins — queue', 'PRACOVNÍ PROSTOR': 'WORKSPACE', 'Hlavní navigace': 'Main navigation', 'Fronta': 'Queue', 'FRONTA': 'QUEUE', 'fronta': 'queue', 'Kalendář': 'Calendar', 'KALENDÁŘ': 'CALENDAR', 'kalendář': 'calendar', 'Historie': 'History', 'HISTORIE': 'HISTORY', 'historie': 'history', 'Nastavení': 'Settings', 'NASTAVENÍ': 'SETTINGS', 'nastavení': 'settings', 'Připojuji rozhraní': 'Connecting to server', 'VAŠE FOTKY. VÁŠ RYTMUS.': 'YOUR PHOTOS. YOUR RHYTHM.', 'Instagram nepřipojen': 'Instagram not connected', 'Jazyk rozhraní': 'Interface language',
+  'Přejít na obsah': 'Skip to content', 'Czech This View — fronta': 'Czech This View — queue', 'PRACOVNÍ PROSTOR': 'WORKSPACE', 'Hlavní navigace': 'Main navigation', 'Fronta': 'Queue', 'FRONTA': 'QUEUE', 'fronta': 'queue', 'Kalendář': 'Calendar', 'KALENDÁŘ': 'CALENDAR', 'kalendář': 'calendar', 'Historie': 'History', 'HISTORIE': 'HISTORY', 'historie': 'history', 'Nastavení': 'Settings', 'NASTAVENÍ': 'SETTINGS', 'nastavení': 'settings', 'Připojuji rozhraní': 'Connecting to server', 'VAŠE FOTKY. VÁŠ RYTMUS.': 'YOUR PHOTOS. YOUR RHYTHM.', 'Instagram nepřipojen': 'Instagram not connected', 'Jazyk rozhraní': 'Interface language',
   'INSTAGRAM / AUTOMATICKÉ PUBLIKOVÁNÍ': 'INSTAGRAM / AUTOMATIC PUBLISHING', 'Připraveno. Seřazeno.': 'Ready. In order.', 'Ve správný čas.': 'At the right time.', 'Přesuň příspěvky do pořadí. Zbytek převezme tvůj kalendář.': 'Arrange your posts. Let your calendar handle the timing.', 'Načítání…': 'Loading…', 'Stav publikování': 'Publishing status', 'PŘÍŠTÍ PUBLIKOVÁNÍ': 'NEXT PUBLISHING SLOT', 'Čekám na plán': 'Waiting for a schedule', 'PŘIPRAVENO VE FRONTĚ': 'POSTS IN QUEUE', 'příspěvků': 'posts', 'příspěvek': 'post', 'Pořadí podle čísel souborů': 'Ordered by numbered filenames', 'INSTAGRAM ÚČET': 'INSTAGRAM ACCOUNT', 'Nepřipojen': 'Not connected', 'Propoj účet v nastavení': 'Connect your account in Settings',
   'Publikační fronta': 'Publishing queue', 'Pořadí měň přetažením nebo šipkami. Fotka i její TXT se přejmenují společně.': 'Drag posts or use the arrows. Photos and their TXT files are renamed together.', 'Načíst složku': 'Scan folder', 'Přidat příspěvky': 'Add posts', 'Načítání složky…': 'Loading folder…', 'Seřazené příspěvky': 'Ordered posts', 'Tady začíná další příspěvek.': 'Your next post starts here.', 'Přidej hotové fotografie a popisky jako TXT se stejným názvem.': 'Add finished photos and captions as TXT files with matching names.', 'Soubory dostanou pořadí 0001, 0002, 0003…': 'Files will be numbered 0001, 0002, 0003…', 'Přidat první příspěvky': 'Add your first posts', 'V každém termínu se publikuje jeden příspěvek z čela fronty. Zveřejněné příspěvky najdeš v historii.': 'Each slot publishes one post from the front of the queue. Published posts appear in History.',
   'Kalendář Home Assistantu': 'Home Assistant calendar', 'Začátek události ve vybraném kalendáři publikuje jeden příspěvek.': 'The start of an event in your selected calendar publishes one post.', 'Předchozí týden': 'Previous week', 'Další týden': 'Next week', 'Dnes': 'Today', 'Jeden kalendář. Jedna fronta.': 'One calendar. One queue.', 'Události i opakování upravuj ve svém kalendáři v Home Assistantu.': 'Edit events and recurrence in your Home Assistant calendar.', 'Kalendář pro Instagram': 'Calendar for Instagram', 'Načítání kalendářů…': 'Loading calendars…', 'Použít tento kalendář': 'Use this calendar', 'Obnovit seznam kalendářů': 'Refresh calendars', 'Například vytvoř událost v 16:00 s opakováním každý den. Použij samostatný kalendář pro příspěvky.': 'For example, create a daily recurring event at 16:00. Use a dedicated calendar for posts.', 'Týdenní kalendář': 'Weekly calendar', 'Zobrazené termíny odpovídají událostem načteným z Home Assistantu.': 'The displayed slots match events loaded from Home Assistant.', 'Pokročilé: vlastní plán uvnitř doplňku': 'Advanced: a schedule inside the add-on', 'Tato pravidla se použijí pouze při zdroji „Kalendář doplňku“ v nastavení.': 'These rules apply only when the schedule source is set to “Add-on calendar” in Settings.',
@@ -13,11 +13,56 @@ const english = {
   'Historie publikování': 'Publishing history', 'Co se odeslalo, kdy a s jakým výsledkem.': 'What was sent, when, and with what result.', 'První záznam teprve přijde.': 'Your first entry is still ahead.', 'Zde uvidíš výsledky automatického publikování a odkazy na Instagram.': 'Publishing results and Instagram links will appear here.', 'Spojení a nastavení': 'Connection and settings', 'Jednou propojit. Potom spravovat svůj obsah.': 'Connect once. Then manage your content.', 'Účet zatím není propojený.': 'No account connected yet.', 'Oficiální připojení podporuje účty': 'The official connection supports', 'Creator a Business': 'Creator and Business accounts', '. Přihlašování probíhá na Instagramu.': '. Sign-in happens on Instagram.', 'Propojit Instagram ↗': 'Connect Instagram ↗', 'Ověřit spojení': 'Check connection', 'Odpojit účet': 'Disconnect account', 'Nejdřív vyplň nastavení připojení.': 'Complete the connection settings first.', 'V Meta aplikaci povol Instagram Login a jako přesměrování nastav adresu zobrazenou vpravo.': 'Enable Instagram Login in your Meta app and set the redirect URI shown in the connection settings.',
   'Nastavení připojení': 'Connection settings', 'Údaje ze své aplikace v Meta for Developers.': 'Details from your app in Meta for Developers.', 'ID Instagram aplikace': 'Instagram app ID', 'Nezadáno': 'Not set', 'Prázdné pole ponechá uloženou hodnotu.': 'Leave blank to keep the saved value.', 'Veřejná HTTPS adresa médií': 'Public HTTPS media URL', 'Meta odsud načítá fotky. Směřuj ji na veřejný port doplňku, nikoli na rozhraní Home Assistantu.': 'Meta fetches photos from this address. Route it to the add-on’s public port, not the Home Assistant interface.', 'Nejdřív zadej veřejnou adresu': 'Enter the public URL first', 'Verze Instagram API': 'Instagram API version', 'Zdroj plánu': 'Schedule source', 'Kalendář doplňku — pokročilé': 'Add-on calendar — advanced', 'Vyber kalendář': 'Select a calendar', 'Při zdroji Home Assistant vyber kalendář určený pro publikování.': 'For the Home Assistant source, select the calendar dedicated to publishing.', 'Připojit pomocí existujícího tokenu': 'Connect with an existing token', 'Token se nikdy nezobrazuje': 'The token is never displayed', 'Alternativa k přihlášení. Prázdné pole token nezmění.': 'An alternative to sign-in. Leave blank to keep the current token.', 'Uložit nastavení': 'Save settings', 'Čekám na data': 'Waiting for data',
   'TEXT PŘÍSPĚVKU': 'POST CAPTION', 'Upravit popisek': 'Edit caption', 'Zavřít': 'Close', 'Popisek na Instagram': 'Instagram caption', 'Napiš popisek příspěvku…': 'Write your post caption…', 'Uloží se do odpovídajícího TXT souboru.': 'Saved to the matching TXT file.', 'Zrušit': 'Cancel', 'Uložit popisek': 'Save caption', 'OVĚŘENÍ VÝSLEDKU': 'VERIFY RESULT', 'Co se stalo na Instagramu?': 'What happened on Instagram?', 'Nejdřív otevři svůj profil a zkontroluj, zda byl tento příspěvek zveřejněn. Doplněk ho při nejasném výsledku znovu neposílá.': 'First check your profile to see whether this post was published. The add-on does not resend a post with an uncertain result.', 'Výsledek kontroly': 'Verified result', 'Příspěvek je zveřejněný': 'The post was published', 'Příspěvek se určitě nezveřejnil': 'The post definitely was not published', 'Odkaz na zveřejněný příspěvek': 'Link to the published post', 'Poznámka k ověření': 'Verification note', 'Jak jsi ověřil, že příspěvek není zveřejněný?': 'How did you verify that the post was not published?', 'Profil jsem zkontroloval a uvedený výsledek potvrzuji.': 'I checked the profile and confirm this result.', 'Uložit ověřený výsledek': 'Save verified result',
-  'PŘIPRAVENO': 'READY', 'PUBLIKUJE SE': 'PUBLISHING', 'ZVEŘEJNĚNO': 'PUBLISHED', 'CHYBA': 'ERROR', 'OVĚŘIT VÝSLEDEK': 'VERIFY RESULT', 'ZPRACOVÁNÍ': 'PROCESSING', 'PŘIPRAVUJE SE': 'PREPARING', 'Tvůj kalendář.': 'Your calendar.', 'Tvůj publikační rytmus.': 'Your publishing rhythm.', 'Začátek události v Home Assistantu převezme další příspěvek z fronty.': 'A Home Assistant event starts the next post in your queue.', 'Každý příspěvek.': 'Every post.', 'Každý výsledek.': 'Every result.', 'Přehled zveřejnění a případných chyb bez hledání v souborech.': 'Publishing results and errors without searching through files.', 'Jedno spojení.': 'One connection.', 'Všechno připravené.': 'Ready to go.', 'Propoj Instagram, nastav veřejnou adresu médií a svůj kalendář.': 'Connect Instagram, set your public media URL, and choose your calendar.',
+  'PŘIPRAVENO': 'READY', 'PUBLIKUJE SE': 'PUBLISHING', 'ZVEŘEJNĚNO': 'PUBLISHED', 'CHYBA': 'ERROR', 'OVĚŘIT VÝSLEDEK': 'VERIFY RESULT', 'ZPRACOVÁNÍ': 'PROCESSING', 'PŘIPRAVUJE SE': 'PREPARING', 'Tvůj kalendář.': 'Your calendar.', 'Tvůj publikační rytmus.': 'Your publishing rhythm.', 'Začátek události v Home Assistantu převezme další příspěvek z fronty.': 'A Home Assistant event starts the next post in your queue.', 'Každý příspěvek.': 'Every post.', 'Každý výsledek.': 'Every result.', 'Přehled zveřejnění a případných chyb bez hledání v souborech.': 'Publishing results and errors without searching through files.', 'Jedno spojení.': 'One connection.', 'Všechno připravené.': 'Ready to go.', 'Přihlas Instagram a vyber kalendář pro své příspěvky.': 'Sign in to Instagram and choose a calendar for your posts.',
   'Zavřít oznámení': 'Dismiss notification', 'Server neodpověděl včas. Obnov stav, než akci zopakuješ.': 'The server did not respond in time. Refresh the status before repeating the action.', 'Akci se nepodařilo dokončit.': 'The action could not be completed.', 'Rozhraní je připojené': 'Connected to server', 'Spojení se přerušilo': 'Connection interrupted', 'STAV NEMUSÍ BÝT AKTUÁLNÍ': 'STATUS MAY BE OUT OF DATE', 'Přidej první fotografie a popisky': 'Add your first photos and captions', 'Bez termínu': 'No slot scheduled', 'publikování pozastaveno': 'publishing paused', 'Přidej čas v kalendáři': 'Add a time in the calendar', 'Pozastavit publikování': 'Pause publishing', 'Zapnout publikování': 'Enable publishing', 'Oficiální Instagram připojení': 'Official Instagram connection',
   'Přetáhnout příspěvek; pro klávesnici použij šipky vedle něj': 'Drag the post; use the adjacent arrows with a keyboard', 'Popisek zatím není přidaný.': 'No caption added yet.', 'DALŠÍ NA ŘADĚ': 'NEXT IN QUEUE', 'Upravit text': 'Edit caption', 'Příspěvek je znovu připravený ve frontě.': 'The post is ready in the queue again.', 'Znovu připravit příspěvek po chybě': 'Make the post ready again after an error', 'Pořadí uložené. Názvy fotek i popisků jsou aktualizované.': 'Order saved. Photo and caption filenames have been updated.', 'Kalendář doplňku': 'Add-on calendar', 'Pravidelné časy i jednotlivé termíny. Každý slot = jeden příspěvek.': 'Recurring and one-time slots. Each slot publishes one post.', 'Zobrazeny jsou pouze termíny načtené z Home Assistantu. Události i jejich opakování upravuj tam.': 'Only slots loaded from Home Assistant are displayed. Edit events and recurrence there.', 'Zobrazená pravidla pocházejí z interního plánu doplňku.': 'The displayed rules come from the add-on’s internal schedule.', 'Pravidelně': 'Recurring', 'Jednorázově': 'One-time', 'Každý den': 'Every day', 'Termín pozastaven.': 'Slot paused.', 'Termín zapnut.': 'Slot enabled.', 'Termín odstraněn.': 'Slot removed.', 'Odstranit termín': 'Remove slot', 'Příspěvek': 'Post', 'Otevřít na Instagramu ↗': 'Open on Instagram ↗', 'Ověřit výsledek': 'Verify result', 'Uloženo — ponech prázdné pro zachování': 'Saved — leave blank to keep', 'Token je uložený': 'Token is saved',
   'Home Assistant zatím neposkytuje žádný kalendář. Nejdřív přidej kalendář v jeho integracích.': 'Home Assistant has no calendars yet. Add a calendar integration first.', 'Kalendáře nejsou dostupné': 'Calendars unavailable', 'Vyber kalendář pro příspěvky': 'Select a calendar for posts', 'Vyplň platné datum a čas.': 'Enter a valid date and time.', 'Tento místní čas při přechodu na letní čas neexistuje. Vyber jiný čas.': 'This local time does not exist during the daylight saving transition. Choose another time.', 'Nejdřív vyber kalendář Home Assistantu pro publikování.': 'First select a Home Assistant calendar for publishing.', 'Automatické publikování je zapnuté.': 'Automatic publishing is enabled.', 'Automatické publikování je pozastavené.': 'Automatic publishing is paused.', 'Složka je načtená.': 'Folder scanned.', 'Příspěvky jsou přidané do fronty.': 'Posts added to the queue.', 'Popisek uložen.': 'Caption saved.', 'Vyber alespoň jeden den.': 'Select at least one day.', 'Pravidelný čas přidán.': 'Recurring time added.', 'Vyber termín v budoucnosti.': 'Select a future date and time.', 'Jednorázový termín přidán.': 'One-time slot added.', 'Časové pásmo uložené.': 'Time zone saved.', 'Vyber kalendář pro příspěvky.': 'Select a calendar for posts.', 'Publikování bude řídit vybraný kalendář Home Assistantu.': 'The selected Home Assistant calendar will control publishing.', 'Nastavení uložené.': 'Settings saved.', 'Vlož HTTPS odkaz na příspěvek na Instagramu.': 'Enter an HTTPS link to the Instagram post.', 'Ověřený výsledek uložen.': 'Verified result saved.', 'Spojení bylo ověřeno.': 'Connection checked.', 'Instagram je odpojen.': 'Instagram disconnected.', 'Server vrátil neplatnou přihlašovací adresu.': 'The server returned an invalid sign-in URL.', 'Failed to fetch': 'Failed to fetch'
 };
+Object.assign(english, {
+  'Průvodce nastavením': 'Setup checklist', 'PŘÍPRAVA K PUBLIKOVÁNÍ': 'PUBLISHING SETUP',
+  'Čtyři kroky k prvnímu příspěvku': 'Four steps to your first post',
+  'Tři kroky k prvnímu příspěvku': 'Three steps to your first post',
+  'Nastavení je připravené': 'Setup is complete', 'Publikování je zapnuté': 'Publishing is enabled',
+  'Zbývá dokončit nastavení': 'Finish the remaining setup steps', 'Hotovo': 'Done', 'Doplnit': 'Set up', 'Zkontrolovat': 'Check',
+  'Počítají se pouze uložené údaje. Veřejná dostupnost HTTPS se ověří při zapnutí publikování.': 'Only saved settings count. Public HTTPS reachability is checked when publishing is enabled.',
+  'Přehled vychází z uloženého nastavení a skutečného stavu fronty.': 'This checklist uses saved settings and the actual queue state.',
+  'Nastavení samo nic nezveřejní. Až budeš připravený, zapni publikování nahoře.': 'Setup does not publish anything. Enable publishing above when you are ready.',
+  'Vybraný HA kalendář je uložený. Termíny spravuj v Home Assistantu.': 'Your selected HA calendar is saved. Manage its events in Home Assistant.',
+  'Vyber a ulož samostatný kalendář pro příspěvky.': 'Select and save a dedicated calendar for posts.',
+  'Interní plán obsahuje zapnutý budoucí nebo opakovaný termín.': 'The internal schedule has an enabled future or recurring slot.',
+  'Do interního plánu přidej zapnutý termín.': 'Add an enabled slot to the internal schedule.',
+  'Otevřít kalendář': 'Open calendar', 'Nastavit kalendář': 'Set up calendar',
+  'Veřejné HTTPS': 'Public HTTPS', 'HTTPS adresa je uložená. Její veřejná dostupnost ještě není tímto krokem potvrzená.': 'The HTTPS address is saved. This step does not confirm public reachability.',
+  'Ulož veřejnou HTTPS adresu, ze které Instagram načte fotografie.': 'Save the public HTTPS address where Instagram can fetch photos.',
+  'Upravit HTTPS': 'Edit HTTPS', 'Nastavit HTTPS': 'Set up HTTPS',
+  'Poslední uložené ověření účtu potvrdilo připojení.': 'The last saved account check confirmed the connection.',
+  'Připoj profesionální účet a ověř spojení v nastavení.': 'Connect a professional account and verify it in Settings.',
+  'Přihlas Instagram v nastavení. Fotografie se odesílají přímo z Home Assistantu.': 'Sign in to Instagram in Settings. Photos are sent directly from Home Assistant.',
+  'Uložená platnost přístupu skončila. Připojení je potřeba obnovit.': 'The saved access expiry has passed. Reconnect the account.',
+  'Otevřít připojení': 'Open connection', 'Připojit účet': 'Connect account',
+  'První příspěvek je připravený ve frontě.': 'The first post is ready in the queue.',
+  'Příspěvek z čela fronty se právě publikuje.': 'The first post is currently being published.',
+  'Přidej hotovou fotografii a její popisek.': 'Add a finished photo and its caption.',
+  'První příspěvek vyžaduje kontrolu. Podrobnosti jsou ve frontě a historii.': 'The first post needs attention. Check the queue and history for details.',
+  'Otevřít frontu': 'Open queue', 'Naplnit frontu': 'Add posts to queue',
+  'Způsob připojení': 'Connection method', 'Přímé přihlášení z Home Assistantu': 'Direct sign-in from Home Assistant',
+  'Oficiální Meta API — pokročilá alternativa': 'Official Meta API — advanced alternative',
+  'Změna metody pozastaví publikování. Potom připoj účet zvoleným způsobem.': 'Changing the method pauses publishing. Then connect the account using the selected method.',
+  'Použít zvolenou metodu': 'Use selected method', 'Home Assistant se přihlásí k Instagramu a fotografie odešle přímo ze své složky.': 'Home Assistant signs in to Instagram and uploads photos directly from its folder.',
+  'Uživatelské jméno Instagramu': 'Instagram username', 'Heslo Instagramu': 'Instagram password',
+  'Heslo se po odeslání formuláře vymaže.': 'The password field is cleared after submitting.',
+  'Instagram vyžaduje dvoufázové ověření. Zadej aktuální kód z autentizační aplikace nebo SMS.': 'Instagram requires two-factor authentication. Enter the current code from your authenticator app or SMS.',
+  'Ověřovací kód': 'Verification code', 'Přihlásit Instagram': 'Sign in to Instagram', 'Dokončit ověření': 'Complete verification',
+  'Použít jiné přihlašovací údaje': 'Use different sign-in details', 'Nastavení publikování': 'Publishing settings',
+  'Vyber kalendář, který bude řídit frontu.': 'Choose the calendar that will control the queue.',
+  'Tato nastavení se používají pouze při uložené metodě Oficiální Meta API.': 'These settings apply only when the saved connection method is Official Meta API.',
+  'Aktivní je přímé přihlášení. Veřejná HTTPS adresa není potřeba.': 'Direct sign-in is active. No public HTTPS address is required.',
+  'Aktivní je Oficiální Meta API. Jeho nastavení najdeš v pokročilých možnostech.': 'Official Meta API is active. Its configuration is under advanced settings.',
+  'Nejdřív ulož zvolenou metodu připojení.': 'Save the selected connection method first.',
+  'Zvolená metoda už je aktivní.': 'The selected method is already active.', 'Metoda připojení uložená.': 'Connection method saved.',
+  'Vyplň uživatelské jméno a heslo.': 'Enter your username and password.', 'Zadej ověřovací kód.': 'Enter the verification code.',
+  'Instagram je připojený.': 'Instagram is connected.', 'Přihlášení zatím nebylo potvrzené.': 'Sign-in has not been confirmed yet.'
+});
 const sourceTexts = new WeakMap();
 const sourceAttributes = new WeakMap();
 const excludedTranslation = '.queue-filename,.queue-caption:not(.no-caption),.row-error,.history-row h3,.history-row p,.no-translate,#queue-path,#caption-filename,#resolve-filename,#caption-text,#resolve-note,#warnings,#account-error';
@@ -89,7 +134,7 @@ const titles = {
   queue: ['FRONTA', 'Připraveno. Seřazeno.', 'Ve správný čas.', 'Přesuň příspěvky do pořadí. Zbytek převezme tvůj kalendář.'],
   calendar: ['KALENDÁŘ', 'Tvůj kalendář.', 'Tvůj publikační rytmus.', 'Začátek události v Home Assistantu převezme další příspěvek z fronty.'],
   history: ['HISTORIE', 'Každý příspěvek.', 'Každý výsledek.', 'Přehled zveřejnění a případných chyb bez hledání v souborech.'],
-  settings: ['NASTAVENÍ', 'Jedno spojení.', 'Všechno připravené.', 'Propoj Instagram, nastav veřejnou adresu médií a svůj kalendář.']
+  settings: ['NASTAVENÍ', 'Jedno spojení.', 'Všechno připravené.', 'Přihlas Instagram a vyber kalendář pro své příspěvky.']
 };
 
 function element(tag, className, text) {
@@ -232,7 +277,7 @@ function render() {
   $('#account-name').textContent = account.connected ? `@${account.username || account.id}` : 'Nepřipojen';
   $('#account-short').textContent = account.connected ? `@${account.username || account.id}` : 'Instagram nepřipojen';
   $('#account-shortcut .dot').className = account.connected ? 'dot cyan' : 'dot';
-  $('#account-detail').textContent = account.connected ? (account.expires_at ? `Přístup do ${formatDate(account.expires_at, { hour: undefined, minute: undefined })}` : 'Oficiální Instagram připojení') : 'Propoj účet v nastavení';
+  $('#account-detail').textContent = account.connected ? (data.settings?.connection_method !== 'official' ? 'Přímé přihlášení z Home Assistantu' : account.expires_at ? `Přístup do ${formatDate(typeof account.expires_at === 'number' ? account.expires_at * 1000 : account.expires_at, { hour: undefined, minute: undefined })}` : 'Oficiální Instagram připojení') : 'Propoj účet v nastavení';
   $('#queue-path').textContent = data.queue_path || 'PLANNED';
   const warnings = $('#warnings');
   warnings.replaceChildren();
@@ -241,6 +286,98 @@ function render() {
   renderCalendar();
   renderHistory();
   renderSettings();
+  renderOnboarding();
+}
+
+function onboardingSteps(data) {
+  const settings = data.settings || {};
+  const account = data.account || {};
+  const official = settings.connection_method === 'official';
+  const now = new Date(data.server_time).getTime() || Date.now();
+  const internal = settings.schedule_source === 'internal';
+  const schedule = data.schedule || {};
+  const calendarReady = internal
+    ? (schedule.weekly || []).some(rule => rule.enabled === true && rule.days?.length && rule.time)
+      || (schedule.once || []).some(rule => rule.enabled === true && new Date(rule.at).getTime() > now)
+    : Boolean(settings.calendar_entity);
+  let httpsReady = false;
+  try {
+    const url = new URL(settings.public_media_base_url);
+    httpsReady = url.protocol === 'https:' && Boolean(url.hostname) && !url.username && !url.password;
+  } catch { /* An unset or invalid saved URL is an incomplete setup step. */ }
+  const expiry = account.expires_at == null ? null : typeof account.expires_at === 'number'
+    ? account.expires_at * 1000 : new Date(account.expires_at).getTime();
+  const expired = official && expiry != null && Number.isFinite(expiry) && expiry <= now;
+  const accountReady = account.connected === true && (official ? settings.has_token === true : settings.has_direct_session === true) && !account.error && !expired;
+  const head = data.queue?.[0];
+  const queueReady = Boolean(head && (head.status === 'queued' || head.status === 'publishing'));
+  const steps = [
+    { id: 'calendar', title: 'Kalendář', complete: Boolean(calendarReady), view: 'calendar', target: internal ? '#internal-calendar-details' : '#ha-calendar-select',
+      detail: internal ? (calendarReady ? 'Interní plán obsahuje zapnutý budoucí nebo opakovaný termín.' : 'Do interního plánu přidej zapnutý termín.')
+        : (calendarReady ? 'Vybraný HA kalendář je uložený. Termíny spravuj v Home Assistantu.' : 'Vyber a ulož samostatný kalendář pro příspěvky.'),
+      action: calendarReady ? 'Otevřít kalendář' : 'Nastavit kalendář' },
+    { id: 'instagram', title: 'Instagram', complete: accountReady, attention: expired || Boolean(account.error), view: 'settings', target: accountReady ? '#check-account' : official ? '#oauth-connect' : '#direct-username',
+      detail: accountReady ? 'Poslední uložené ověření účtu potvrdilo připojení.' : expired ? 'Uložená platnost přístupu skončila. Připojení je potřeba obnovit.' : official ? 'Připoj profesionální účet a ověř spojení v nastavení.' : 'Přihlas Instagram v nastavení. Fotografie se odesílají přímo z Home Assistantu.',
+      action: accountReady ? 'Otevřít připojení' : 'Připojit účet' },
+    { id: 'queue', title: 'Fronta', complete: queueReady, attention: Boolean(head && !queueReady), view: 'queue', target: head ? '#queue-heading' : '#import-button',
+      detail: queueReady ? (head.status === 'publishing' ? 'Příspěvek z čela fronty se právě publikuje.' : 'První příspěvek je připravený ve frontě.')
+        : head ? 'První příspěvek vyžaduje kontrolu. Podrobnosti jsou ve frontě a historii.' : 'Přidej hotovou fotografii a její popisek.',
+      action: head ? 'Otevřít frontu' : 'Naplnit frontu' }
+  ];
+  if (official) steps.splice(1, 0, {
+    id: 'https', title: 'Veřejné HTTPS', complete: httpsReady, view: 'settings', target: '#public-url',
+    detail: httpsReady ? 'HTTPS adresa je uložená. Její veřejná dostupnost ještě není tímto krokem potvrzená.' : 'Ulož veřejnou HTTPS adresu, ze které Instagram načte fotografie.',
+    action: httpsReady ? 'Upravit HTTPS' : 'Nastavit HTTPS'
+  });
+  return steps;
+}
+
+function goToSetupStep(step) {
+  navigate(step.view);
+  const target = $(step.target);
+  if (!target) return;
+  const disclosure = target.closest('details');
+  if (disclosure) disclosure.open = true;
+  if (target.tagName === 'DETAILS') target.open = true;
+  if (!target.matches('button,input,select,textarea,a,summary')) target.setAttribute('tabindex', '-1');
+  target.scrollIntoView({ block: 'center', behavior: 'auto' });
+  target.focus({ preventScroll: true });
+}
+
+function renderOnboarding() {
+  if (!state.data) return;
+  const steps = onboardingSteps(state.data);
+  const done = steps.filter(step => step.complete).length;
+  const allComplete = done === steps.length;
+  for (const selector of ['#queue-onboarding', '#settings-onboarding']) {
+    const section = $(selector);
+    section.hidden = false;
+    section.replaceChildren();
+    section.classList.toggle('complete', allComplete);
+    section.classList.toggle('official', steps.length === 4);
+    const heading = element('div', 'onboarding-heading');
+    const intro = element('div');
+    intro.append(element('div', 'eyebrow', 'PŘÍPRAVA K PUBLIKOVÁNÍ'), element('h2', '', allComplete ? 'Nastavení je připravené' : steps.length === 3 ? 'Tři kroky k prvnímu příspěvku' : 'Čtyři kroky k prvnímu příspěvku'));
+    const progress = element('div', 'onboarding-progress');
+    progress.append(element('strong', '', `${done} / ${steps.length}`), element('span', '', allComplete ? (state.data.settings?.enabled ? 'Publikování je zapnuté' : 'Nastavení je připravené') : 'Zbývá dokončit nastavení'));
+    heading.append(intro, progress);
+    const checklist = element('ol', 'onboarding-list');
+    for (const [index, step] of steps.entries()) {
+      const item = element('li', `setup-step${step.complete ? ' complete' : ''}${step.attention ? ' attention' : ''}`);
+      const top = element('div', 'setup-step-top');
+      const marker = element('span', 'setup-marker', step.complete ? '✓' : String(index + 1).padStart(2, '0'));
+      marker.setAttribute('aria-hidden', 'true');
+      top.append(marker, element('span', 'setup-status', step.complete ? 'Hotovo' : step.attention ? 'Zkontrolovat' : 'Doplnit'));
+      const action = button(step.action, 'setup-action', () => goToSetupStep(step));
+      const arrow = element('span', '', '↗');
+      arrow.setAttribute('aria-hidden', 'true');
+      action.append(arrow);
+      item.append(top, element('h3', '', step.title), element('p', '', step.detail), action);
+      checklist.append(item);
+    }
+    section.append(heading, checklist, element('p', 'onboarding-note', state.data.settings?.connection_method === 'official' ? 'Počítají se pouze uložené údaje. Veřejná dostupnost HTTPS se ověří při zapnutí publikování.' : 'Přehled vychází z uloženého nastavení a skutečného stavu fronty.'));
+    if (allComplete && !state.data.settings?.enabled) section.append(element('p', 'onboarding-ready', 'Nastavení samo nic nezveřejní. Až budeš připravený, zapni publikování nahoře.'));
+  }
 }
 
 function renderQueue() {
@@ -471,6 +608,13 @@ function renderHistory() {
 function renderSettings() {
   const settings = state.data?.settings || {};
   const account = state.data?.account || {};
+  const method = settings.connection_method === 'official' ? 'official' : 'direct';
+  if (!state.methodDirty) $('#connection-method').value = method;
+  $('#direct-connection').hidden = method !== 'direct';
+  $('#official-connection').hidden = method !== 'official';
+  $('#connection-method-note').textContent = method === 'direct' ? 'Aktivní je přímé přihlášení. Veřejná HTTPS adresa není potřeba.' : 'Aktivní je Oficiální Meta API. Jeho nastavení najdeš v pokročilých možnostech.';
+  if (method !== 'direct') state.directChallenge = false;
+  renderDirectLogin();
   const editing = state.settingsDirty || $('#settings-form').contains(document.activeElement);
   if (!editing) {
     $('#app-id').value = settings.app_id || '';
@@ -484,8 +628,18 @@ function renderSettings() {
   $('#connection-status').textContent = account.connected ? `Připojeno jako @${account.username || account.id}` : 'Účet zatím není propojený.';
   $('#account-error').hidden = !account.error;
   $('#account-error').textContent = (state.language === 'cs' ? account.error_cs || account.error : account.error) || '';
-  $('#disconnect-account').hidden = !settings.has_token && !account.connected;
+  $('#disconnect-account').hidden = !(method === 'direct' ? settings.has_direct_session : settings.has_token) && !account.connected;
   updateCallback();
+}
+
+function renderDirectLogin() {
+  $('#direct-credentials').hidden = state.directChallenge;
+  $('#direct-two-factor').hidden = !state.directChallenge;
+  $('#direct-login-reset').hidden = !state.directChallenge;
+  $('#direct-username').required = !state.directChallenge;
+  $('#direct-password').required = !state.directChallenge;
+  $('#direct-verification-code').required = state.directChallenge;
+  $('#direct-login-button').textContent = state.directChallenge ? 'Dokončit ověření' : 'Přihlásit Instagram';
 }
 
 function updateCallback() {
@@ -658,6 +812,67 @@ $('#week-prev').addEventListener('click', () => { state.weekOffset--; renderCale
 $('#week-next').addEventListener('click', () => { state.weekOffset++; renderCalendar(); });
 $('#week-today').addEventListener('click', () => { state.weekOffset = 0; renderCalendar(); });
 $('#public-url').addEventListener('input', updateCallback);
+$('#connection-method').addEventListener('change', () => { state.methodDirty = true; });
+$('#connection-method-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const connection_method = $('#connection-method').value;
+  const saved = state.data?.settings?.connection_method === 'official' ? 'official' : 'direct';
+  if (connection_method === saved) { state.methodDirty = false; toast('Zvolená metoda už je aktivní.'); return; }
+  const result = await run(async () => {
+    await api('settings', { method: 'PUT', body: JSON.stringify({ connection_method }) });
+    return { saved: true };
+  }, $('button[type=submit]', event.target), 'Metoda připojení uložená.');
+  if (result?.saved) {
+    state.methodDirty = false;
+    state.directChallenge = false;
+    $('#direct-password').value = '';
+    $('#direct-verification-code').value = '';
+    renderSettings();
+  }
+});
+$('#direct-login-reset').addEventListener('click', () => {
+  state.directChallenge = false;
+  $('#direct-password').value = '';
+  $('#direct-verification-code').value = '';
+  renderDirectLogin();
+  $('#direct-username').focus();
+});
+$('#direct-login-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (state.data?.settings?.connection_method === 'official' || $('#connection-method').value !== 'direct') {
+    toast('Nejdřív ulož zvolenou metodu připojení.', true);
+    $('#direct-password').value = '';
+    return;
+  }
+  const payload = state.directChallenge
+    ? { verification_code: $('#direct-verification-code').value.replace(/\s/g, '') }
+    : { username: $('#direct-username').value.trim(), password: $('#direct-password').value };
+  $('#direct-password').value = '';
+  $('#direct-verification-code').value = '';
+  if (state.directChallenge ? !payload.verification_code : !payload.username || !payload.password) {
+    toast(state.directChallenge ? 'Zadej ověřovací kód.' : 'Vyplň uživatelské jméno a heslo.', true);
+    return;
+  }
+  const result = await run(async () => {
+    try {
+      const response = await api('account/login', { method: 'POST', body: JSON.stringify(payload) });
+      if (response.challenge === 'two_factor') state.directChallenge = true;
+      else if (response.connected) state.directChallenge = false;
+      renderDirectLogin();
+      return response;
+    } finally {
+      delete payload.password;
+      delete payload.verification_code;
+      $('#direct-password').value = '';
+      $('#direct-verification-code').value = '';
+    }
+  }, $('#direct-login-button'));
+  if (result?.challenge === 'two_factor') {
+    toast((state.language === 'cs' ? result.message_cs : result.message) || 'Instagram vyžaduje dvoufázové ověření. Zadej aktuální kód z autentizační aplikace nebo SMS.');
+    $('#direct-verification-code').focus();
+  } else if (result?.connected) toast('Instagram je připojený.');
+  else if (result) toast('Přihlášení zatím nebylo potvrzené.', true);
+});
 $('#settings-form').addEventListener('input', () => { state.settingsDirty = true; });
 $('#settings-form').addEventListener('change', () => { state.settingsDirty = true; });
 $('#settings-form').addEventListener('submit', async event => {
@@ -693,8 +908,18 @@ $('#resolve-form').addEventListener('submit', async event => {
   if (result?.saved) $('#resolve-dialog').close();
 });
 $('#check-account').addEventListener('click', event => run(() => api('account/check', { method: 'POST' }), event.currentTarget, 'Spojení bylo ověřeno.'));
-$('#disconnect-account').addEventListener('click', event => run(() => api('account/disconnect', { method: 'POST' }), event.currentTarget, 'Instagram je odpojen.'));
+$('#disconnect-account').addEventListener('click', event => run(async () => {
+  await api('account/disconnect', { method: 'POST' });
+  state.directChallenge = false;
+  $('#direct-password').value = '';
+  $('#direct-verification-code').value = '';
+  renderDirectLogin();
+}, event.currentTarget, 'Instagram je odpojen.'));
 $('#oauth-connect').addEventListener('click', async event => {
+  if (state.data?.settings?.connection_method !== 'official' || $('#connection-method').value !== 'official') {
+    toast('Nejdřív ulož zvolenou metodu připojení.', true);
+    return;
+  }
   const popup = window.open('about:blank', 'reality_twins_instagram', 'popup,width=620,height=760');
   const result = await run(async () => {
     const data = await api('oauth/start', { method: 'POST' });

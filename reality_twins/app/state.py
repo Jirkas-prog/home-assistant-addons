@@ -42,6 +42,7 @@ class State:
         self.data = {
             'enabled': False, 'public_media_base_url': '', 'app_id': '', 'app_secret': '',
             'api_version': 'v26.0', 'access_token': '', 'calendar_entity': '',
+            'connection_method': 'direct', 'direct_session': {},
             'schedule_source': 'home_assistant', 'installation_id': secrets.token_hex(16),
             'account': {'connected': False}, 'oauth_states': {}, 'grants': {},
             'schedule': {'timezone': timezone, 'weekly': [
@@ -49,7 +50,10 @@ class State:
             ], 'once': []},
         }
         if self.path.exists():
-            self.data.update(json.loads(self.path.read_text('utf-8')))
+            stored = json.loads(self.path.read_text('utf-8'))
+            if 'connection_method' not in stored and stored.get('access_token'):
+                stored['connection_method'] = 'official'
+            self.data.update(stored)
         self.save()
 
     def save(self):
@@ -59,14 +63,15 @@ class State:
     def settings(self):
         with self.lock:
             return {k: self.data[k] for k in ('enabled', 'public_media_base_url', 'app_id',
-                                             'api_version', 'calendar_entity', 'schedule_source')} | {
+                                             'api_version', 'calendar_entity', 'schedule_source', 'connection_method')} | {
                 'has_app_secret': bool(self.data['app_secret']),
                 'has_token': bool(self.data['access_token']),
+                'has_direct_session': bool(self.data['direct_session']),
             }
 
     def update(self, changes):
         allowed = {'enabled', 'public_media_base_url', 'app_id', 'app_secret', 'api_version',
-                   'access_token', 'calendar_entity', 'schedule_source'}
+                   'access_token', 'calendar_entity', 'schedule_source', 'connection_method'}
         if set(changes) - allowed:
             raise ValueError('Unknown setting.')
         with self.lock:
@@ -83,17 +88,31 @@ class State:
                     raise ValueError('The API version must use a format such as v26.0.')
                 if key == 'schedule_source' and value not in ('home_assistant', 'internal'):
                     raise ValueError('Choose Home Assistant or the internal calendar.')
+                if key == 'connection_method' and value not in ('direct', 'official'):
+                    raise ValueError('Choose direct login or the official API.')
                 if key == 'calendar_entity' and value and not re.fullmatch(r'calendar\.[a-z0-9_]+', value):
                     raise ValueError('Choose an entity named calendar.name.')
                 if key == 'app_id' and value and not value.isdigit():
                     raise ValueError('The Instagram App ID must be numeric.')
                 proposed[key] = value
+            connection_fields = {'connection_method', 'public_media_base_url', 'app_id', 'app_secret',
+                                 'api_version', 'access_token', 'calendar_entity', 'schedule_source'}
+            changed = {key for key in connection_fields & changes.keys() if proposed[key] != self.data[key]}
+            if changed:
+                proposed['enabled'] = False
+            if 'connection_method' in changed:
+                proposed['account'] = {'connected': False}
+                proposed['oauth_states'] = {}
             if changes.get('access_token') and changes['access_token'] != self.data['access_token']:
                 proposed['account'] = {'connected': False, 'token_created_at': __import__('time').time()}
                 proposed['enabled'] = False
-            if proposed['enabled'] and not (proposed['access_token'] and proposed['account'].get('connected')
-                                           and proposed['public_media_base_url']):
-                raise ValueError('Connect and verify Instagram and configure the public HTTPS media URL first.')
+            if proposed['enabled']:
+                connected = proposed['account'].get('connected')
+                if proposed['connection_method'] == 'direct':
+                    if not (connected and proposed['direct_session']):
+                        raise ValueError('Connect and verify Instagram first.')
+                elif not (connected and proposed['access_token'] and proposed['public_media_base_url']):
+                    raise ValueError('Connect and verify Instagram and configure the public HTTPS media URL first.')
             if proposed['enabled'] and proposed['schedule_source'] == 'home_assistant' and not proposed['calendar_entity']:
                 raise ValueError('Select a Home Assistant calendar first.')
             self.data = proposed
