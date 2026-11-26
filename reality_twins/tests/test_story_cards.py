@@ -8,6 +8,27 @@ from app.story_cards import render_story
 
 
 class StoryCardsTests(unittest.TestCase):
+    def test_portrait_square_and_landscape_keep_a_circle_round(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            for size in ((1080, 1350), (1080, 1080), (1800, 1000)):
+                with self.subTest(size=size):
+                    source = root / 'post.png'
+                    post = Image.new('RGB', size, 'black')
+                    x, y = size[0] // 2, size[1] // 2
+                    ImageDraw.Draw(post).ellipse((x-200, y-200, x+200, y+200), fill='#00ff00')
+                    post.save(source)
+                    before = source.read_bytes()
+                    with Image.open(render_story(source, root / 'story.jpg', {})) as image:
+                        pixels = image.crop((90, 464, 990, 1589)).convert('RGB')
+                        mask = Image.new('1', pixels.size)
+                        mask.putdata([g > 180 and r < 40 and b < 40 for r, g, b in pixels.getdata()])
+                        left, top, right, bottom = mask.getbbox()
+                        self.assertLessEqual(abs((right-left) - (bottom-top)), 2)
+                        expected = 401 * min(900 / size[0], 1125 / size[1])
+                        self.assertAlmostEqual(right-left, expected, delta=3)
+                    self.assertEqual(source.read_bytes(), before)
+
     def test_full_feed_and_brand_safe_area_preserved(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

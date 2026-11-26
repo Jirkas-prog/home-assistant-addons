@@ -15,7 +15,7 @@ from app.browser_instagram import (BrowserInstagram, BrowserInstagramError, Brow
                                    _instagram_url, _public_url, _receipt,
                                    _username_from_profile, _profile_candidates, CAPTION_TEXT,
                                    _normalized_caption, COMPOSER_STEPS, EXPIRED, SIGN_IN)
-from app.browser_instagram import _story_receipt, _story_receipt_diagnostic, _story_response_shape, STORY_STEPS, STORY_UNCERTAIN
+from app.browser_instagram import _story_receipt, _story_receipt_diagnostic, _story_response_shape, STORY_STEPS, STORY_UNCERTAIN, HOME
 from app.state import State
 
 
@@ -107,12 +107,12 @@ class BrowserInstagramTests(unittest.TestCase):
             with self.subTest(mode=invalid), self.assertRaises(BrowserInstagramError):
                 self.browser.set_mode(invalid)
         result = self.browser.set_mode('mobile')
-        self.assertEqual((result['mode'], result['width'], result['height']), ('mobile', 390, 844))
+        self.assertEqual((result['mode'], result['width'], result['height']), ('mobile', 360, 640))
         self.runtime.set_mode.assert_called_once_with('mobile')
-        self.browser.input({'type': 'click', 'x': 389, 'y': 843})
-        self.runtime.tap.assert_called_once_with(389, 843)
+        self.browser.input({'type': 'click', 'x': 359, 'y': 639})
+        self.runtime.tap.assert_called_once_with(359, 639)
         self.runtime.page.mouse.click.assert_not_called()
-        for x, y in ((390, 200), (200, 844), (1099, 759)):
+        for x, y in ((360, 200), (200, 640), (1099, 759)):
             with self.assertRaises(BrowserInstagramError):
                 self.browser.input({'type': 'click', 'x': x, 'y': y})
         self.now += 901
@@ -540,10 +540,10 @@ _STORY_FIXTURE = r'''<!doctype html><meta name="viewport" content="width=device-
 <div id="mobile-nav" style="position:fixed;bottom:0;height:48px;width:100%;background:white">
  <a href="/example_account/" style="position:absolute;right:20px;bottom:10px"><img width="24" height="24" alt="Profile" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'/%3E"></a>
 </div>
-<div role="button" id="new-post" style="position:fixed;left:300px;top:8px;width:40px;height:40px" onclick="openMenu()">
+<div role="button" id="new-post" style="position:fixed;left:76%;top:8px;width:40px;height:40px" onclick="openMenu()">
  <div role="button"><svg width="32" height="32"><path d="M16 4v24M4 16h24"/></svg></div>
 </div>
-<button id="notifications" style="position:fixed;left:350px;top:8px;width:32px;height:32px;padding:0"
+<button id="notifications" style="position:fixed;left:90%;top:8px;width:32px;height:32px;padding:0"
  onclick="window.wrongControl=true"><svg width="24" height="24"></svg></button>
 <button id="feed-control" style="position:fixed;left:300px;top:200px;width:32px;height:32px;padding:0"
  onclick="window.wrongControl=true"><svg width="24" height="24"></svg></button>
@@ -566,7 +566,7 @@ function preview(){
  if(failure.startsWith('canvas')){
    app.innerHTML='';
    for(let i=0;i<3;i++){
-     const canvas=document.createElement('canvas');canvas.width=failure==='canvas_shape'?1000:1170;canvas.height=2532;
+     const canvas=document.createElement('canvas');canvas.width=failure==='canvas_shape'?1000:innerWidth*3;canvas.height=innerHeight*3;
      canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%';app.append(canvas);
    }
    if(['canvas_solid','canvas_delayed'].includes(failure)){
@@ -601,6 +601,55 @@ async function share(){
 
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
+    def test_story_viewport_preserves_round_subject_and_rejects_stretched_preview(self):
+        import base64
+        from io import BytesIO
+        from PIL import Image, ImageDraw
+        from app.browser_instagram import STORY_PREVIEW
+        from app.story_cards import render_story
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
+            root = Path(temp)
+            source = root / 'post.png'
+            photo = Image.new('RGB', (1080, 1350), 'black')
+            ImageDraw.Draw(photo).ellipse((340, 475, 740, 875), fill='#00ff00')
+            photo.save(source)
+            card = render_story(source, root / 'story.jpg', {})
+            data_url = 'data:image/jpeg;base64,' + base64.b64encode(card.read_bytes()).decode()
+            runtime = _Chromium(root / 'profile')
+            try:
+                runtime.context.unroute('**/*')
+                runtime.context.route('**/*', lambda route: route.fulfill(status=200, content_type='text/html', body='<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">'))
+                runtime.set_mode('mobile')
+                runtime.page.goto(HOME + 'create/story/')
+                for size, accepted in [({'width':390, 'height':844}, False), ({'width':360, 'height':640}, True)]:
+                    runtime.page.set_viewport_size(size)
+                    runtime.page.evaluate('''async src => {
+                      document.body.innerHTML='<canvas style="position:fixed;inset:0;width:100%;height:100%"></canvas>';
+                      const canvas=document.querySelector('canvas');canvas.width=innerWidth*3;canvas.height=innerHeight*3;
+                      const photo=new Image();photo.src=src;await photo.decode();
+                      canvas.getContext('2d').drawImage(photo,0,0,canvas.width,canvas.height);
+                    }''', data_url)
+                    self.assertEqual(runtime.page.evaluate(STORY_PREVIEW), accepted)
+                    png = runtime.page.evaluate("document.querySelector('canvas').toDataURL().split(',')[1]")
+                    with Image.open(BytesIO(base64.b64decode(png))) as rendered:
+                        mask = Image.new('1', rendered.size)
+                        mask.putdata([g > 180 and r < 40 and b < 40 for r, g, b, *a in rendered.getdata()])
+                        left, top, right, bottom = mask.getbbox()
+                        if accepted:
+                            self.assertLessEqual(abs((right-left) - (bottom-top)), 2)
+                        else:
+                            self.assertGreater(abs((right-left) - (bottom-top)), 50)
+                # Correct natural dimensions must not hide CSS stretching.
+                runtime.page.evaluate('''async src => {
+                  document.body.innerHTML='<img style="position:fixed;inset:0;width:100%;height:90%;object-fit:fill">';
+                  const img=document.querySelector('img');img.src=src;await img.decode();
+                }''', data_url)
+                self.assertFalse(runtime.page.evaluate(STORY_PREVIEW))
+                runtime.page.locator('img').evaluate("img => img.style.objectFit='contain'")
+                self.assertTrue(runtime.page.evaluate(STORY_PREVIEW))
+            finally:
+                runtime.close()
+
     def test_story_mobile_menu_chooser_preview_callback_and_single_share(self):
         from PIL import Image, ImageDraw
         events = []
@@ -732,7 +781,7 @@ class ChromiumFixtureTests(unittest.TestCase):
                                 runtime.upload_story(path,'example_account',before_share=marker)
                         if stage == 'story_preview':
                             self.assertIn('"orientation": "portrait-primary"', logged.output[0])
-                            self.assertIn('"natural_height": ' + ('2532' if failure.startswith('canvas') else '100'), logged.output[0])
+                            self.assertIn('"natural_height": ' + ('1920' if failure.startswith('canvas') else '100'), logged.output[0])
                             self.assertIn('"scheme": "' + ('other' if failure.startswith('canvas') else 'data') + '"', logged.output[0])
                             self.assertNotIn('example_account', logged.output[0])
                             self.assertNotIn('data:image/', logged.output[0])
@@ -765,7 +814,7 @@ class ChromiumFixtureTests(unittest.TestCase):
         from PIL import Image
         fixture = '''<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
         <nav><a href="/example_account/" aria-label="Profile • example_account">Profile</a></nav>
-        <button style="position:fixed;left:320px;top:780px;width:60px;height:40px"
+        <button style="position:fixed;left:290px;top:580px;width:60px;height:40px"
           onclick="localStorage.setItem('fixture_clicked','yes')">Touch</button>'''
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
             state = State(Path(temp) / 'private')
@@ -789,14 +838,14 @@ class ChromiumFixtureTests(unittest.TestCase):
                 browser._call(lambda: browser._runtime.page.evaluate("localStorage.setItem('fixture_session','synthetic')"))
                 browser.set_mode('mobile')
                 mobile = browser._call(snapshot)
-                self.assertEqual((mobile['width'], mobile['height']), (390, 844))
+                self.assertEqual((mobile['width'], mobile['height']), (360, 640))
                 self.assertIn('Mobile', mobile['ua'])
                 self.assertEqual(mobile['touch'], 1)
                 self.assertEqual((mobile['orientation'], mobile['angle'], mobile['legacyAngle']), ('portrait-primary', 0, 0))
                 self.assertTrue(mobile['portrait'])
                 self.assertEqual(mobile['session'], 'synthetic')
-                self.assertEqual(Image.open(BytesIO(browser.frame())).size, (390, 844))
-                browser.input({'type': 'click', 'x': 350, 'y': 800})
+                self.assertEqual(Image.open(BytesIO(browser.frame())).size, (360, 640))
+                browser.input({'type': 'click', 'x': 320, 'y': 600})
                 self.assertEqual(browser._call(snapshot)['clicked'], 'yes')
                 self.assertEqual(browser.finish()['username'], 'example_account')
                 restored = browser._call(snapshot)

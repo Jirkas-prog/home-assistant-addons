@@ -157,6 +157,8 @@ The scheduler checks a short due-time window. It does not replay a day's backlog
 
 With **Browser sign-in**, enable **Settings → Stories for your posts** to publish one companion Story after each confirmed feed post. The card uses a 1080 × 1920 gradient template, preserves the complete feed composition and includes editable brand, headline and footer text. The preview uses saved settings and never publishes. Stories use the mobile view of the same private Chromium session; feed publishing restores the desktop view.
 
+The mobile editor uses the same 9:16 proportions as the exported card. The app rejects stretched image previews or mismatched canvas proportions before Share. The complete feed image is scaled uniformly within the template, including square and landscape posts.
+
 Put `/nostory` on its own line, or as a separate whitespace-delimited word, in a Home Assistant event's **description/notes** to skip that event's Story. The command is case-insensitive. Event titles and strings such as `/nostory_extra` do not disable Stories. The feed post and all calendar times remain unchanged. A recurring event's description applies to the occurrences returned by Home Assistant; edit an individual occurrence when the exception should apply only once.
 
 The manual **Publish next now** preview also offers a Story checkbox. Its choice is fixed when submitting that request. A Story failure does not repeat, unpublish or return its feed post to the queue. The Story has an independent status in History. Retry only a confirmed pre-send failure; if the result is uncertain, inspect Instagram and record what happened before retrying. Stories normally expire on Instagram, so an expired link does not prove that a Story was never sent.

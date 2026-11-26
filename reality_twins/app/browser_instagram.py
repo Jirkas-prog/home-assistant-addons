@@ -21,7 +21,9 @@ from .state import atomic_json
 
 HOME = 'https://www.instagram.com/'
 WIDTH, HEIGHT = 1100, 760
-VIEWPORTS = {'desktop': (WIDTH, HEIGHT), 'mobile': (390, 844)}
+# The mobile Story editor renders into its viewport-sized canvas. Matching the
+# uploaded 9:16 card avoids a second, non-uniform resize in that editor.
+VIEWPORTS = {'desktop': (WIDTH, HEIGHT), 'mobile': (360, 640)}
 VIEW_SECONDS = 15 * 60
 IDENTITY_TIMEOUT = 12
 COMPOSER_TIMEOUT = 12
@@ -127,6 +129,11 @@ STORY_PREVIEW = r'''() => {
     if (!visible(node) || !/^(blob:|data:image\/)/.test(node.currentSrc || node.src)) return false;
     if (!node.naturalWidth || !node.naturalHeight || Math.abs(node.naturalWidth / node.naturalHeight - 9 / 16) > .02) return false;
     const rect = node.getBoundingClientRect();
+    const style = getComputedStyle(node);
+    // A correct source ratio alone does not prove a non-stretched preview.
+    // Contain/cover scale uniformly; fill must have the same display ratio.
+    if (!['contain', 'cover', 'scale-down', 'none'].includes(style.objectFit) &&
+        Math.abs(rect.width / rect.height - node.naturalWidth / node.naturalHeight) > .005) return false;
     const x = Math.min(innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
     const y = Math.min(innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
     const top = document.elementFromPoint(x,y);
@@ -138,7 +145,9 @@ STORY_PREVIEW = r'''() => {
   const layers = [...document.querySelectorAll('canvas')].filter(node => {
     if (!visible(node)) return false;
     const rect = node.getBoundingClientRect(), scale = node.width / innerWidth;
-    return Math.abs(rect.left) <= 2 && Math.abs(rect.top) <= 2 &&
+    return Math.abs(node.width / node.height - 9 / 16) < .005 &&
+      Math.abs(rect.width / rect.height - 9 / 16) < .005 &&
+      Math.abs(rect.left) <= 2 && Math.abs(rect.top) <= 2 &&
       Math.abs(rect.width - innerWidth) <= 2 && Math.abs(rect.height - innerHeight) <= 2 &&
       scale >= 1 && scale <= 4 && Math.abs(scale - node.height / innerHeight) <= .02;
   });

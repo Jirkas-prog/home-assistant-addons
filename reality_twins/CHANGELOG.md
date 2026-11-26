@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.6.6
+
+- Match the mobile Story editor to the 9:16 card so viewport-sized canvases do not stretch the post vertically.
+- Reject mismatched canvas proportions and stretched image previews before Share.
+- Cover portrait, square and landscape source images, round subjects and mobile-to-desktop session restoration with regression tests.
+- Keep automatic image Stories, the approved gradient template and independent publication receipts unchanged.
+
 ## 0.6.5
 
 - Emit value-free diagnostics for unconfirmed Stories at the default warning log level; confirmed deliveries remain informational.
