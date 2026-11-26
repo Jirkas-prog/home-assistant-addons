@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.3
+
+- Recognize the mobile Story editor's layered canvases at the phone's viewport proportions, while retaining validation of the selected image and final Story action.
+- Cover layered, empty and mismatched preview canvases with browser regression fixtures.
+
 ## 0.6.2
 
 - Set an explicit portrait screen orientation for the mobile Instagram editor and restore desktop orientation for feed publishing.

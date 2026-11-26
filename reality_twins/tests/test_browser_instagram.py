@@ -523,14 +523,37 @@ function preview(){
     !matchMedia('(orientation: portrait)').matches){app.innerHTML='Rotate your device to add to your story.';return}
  let src=URL.createObjectURL(file);
  if(failure==='preview'){const canvas=document.createElement('canvas');canvas.width=canvas.height=100;src=canvas.toDataURL()}
- app.innerHTML='<img id="preview" style="position:fixed;top:0;width:100%;height:calc(100% - 64px);object-fit:contain" src="'+src+'">';
+ if(failure.startsWith('canvas')){
+   app.innerHTML='';
+   for(let i=0;i<3;i++){
+     const canvas=document.createElement('canvas');canvas.width=failure==='canvas_shape'?1000:1170;canvas.height=2532;
+     canvas.style.cssText='position:fixed;inset:0;width:100%;height:100%';app.append(canvas);
+   }
+   if(['canvas_solid','canvas_delayed'].includes(failure)){
+     const canvas=app.querySelector('canvas');canvas.getContext('2d').fillStyle='white';
+     canvas.getContext('2d').fillRect(0,0,canvas.width,canvas.height);
+   }
+   if(!['canvas_blank','canvas_solid'].includes(failure)){
+     const photo=new Image();photo.onload=()=>{
+       const canvas=app.querySelector('canvas'), scale=Math.min(canvas.width/photo.width,canvas.height/photo.height);
+       const draw=()=>{canvas.getContext('2d').drawImage(photo,(canvas.width-photo.width*scale)/2,(canvas.height-photo.height*scale)/2,photo.width*scale,photo.height*scale);window.fixturePhotoRendered=true};
+       if(failure==='canvas_delayed')setTimeout(draw,350);else draw();
+     };photo.src=src;
+   }
+   if(failure==='canvas_path')history.replaceState({},'', '/create/post/');
+   if(failure==='canvas_cover')app.insertAdjacentHTML('beforeend','<div style="position:fixed;inset:0;z-index:99;background:white"></div>');
+   if(failure==='canvas_cover_layer'){
+     const canvas=app.querySelector('canvas:last-of-type');canvas.getContext('2d').fillStyle='white';
+     canvas.getContext('2d').fillRect(0,0,canvas.width,canvas.height);
+   }
+ } else app.innerHTML='<img id="preview" style="position:fixed;top:0;width:100%;height:calc(100% - 64px);object-fit:contain" src="'+src+'">';
  if(failure!=='share')app.insertAdjacentHTML('beforeend','<div role="button" aria-label="Add to your story" style="position:fixed;bottom:8px;left:30px"><button id="story-share" style="width:150px;height:40px" onclick="share()">Add to your story</button></div>');
  if(failure==='ambiguous')app.insertAdjacentHTML('beforeend','<button style="position:fixed;bottom:8px;right:10px;width:120px;height:40px" onclick="share()">Share</button>');
  if(failure==='account')app.insertAdjacentHTML('beforeend','<nav style="position:fixed;bottom:60px"><a href="/other_account/" aria-label="Profile • other_account">Profile</a></nav>');
 }
 async function share(){
  window.storyShares++;
- await fetch('/api/v1/media/configure_to_story/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({upload_id:'123',photo:window.fixturePhoto})});
+ await fetch('/api/v1/media/configure_to_story/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({upload_id:'123',photo:window.fixturePhoto,rendered:window.fixturePhotoRendered})});
 }
 </script>'''
 
@@ -538,20 +561,21 @@ async function share(){
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
     def test_story_mobile_menu_chooser_preview_callback_and_single_share(self):
-        from PIL import Image
+        from PIL import Image, ImageDraw
         events = []
         def route(request_route):
             request = request_route.request
             if request.url == 'https://www.instagram.com/api/v1/media/configure_to_story/':
                 self.assertEqual(events, ['marker'])
                 self.assertEqual(request.post_data_json['photo']['name'], 'story.jpg')
+                self.assertTrue(request.post_data_json['rendered'])
                 events.append('share')
                 request_route.fulfill(status=200, content_type='application/json', body=json.dumps({
                     'status': 'ok', 'media': {'pk': '987654321', 'media_product_type': 'story',
                                             'user': {'username': 'example_account'}}}))
             else:
                 self.assertEqual(request.method, 'GET')
-                request_route.fulfill(status=200, content_type='text/html', body=_STORY_FIXTURE.replace('__FAILURE__', '""'))
+                request_route.fulfill(status=200, content_type='text/html', body=_STORY_FIXTURE.replace('__FAILURE__', '"canvas_delayed"'))
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
             state = State(Path(temp) / 'private')
             state.data.update(connection_method='browser', browser_session=True,
@@ -563,7 +587,9 @@ class ChromiumFixtureTests(unittest.TestCase):
                 return runtime
             browser = BrowserInstagram(state, runtime_factory=factory)
             path = Path(temp) / 'story.jpg'
-            Image.new('RGB', (1080,1920), 'navy').save(path)
+            photo = Image.new('RGB', (1080,1920), 'navy')
+            ImageDraw.Draw(photo).rectangle((200,500,880,1400), fill='orange')
+            photo.save(path)
             try:
                 with self.assertRaises(BrowserNotSent):
                     browser.upload_story(path, expected_username='example_account', before_share=lambda: (_ for _ in ()).throw(RuntimeError()))
@@ -576,6 +602,7 @@ class ChromiumFixtureTests(unittest.TestCase):
                 self.assertEqual(result, {'id':'987654321','permalink':'https://www.instagram.com/stories/example_account/987654321/'})
                 self.assertEqual(events, ['marker','share'])
                 self.assertEqual(browser._call(lambda: browser._runtime.page.evaluate('window.storyShares')), 1)
+                self.assertEqual(browser._call(lambda: browser._runtime.page.locator('#app canvas').count()), 3)
                 self.assertIsNone(browser._call(lambda: browser._runtime.page.evaluate('window.wrongControl')))
                 browser.check()
                 self.assertEqual(browser.status()['mode'], 'desktop')
@@ -616,7 +643,7 @@ class ChromiumFixtureTests(unittest.TestCase):
                 runtime.close()
 
     def test_story_preview_identity_ambiguity_and_uncertain_receipt_stop_without_retry(self):
-        from PIL import Image
+        from PIL import Image, ImageDraw
         scenario = {'failure': ''}
         sent = []
         def route(request_route):
@@ -630,11 +657,22 @@ class ChromiumFixtureTests(unittest.TestCase):
              patch('app.browser_instagram.COMPOSER_TIMEOUT', .6), patch('app.browser_instagram.STORY_RECEIPT_TIMEOUT', .3):
             runtime = _Chromium(Path(temp) / 'profile')
             path = Path(temp) / 'story.jpg'
-            Image.new('RGB',(1080,1920),'navy').save(path)
+            photo = Image.new('RGB', (1080,1920), 'navy')
+            ImageDraw.Draw(photo).rectangle((200,500,880,1400), fill='orange')
+            photo.save(path)
             try:
                 runtime.context.unroute('**/*');runtime.context.route('**/*', route)
                 runtime.set_mode('mobile')
-                for failure, stage in [('preview','story_preview'),('share','story_share'),('ambiguous','story_share'),('account','story_account'),('challenge','story_account')]:
+                original_share_control = runtime._story_share_control
+                def select_share():
+                    control = original_share_control()
+                    if scenario['failure'] == 'canvas_removed':
+                        runtime.page.locator('#app canvas').evaluate_all('nodes => nodes.forEach(node => node.getContext("2d").clearRect(0,0,node.width,node.height))')
+                    return control
+                runtime._story_share_control = select_share
+                for failure, stage in [('preview','story_preview'),('canvas_blank','story_preview'),('canvas_solid','story_preview'),('canvas_path','story_preview'),
+                                       ('canvas_shape','story_preview'),('canvas_cover','story_preview'),('canvas_cover_layer','story_preview'),('canvas_removed','story_preview'),
+                                       ('share','story_share'),('ambiguous','story_share'),('account','story_account'),('challenge','story_account')]:
                     with self.subTest(failure=failure):
                         scenario['failure']=failure;runtime.home();marker=Mock()
                         with self.assertLogs('app.browser_instagram', level='WARNING') as logged:
@@ -642,8 +680,8 @@ class ChromiumFixtureTests(unittest.TestCase):
                                 runtime.upload_story(path,'example_account',before_share=marker)
                         if stage == 'story_preview':
                             self.assertIn('"orientation": "portrait-primary"', logged.output[0])
-                            self.assertIn('"natural_height": 100', logged.output[0])
-                            self.assertIn('"scheme": "data"', logged.output[0])
+                            self.assertIn('"natural_height": ' + ('2532' if failure.startswith('canvas') else '100'), logged.output[0])
+                            self.assertIn('"scheme": "' + ('other' if failure.startswith('canvas') else 'data') + '"', logged.output[0])
                             self.assertNotIn('example_account', logged.output[0])
                             self.assertNotIn('data:image/', logged.output[0])
                         marker.assert_not_called()

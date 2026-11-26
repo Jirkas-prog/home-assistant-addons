@@ -117,20 +117,49 @@ MOBILE_PROFILE_LINKS = r'''() => [...document.querySelectorAll('a[href]')].filte
   return false;
 }).map(anchor => anchor.getAttribute('href'))'''
 
-STORY_PREVIEW = r'''() => [...document.querySelectorAll('img,canvas')].some(node => {
-  const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
-  if (style.display === 'none' || style.visibility === 'hidden' || rect.width < 180 ||
-      rect.height < 300 || rect.top >= innerHeight || rect.bottom <= 0) return false;
-  if (node.tagName === 'IMG' && !/^(blob:|data:image\/)/.test(node.currentSrc || node.src)) return false;
-  if (node.tagName === 'CANVAS' && !node.closest('[role="dialog"]') &&
-      !/^\/create\//.test(location.pathname)) return false;
-  const width = node.naturalWidth || node.width, height = node.naturalHeight || node.height;
-  if (!width || !height || Math.abs(width / height - 9 / 16) > .02) return false;
-  const x = Math.min(innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
-  const y = Math.min(innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
-  const top = document.elementFromPoint(x, y);
-  return top === node || node.contains(top);
-})'''
+STORY_PREVIEW = r'''() => {
+  const visible = node => {
+    const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+    return style.display !== 'none' && style.visibility !== 'hidden' && rect.width >= 180 &&
+      rect.height >= 300 && rect.top < innerHeight && rect.bottom > 0;
+  };
+  if ([...document.querySelectorAll('img')].some(node => {
+    if (!visible(node) || !/^(blob:|data:image\/)/.test(node.currentSrc || node.src)) return false;
+    if (!node.naturalWidth || !node.naturalHeight || Math.abs(node.naturalWidth / node.naturalHeight - 9 / 16) > .02) return false;
+    const rect = node.getBoundingClientRect();
+    const x = Math.min(innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+    const y = Math.min(innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
+    const top = document.elementFromPoint(x,y);
+    return top === node || node.contains(top);
+  })) return true;
+  // The mobile editor draws the selected photo into viewport-sized layers,
+  // with a transparent interaction canvas above the actual photo canvas.
+  if (!/^\/create\/story\/?$/.test(location.pathname)) return false;
+  const layers = [...document.querySelectorAll('canvas')].filter(node => {
+    if (!visible(node)) return false;
+    const rect = node.getBoundingClientRect(), scale = node.width / innerWidth;
+    return Math.abs(rect.left) <= 2 && Math.abs(rect.top) <= 2 &&
+      Math.abs(rect.width - innerWidth) <= 2 && Math.abs(rect.height - innerHeight) <= 2 &&
+      scale >= 1 && scale <= 4 && Math.abs(scale - node.height / innerHeight) <= .02;
+  });
+  if (!layers.length || layers.length > 5 ||
+      !layers.includes(document.elementFromPoint(innerWidth / 2, innerHeight / 2))) return false;
+  const ordered = document.elementsFromPoint(innerWidth / 2, innerHeight / 2).filter(node => layers.includes(node));
+  if (ordered.length !== layers.length) return false;
+  try {
+    const sample = document.createElement('canvas');sample.width = sample.height = 8;
+    const context = sample.getContext('2d');
+    for (const node of ordered.reverse()) context.drawImage(node,0,0,8,8);
+    const pixels = context.getImageData(0,0,8,8).data;
+    let first = null;
+    for (let i=0;i<pixels.length;i+=4) {
+      if (pixels[i+3] < 128) continue;
+      if (first === null) first = [pixels[i],pixels[i+1],pixels[i+2]];
+      else if (first.some((value,channel) => Math.abs(value-pixels[i+channel]) > 10)) return true;
+    }
+    return false; // Transparent and solid initialization/cover layers are not a photo.
+  } catch {return false;}
+}'''
 
 STORY_PREVIEW_DIAGNOSTICS = r'''() => {
   const images = [];
@@ -772,6 +801,9 @@ class _Chromium:
             stage = 'story_share'
             share = self._story_share_control()
             point = self._touch_point(share)
+            stage = 'story_preview'
+            if not page.evaluate(STORY_PREVIEW):
+                raise BrowserNotSent(STORY_STEPS[stage])
             stage = 'story_account'
             if not self._story_account_matches(expected_username):
                 raise BrowserNotSent(STORY_STEPS[stage])
