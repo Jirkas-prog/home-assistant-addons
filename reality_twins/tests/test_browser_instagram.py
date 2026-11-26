@@ -693,6 +693,8 @@ class ChromiumFixtureTests(unittest.TestCase):
                 runtime.close()
 
     def test_story_preview_identity_ambiguity_and_uncertain_receipt_stop_without_retry(self):
+        from io import StringIO
+        import logging
         from PIL import Image, ImageDraw
         scenario = {'failure': ''}
         sent = []
@@ -738,8 +740,20 @@ class ChromiumFixtureTests(unittest.TestCase):
                         self.assertEqual(sent,[])
                         self.assertEqual(runtime.resume_failed_editor(), stage != 'story_account')
                 scenario['failure']='';runtime.home();marker=Mock()
-                with self.assertRaisesRegex(BrowserInstagramError, STORY_UNCERTAIN):
-                    runtime.upload_story(path,'example_account',before_share=marker)
+                log = logging.getLogger('app.browser_instagram')
+                output = StringIO()
+                handler = logging.StreamHandler(output)
+                log.addHandler(handler)
+                try:
+                    with patch.object(log, 'level', logging.NOTSET), patch.object(logging.getLogger(), 'level', logging.WARNING):
+                        self.assertEqual(log.getEffectiveLevel(), logging.WARNING)
+                        with self.assertRaisesRegex(BrowserInstagramError, STORY_UNCERTAIN):
+                            runtime.upload_story(path,'example_account',before_share=marker)
+                finally:
+                    log.removeHandler(handler)
+                self.assertIn('Instagram Story receipt diagnostics:', output.getvalue())
+                self.assertIn('"reason": "username_mismatch"', output.getvalue())
+                self.assertNotIn('other_account', output.getvalue())
                 marker.assert_called_once()
                 self.assertEqual(sent,['https://www.instagram.com/api/v1/media/configure_to_story/'])
                 self.assertFalse(runtime.resume_failed_editor())

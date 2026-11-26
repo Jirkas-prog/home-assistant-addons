@@ -938,7 +938,7 @@ class _Chromium:
         finally:
             page.remove_listener('response', capture)
             try:
-                LOGGER.info('Instagram Story receipt diagnostics: %s', json.dumps({
+                (LOGGER.info if receipt else LOGGER.warning)('Instagram Story receipt diagnostics: %s', json.dumps({
                     'responses': response_counts, 'samples': diagnostics}, sort_keys=True))
             except Exception:
                 pass

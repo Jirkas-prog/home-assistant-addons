@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.5
+
+- Emit value-free diagnostics for unconfirmed Stories at the default warning log level; confirmed deliveries remain informational.
+- Verify this behavior with the production logging defaults.
+
 ## 0.6.4
 
 - Add bounded, value-free diagnostics for Story publication receipts so changed Instagram response formats can be diagnosed without exposing account or session data.
