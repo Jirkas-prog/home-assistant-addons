@@ -341,7 +341,7 @@ function create() {
  document.getElementById('choose-photo').onclick=()=>document.getElementById('photo-upload').click();
 }
 function crop() {
- editor.innerHTML='<h1>Crop</h1><button aria-label="Select crop" onclick="original()">Aspect ratio</button><button id="next" onclick="next(0)" disabled>Next</button>';
+ editor.innerHTML='<h1>Crop</h1><div onclick="original()"><svg aria-label="Select crop" width="24" height="24"></svg></div><button id="next" onclick="next(0)" disabled>Next</button>';
 }
 function original() {
  editor.insertAdjacentHTML('beforeend','<button id="original">Original</button>');
@@ -365,6 +365,33 @@ if (document.cookie.includes('fixture_login=1')) home();
 
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
+    def test_crop_icon_is_scoped_unique_and_supports_duplicate_names_and_svg_labels(self):
+        cases = [
+            '<button aria-label="Select crop Select crop" onclick="choose()">Icon</button>',
+            '<div role="button" onclick="choose()"><svg aria-label="select CROP" width="24" height="24"></svg></div>',
+            '<div onclick="choose()"><svg aria-label="Select crop" width="24" height="24"></svg></div>',
+            '<button aria-label="Expand Expand" onclick="choose()">Icon</button>',
+            '<div role="button" onclick="choose()"><svg aria-label="Expand" width="24" height="24"></svg></div>',
+            '<button aria-label="Select crop" hidden>Hidden</button><button aria-label="Select crop" onclick="choose()">Icon</button>',
+        ]
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
+            runtime = _Chromium(Path(temp) / 'browser')
+            try:
+                for controls in cases:
+                    runtime.page.set_content('<button aria-label="Expand" onclick="window.outside=true">Background</button>'
+                        '<div role="dialog"><h1>Crop</h1>' + controls + '</div>'
+                        '<script>window.chosen=0;function choose(){window.chosen++;}</script>')
+                    dialog = runtime.page.get_by_role('dialog')
+                    runtime._one(runtime._crop_controls(dialog)).click()
+                    self.assertEqual(runtime.page.evaluate('window.chosen'), 1)
+                    self.assertIsNone(runtime.page.evaluate('window.outside'))
+                runtime.page.set_content('<div role="dialog"><h1>Crop</h1>'
+                    '<button aria-label="Select crop">One</button><button aria-label="Select crop">Two</button></div>')
+                with self.assertRaises(BrowserNotSent):
+                    runtime._one(runtime._crop_controls(runtime.page.get_by_role('dialog')))
+            finally:
+                runtime.close()
+
     def test_caption_reader_preserves_blank_lines_spans_breaks_and_input_text(self):
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
             runtime = _Chromium(Path(temp) / 'browser')
@@ -395,6 +422,7 @@ class ChromiumFixtureTests(unittest.TestCase):
         fixture = _FIXTURE.replace("if (document.cookie.includes('fixture_login=1')) home();", 'home();')
         cases = [
             ('upload_photo', fixture.replace('<h1>Crop</h1>', '<h1>Preparing photo</h1>')),
+            ('open_crop', fixture.replace('aria-label="Select crop"', 'aria-label="Unknown icon"')),
             ('select_crop', fixture.replace('>Original</button>', '>Custom</button>')),
             ('open_edit', fixture.replace('<h1>Edit</h1>', '<h1>Preparing edits</h1>')),
             ('open_caption', fixture.replace('role="textbox"', 'role="note"')),
@@ -418,9 +446,15 @@ class ChromiumFixtureTests(unittest.TestCase):
                     current['html'] = html
                     marker = Mock()
                     with self.subTest(stage=stage):
-                        with self.assertRaises(BrowserNotSent) as caught:
-                            runtime.upload(image, 'First line.\n\nLast line.', before_share=marker)
+                        with self.assertLogs('app.browser_instagram', level='WARNING') as diagnostics:
+                            with self.assertRaises(BrowserNotSent) as caught:
+                                runtime.upload(image, 'First line.\n\nLast line.', before_share=marker)
                         self.assertEqual(str(caught.exception), COMPOSER_STEPS[stage])
+                        self.assertIn('stage=' + stage, diagnostics.output[0])
+                        self.assertIn('exception=', diagnostics.output[0])
+                        self.assertNotIn('First line', diagnostics.output[0])
+                        self.assertNotIn('example_account', diagnostics.output[0])
+                        self.assertNotIn('<', diagnostics.output[0])
                         marker.assert_not_called()
                         self.assertEqual(runtime.page.get_by_role('dialog').count(), 1)
                         self.assertEqual(runtime.resume_failed_editor(), stage != 'verify_account')

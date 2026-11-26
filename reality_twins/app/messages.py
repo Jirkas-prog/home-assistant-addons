@@ -35,6 +35,7 @@ MESSAGES = {
     'The Instagram post editor changed or could not be opened. No post was sent.': 'Editor příspěvku na Instagramu se změnil nebo jej nelze otevřít. Příspěvek nebyl odeslán.',
     'Instagram could not open the post editor. No post was sent.': 'Instagram neotevřel editor příspěvku. Příspěvek nebyl odeslán.',
     'Instagram could not load the photo into the post editor. No post was sent.': 'Instagram nenačetl fotografii do editoru příspěvku. Příspěvek nebyl odeslán.',
+    'Instagram could not open the crop options. No post was sent.': 'Instagram neotevřel možnosti ořezu. Příspěvek nebyl odeslán.',
     'Instagram could not keep the original photo crop. No post was sent.': 'Na Instagramu se nepodařilo zachovat původní ořez fotografie. Příspěvek nebyl odeslán.',
     'Instagram did not open the photo editing step. No post was sent.': 'Instagram neotevřel krok úprav fotografie. Příspěvek nebyl odeslán.',
     'Instagram did not open the caption step. No post was sent.': 'Instagram neotevřel krok zadání popisku. Příspěvek nebyl odeslán.',

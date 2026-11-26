@@ -5,6 +5,7 @@ port, cookie export or arbitrary navigation endpoint is exposed to the dashboard
 """
 from concurrent.futures import ThreadPoolExecutor
 import json
+import logging
 import math
 import os
 from pathlib import Path
@@ -37,6 +38,7 @@ COMPOSER = 'The Instagram post editor changed or could not be opened. No post wa
 COMPOSER_STEPS = {
     'open_editor': 'Instagram could not open the post editor. No post was sent.',
     'upload_photo': 'Instagram could not load the photo into the post editor. No post was sent.',
+    'open_crop': 'Instagram could not open the crop options. No post was sent.',
     'select_crop': 'Instagram could not keep the original photo crop. No post was sent.',
     'open_edit': 'Instagram did not open the photo editing step. No post was sent.',
     'open_caption': 'Instagram did not open the caption step. No post was sent.',
@@ -44,6 +46,7 @@ COMPOSER_STEPS = {
     'verify_account': 'The Instagram account could not be verified in the post editor. No post was sent.',
     'prepare_share': 'Instagram did not make the final Share action available. No post was sent.',
 }
+LOGGER = logging.getLogger(__name__)
 PROFILE_LABEL = re.compile(r'^(?:Profile|Profil)(?:\s*[•·|:–—-]\s*@?([A-Za-z0-9_.]{1,30}))?$', re.I)
 
 # Read only rendered navigation metadata. Never return page HTML, form values,
@@ -343,6 +346,36 @@ class _Chromium:
                 page.get_by_role('button', name=re.compile(r'^(Create|New post|Vytvořit|Nový příspěvek)$', re.I))]
 
     @staticmethod
+    def _crop_controls(dialog):
+        # The crop icon may supply the accessible name twice, or only its SVG
+        # may be named. Expand is allowed only inside the verified Crop dialog.
+        name = re.compile(r'^(?:Select crop(?:\s+Select crop)*|Expand(?:\s+Expand)*)$', re.I)
+        icons = dialog.locator('svg[aria-label="Select crop" i], svg[aria-label="Expand" i]')
+        return [dialog.get_by_role('button', name=name),
+                icons.locator('xpath=ancestor::*[self::button or @role="button"][1]'),
+                icons]
+
+    def _diagnose_editor(self, stage, error):
+        """Log only fixed selector names/counts, never page text or credentials."""
+        if stage not in COMPOSER_STEPS:
+            return
+        counts = {}
+        try:
+            dialog = self.page.get_by_role('dialog')
+            known = {'dialogs': dialog,
+                     'crop_button': self._crop_controls(dialog)[0],
+                     'crop_svg': self._crop_controls(dialog)[2],
+                     'original': self.page.get_by_text('Original', exact=True),
+                     'next': dialog.get_by_role('button', name='Next', exact=True),
+                     'caption': dialog.get_by_role('textbox', name=re.compile(r'^Write a caption', re.I)),
+                     'share': dialog.get_by_role('button', name='Share', exact=True)}
+            counts = {name: sum(node.is_visible() for node in locator.all()) for name, locator in known.items()}
+        except Exception:
+            counts = {'unavailable': True}
+        LOGGER.warning('Instagram editor stopped before Share: stage=%s exception=%s visible=%s',
+                       stage, type(error).__name__, json.dumps(counts, sort_keys=True))
+
+    @staticmethod
     def _one(locators):
         deadline = time.monotonic() + COMPOSER_TIMEOUT
         while time.monotonic() < deadline:
@@ -378,11 +411,9 @@ class _Chromium:
                 upload.click()
             chooser.value.set_files(str(path))
             self._one([dialog.get_by_text('Crop', exact=True)])
+            stage = 'open_crop'
+            self._one(self._crop_controls(dialog)).click()
             stage = 'select_crop'
-            self._one([
-                dialog.get_by_role('button', name=re.compile(r'^Select crop$', re.I)),
-                dialog.get_by_label('Select crop', exact=True)
-            ]).click()
             self._one([page.get_by_text('Original', exact=True)]).click()
             stage = 'open_edit'
             self._one([dialog.get_by_role('button', name='Next', exact=True)]).click()
@@ -410,9 +441,11 @@ class _Chromium:
             if not self._same_account(account['username']):
                 raise BrowserNotSent(COMPOSER)
         except BrowserInstagramError as error:
+            self._diagnose_editor(stage, error)
             self._preserve_failed_editor(account, stage)
             raise BrowserNotSent(COMPOSER_STEPS.get(stage, str(error))) from None
-        except Exception:
+        except Exception as error:
+            self._diagnose_editor(stage, error)
             self._preserve_failed_editor(account, stage)
             raise BrowserNotSent(COMPOSER_STEPS.get(stage, COMPOSER)) from None
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.2
+
+- Recognize repeated crop control labels and crop/expand icons within the active Instagram crop dialog, while preserving the original image proportions.
+- Distinguish opening crop options from selecting Original in preparation errors, with diagnostic counts that exclude page contents and credentials.
+- Stop before Share when crop preparation fails and retain the editor for inspection.
+
 ## 0.5.1
 
 - Select the upload belonging to the active Instagram post editor instead of requiring a single file input on the whole page.
