@@ -628,6 +628,30 @@ class _Chromium:
             raise BrowserNotSent(STORY_STEPS['story_share'])
         return point
 
+    def _story_header_controls(self):
+        # The mobile header's unlabeled plus sits left of the notifications icon.
+        # Geometry is only an entry hint: the exact Story menu is required next.
+        width = self.page.viewport_size['width']
+        icons, controls = [], []
+        for icon in self.page.locator('svg').all():
+            if not icon.is_visible():
+                continue
+            box = icon.bounding_box()
+            if not box or not (.70 * width <= box['x'] + box['width'] / 2 <= .88 * width
+                               and 0 <= box['y'] + box['height'] / 2 <= 64):
+                continue
+            icons.append(icon)
+            parent = icon.locator('xpath=ancestor::*[self::button or self::a or @role="button"][1]')
+            if parent.count() != 1:
+                continue
+            try:
+                x, y = self._touch_point(parent)
+            except BrowserNotSent:
+                continue
+            if .70 * width <= x <= .88 * width and 0 <= y <= 64:
+                controls.append(parent)
+        return icons, controls
+
     def _story_create_control(self):
         deadline = time.monotonic() + COMPOSER_TIMEOUT
         while time.monotonic() < deadline:
@@ -644,6 +668,11 @@ class _Chromium:
                 return buttons[0]
             if len(buttons) > 1:
                 raise BrowserNotSent(STORY_STEPS['story_menu'])
+            icons, controls = self._story_header_controls()
+            if len(icons) > 1:
+                raise BrowserNotSent(STORY_STEPS['story_menu'])
+            if len(icons) == 1 and len(controls) == 1:
+                return controls[0]
             self.page.wait_for_timeout(150)
         raise BrowserNotSent(STORY_STEPS['story_menu'])
 
@@ -682,6 +711,8 @@ class _Chromium:
                 'preview_image': self.page.locator('img[src^="blob:"],img[src^="data:image/"],canvas'),
             }
             counts = {name: sum(node.is_visible() for node in locator.all()) for name, locator in known.items()}
+            icons, controls = self._story_header_controls()
+            counts.update(header_svg=len(icons), header_controls=len(controls))
         except Exception:
             counts = {'unavailable': True}
         LOGGER.warning('Instagram Story stopped before Share: stage=%s exception=%s visible=%s',

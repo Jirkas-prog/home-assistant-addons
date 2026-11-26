@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1
+
+- Recognize the mobile Instagram header's unlabelled create control when named controls are unavailable, while rejecting ambiguous or covered candidates.
+- Still require the exact Story menu, selected-image preview, verified account and a separate publication receipt.
+- Add focused browser regression coverage and safe header-control diagnostic counts.
+
 ## 0.6.0
 
 - Add companion Stories after confirmed feed posts, using the same private Instagram browser session.

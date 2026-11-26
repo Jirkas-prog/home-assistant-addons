@@ -501,8 +501,12 @@ _STORY_FIXTURE = r'''<!doctype html><meta name="viewport" content="width=device-
  <a href="/example_account/" style="position:absolute;right:20px;bottom:10px"><img width="24" height="24" alt="Profile" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'/%3E"></a>
 </div>
 <div role="button" id="new-post" style="position:fixed;left:300px;top:8px;width:40px;height:40px" onclick="openMenu()">
- <div role="button" aria-label="New post"><svg aria-label="New post" width="32" height="32"></svg></div>
+ <div role="button"><svg width="32" height="32"><path d="M16 4v24M4 16h24"/></svg></div>
 </div>
+<button id="notifications" style="position:fixed;left:350px;top:8px;width:32px;height:32px;padding:0"
+ onclick="window.wrongControl=true"><svg width="24" height="24"></svg></button>
+<button id="feed-control" style="position:fixed;left:300px;top:200px;width:32px;height:32px;padding:0"
+ onclick="window.wrongControl=true"><svg width="24" height="24"></svg></button>
 <div id="app"><button style="position:absolute;top:90px">Your story</button></div>
 <input type="file" id="avatar-input" hidden>
 <input type="file" id="story-input" accept="image/jpeg" hidden onchange="setTimeout(preview,120)">
@@ -570,11 +574,44 @@ class ChromiumFixtureTests(unittest.TestCase):
                 self.assertEqual(result, {'id':'987654321','permalink':'https://www.instagram.com/stories/example_account/987654321/'})
                 self.assertEqual(events, ['marker','share'])
                 self.assertEqual(browser._call(lambda: browser._runtime.page.evaluate('window.storyShares')), 1)
+                self.assertIsNone(browser._call(lambda: browser._runtime.page.evaluate('window.wrongControl')))
                 browser.check()
                 self.assertEqual(browser.status()['mode'], 'desktop')
                 browser._runtime.upload.assert_not_called()
             finally:
                 browser.shutdown()
+
+    def test_story_header_fallback_rejects_duplicate_and_covered_icons(self):
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}), \
+             patch('app.browser_instagram.COMPOSER_TIMEOUT', .3):
+            runtime = _Chromium(Path(temp) / 'profile')
+            try:
+                runtime.set_mode('mobile')
+                fixture = _STORY_FIXTURE.replace('__FAILURE__', '""')
+                runtime.page.set_content(fixture)
+                self.assertEqual(runtime._story_create_control().evaluate('element => element.parentElement.id'), 'new-post')
+                # Responsive hidden copies and feed/notification icons are not candidates.
+                runtime.page.locator('#new-post').evaluate("element => {const copy=element.cloneNode(true);copy.hidden=true;document.body.append(copy)}")
+                self.assertEqual(tuple(map(len, runtime._story_header_controls())), (1, 1))
+                runtime.page.locator('#new-post').first.evaluate("element => {const copy=element.cloneNode(true);copy.style.left='274px';document.body.append(copy)}")
+                with self.assertRaisesRegex(BrowserNotSent, STORY_STEPS['story_menu']):
+                    runtime._story_create_control()
+                runtime.page.set_content(fixture)
+                runtime.page.locator('#new-post svg').evaluate('element => element.after(element.cloneNode(true))')
+                with self.assertRaisesRegex(BrowserNotSent, STORY_STEPS['story_menu']):
+                    runtime._story_create_control()
+                runtime.page.set_content(fixture + '<div style="position:fixed;inset:0;z-index:99;background:white"></div>')
+                self.assertEqual(tuple(map(len, runtime._story_header_controls())), (1, 0))
+                with self.assertRaisesRegex(BrowserNotSent, STORY_STEPS['story_menu']):
+                    runtime._story_create_control()
+                with self.assertLogs('app.browser_instagram', level='WARNING') as logged:
+                    runtime._diagnose_story('story_menu', BrowserNotSent('private detail'))
+                self.assertIn('"header_controls": 0', logged.output[0])
+                self.assertIn('"header_svg": 1', logged.output[0])
+                self.assertNotIn('private detail', logged.output[0])
+                self.assertIsNone(runtime.page.evaluate('window.wrongControl'))
+            finally:
+                runtime.close()
 
     def test_story_preview_identity_ambiguity_and_uncertain_receipt_stop_without_retry(self):
         from PIL import Image
