@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+- Set an explicit portrait screen orientation for the mobile Instagram editor and restore desktop orientation for feed publishing.
+- Cover the browser's screen orientation, legacy orientation value and responsive media query when switching modes.
+- Include bounded image dimensions and orientation in pre-send diagnostics without logging image URLs or page contents.
+
 ## 0.6.1
 
 - Recognize the mobile Instagram header's unlabelled create control when named controls are unavailable, while rejecting ambiguous or covered candidates.

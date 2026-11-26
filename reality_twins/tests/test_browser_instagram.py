@@ -519,6 +519,8 @@ function preview(){
  document.getElementById('new-post').remove();document.getElementById('mobile-nav').style.display='none';
  document.getElementById('desktop-nav').style.display='none';
  history.pushState({},'',failure==='challenge'?'/challenge/check/':'/create/story/');
+ if(screen.orientation.type!=='portrait-primary'||screen.orientation.angle!==0||window.orientation!==0||
+    !matchMedia('(orientation: portrait)').matches){app.innerHTML='Rotate your device to add to your story.';return}
  let src=URL.createObjectURL(file);
  if(failure==='preview'){const canvas=document.createElement('canvas');canvas.width=canvas.height=100;src=canvas.toDataURL()}
  app.innerHTML='<img id="preview" style="position:fixed;top:0;width:100%;height:calc(100% - 64px);object-fit:contain" src="'+src+'">';
@@ -635,8 +637,15 @@ class ChromiumFixtureTests(unittest.TestCase):
                 for failure, stage in [('preview','story_preview'),('share','story_share'),('ambiguous','story_share'),('account','story_account'),('challenge','story_account')]:
                     with self.subTest(failure=failure):
                         scenario['failure']=failure;runtime.home();marker=Mock()
-                        with self.assertRaisesRegex(BrowserNotSent, STORY_STEPS[stage]):
-                            runtime.upload_story(path,'example_account',before_share=marker)
+                        with self.assertLogs('app.browser_instagram', level='WARNING') as logged:
+                            with self.assertRaisesRegex(BrowserNotSent, STORY_STEPS[stage]):
+                                runtime.upload_story(path,'example_account',before_share=marker)
+                        if stage == 'story_preview':
+                            self.assertIn('"orientation": "portrait-primary"', logged.output[0])
+                            self.assertIn('"natural_height": 100', logged.output[0])
+                            self.assertIn('"scheme": "data"', logged.output[0])
+                            self.assertNotIn('example_account', logged.output[0])
+                            self.assertNotIn('data:image/', logged.output[0])
                         marker.assert_not_called()
                         self.assertEqual(sent,[])
                         self.assertEqual(runtime.resume_failed_editor(), stage != 'story_account')
@@ -669,6 +678,8 @@ class ChromiumFixtureTests(unittest.TestCase):
             def snapshot():
                 return browser._runtime.page.evaluate('''() => ({ua:navigator.userAgent,
                   width:innerWidth,height:innerHeight,touch:navigator.maxTouchPoints,
+                  orientation:screen.orientation.type,angle:screen.orientation.angle,legacyAngle:window.orientation ?? null,
+                  portrait:matchMedia('(orientation: portrait)').matches,
                   session:localStorage.getItem('fixture_session'),clicked:localStorage.getItem('fixture_clicked')})''')
             try:
                 browser.start()
@@ -679,6 +690,8 @@ class ChromiumFixtureTests(unittest.TestCase):
                 self.assertEqual((mobile['width'], mobile['height']), (390, 844))
                 self.assertIn('Mobile', mobile['ua'])
                 self.assertEqual(mobile['touch'], 1)
+                self.assertEqual((mobile['orientation'], mobile['angle'], mobile['legacyAngle']), ('portrait-primary', 0, 0))
+                self.assertTrue(mobile['portrait'])
                 self.assertEqual(mobile['session'], 'synthetic')
                 self.assertEqual(Image.open(BytesIO(browser.frame())).size, (390, 844))
                 browser.input({'type': 'click', 'x': 350, 'y': 800})
@@ -688,6 +701,9 @@ class ChromiumFixtureTests(unittest.TestCase):
                 self.assertEqual((restored['width'], restored['height']), (1100, 760))
                 self.assertEqual(restored['ua'], baseline['ua'])
                 self.assertEqual(restored['touch'], baseline['touch'])
+                self.assertEqual((restored['orientation'], restored['angle']), ('landscape-primary', 0))
+                self.assertIn(restored['legacyAngle'], (None, 0))
+                self.assertFalse(restored['portrait'])
                 self.assertEqual(restored['session'], 'synthetic')
                 self.assertEqual(browser.status()['mode'], 'desktop')
             finally:

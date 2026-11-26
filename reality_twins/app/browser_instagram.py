@@ -132,6 +132,26 @@ STORY_PREVIEW = r'''() => [...document.querySelectorAll('img,canvas')].some(node
   return top === node || node.contains(top);
 })'''
 
+STORY_PREVIEW_DIAGNOSTICS = r'''() => {
+  const images = [];
+  for (const node of document.querySelectorAll('img,canvas')) {
+    const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+    if (style.display === 'none' || style.visibility === 'hidden' || !rect.width || !rect.height ||
+        rect.top >= innerHeight || rect.bottom <= 0 || rect.left >= innerWidth || rect.right <= 0) continue;
+    const src = node.currentSrc || node.src || '';
+    const x = Math.min(innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+    const y = Math.min(innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
+    const top = document.elementFromPoint(x,y);
+    images.push({tag:node.tagName, natural_width:node.naturalWidth || node.width || 0,
+      natural_height:node.naturalHeight || node.height || 0, width:Math.round(rect.width), height:Math.round(rect.height),
+      scheme:src.startsWith('blob:')?'blob':src.startsWith('data:')?'data':src.startsWith('https:')?'https':'other',
+      topmost:top === node || node.contains(top), dialog:!!node.closest('[role="dialog"]'),
+      create_path:/^\/create\//.test(location.pathname)});
+    if (images.length === 5) break;
+  }
+  return {orientation:screen.orientation.type, angle:screen.orientation.angle, images};
+}'''
+
 # Chromium represents pasted blank lines as <div><br></div>. innerText adds
 # another implicit block newline, while textContent drops line boundaries.
 # Read only the simple caption markup; unfamiliar editor markup fails closed.
@@ -361,7 +381,8 @@ class _Chromium:
             'platform': 'Android' if mobile else ''})
         self._emulation.send('Emulation.setDeviceMetricsOverride', {
             'width': width, 'height': height, 'deviceScaleFactor': 1, 'mobile': mobile,
-            'screenWidth': width, 'screenHeight': height})
+            'screenWidth': width, 'screenHeight': height,
+            'screenOrientation': {'type': 'portraitPrimary' if mobile else 'landscapePrimary', 'angle': 0}})
         self._emulation.send('Emulation.setTouchEmulationEnabled', {
             'enabled': mobile, 'maxTouchPoints': 1})
 
@@ -713,6 +734,8 @@ class _Chromium:
             counts = {name: sum(node.is_visible() for node in locator.all()) for name, locator in known.items()}
             icons, controls = self._story_header_controls()
             counts.update(header_svg=len(icons), header_controls=len(controls))
+            if stage == 'story_preview':
+                counts['preview'] = self.page.evaluate(STORY_PREVIEW_DIAGNOSTICS)
         except Exception:
             counts = {'unavailable': True}
         LOGGER.warning('Instagram Story stopped before Share: stage=%s exception=%s visible=%s',
