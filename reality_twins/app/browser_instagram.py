@@ -47,6 +47,8 @@ COMPOSER_STEPS = {
     'prepare_share': 'Instagram did not make the final Share action available. No post was sent.',
 }
 LOGGER = logging.getLogger(__name__)
+CROP_NAME = re.compile(r'^(?:Select crop(?:\s+Select crop)*|Expand(?:\s+Expand)*)$', re.I)
+CROP_SVG = 'svg[aria-label="Select crop" i], svg[aria-label="Expand" i]'
 PROFILE_LABEL = re.compile(r'^(?:Profile|Profil)(?:\s*[•·|:–—-]\s*@?([A-Za-z0-9_.]{1,30}))?$', re.I)
 
 # Read only rendered navigation metadata. Never return page HTML, form values,
@@ -346,14 +348,24 @@ class _Chromium:
                 page.get_by_role('button', name=re.compile(r'^(Create|New post|Vytvořit|Nový příspěvek)$', re.I))]
 
     @staticmethod
-    def _crop_controls(dialog):
-        # The crop icon may supply the accessible name twice, or only its SVG
-        # may be named. Expand is allowed only inside the verified Crop dialog.
-        name = re.compile(r'^(?:Select crop(?:\s+Select crop)*|Expand(?:\s+Expand)*)$', re.I)
-        icons = dialog.locator('svg[aria-label="Select crop" i], svg[aria-label="Expand" i]')
-        return [dialog.get_by_role('button', name=name),
-                icons.locator('xpath=ancestor::*[self::button or @role="button"][1]'),
-                icons]
+    def _crop_control(dialog):
+        # One icon can have two nested role=button wrappers with the same name.
+        # Anchor the click to the unique icon and its nearest clickable parent.
+        deadline = time.monotonic() + COMPOSER_TIMEOUT
+        while time.monotonic() < deadline:
+            icons = [node for node in dialog.locator(CROP_SVG).all() if node.is_visible()]
+            if len(icons) > 1:
+                raise BrowserNotSent(COMPOSER)
+            if icons:
+                parent = icons[0].locator('xpath=ancestor::*[self::button or @role="button"][1]')
+                return parent if parent.count() == 1 and parent.is_visible() else icons[0]
+            buttons = [node for node in dialog.get_by_role('button', name=CROP_NAME).all() if node.is_visible()]
+            if len(buttons) == 1:
+                return buttons[0]
+            if len(buttons) > 1:
+                raise BrowserNotSent(COMPOSER)
+            dialog.page.wait_for_timeout(150)
+        raise BrowserNotSent(COMPOSER)
 
     def _diagnose_editor(self, stage, error):
         """Log only fixed selector names/counts, never page text or credentials."""
@@ -363,8 +375,8 @@ class _Chromium:
         try:
             dialog = self.page.get_by_role('dialog')
             known = {'dialogs': dialog,
-                     'crop_button': self._crop_controls(dialog)[0],
-                     'crop_svg': self._crop_controls(dialog)[2],
+                     'crop_button': dialog.get_by_role('button', name=CROP_NAME),
+                     'crop_svg': dialog.locator(CROP_SVG),
                      'original': self.page.get_by_text('Original', exact=True),
                      'next': dialog.get_by_role('button', name='Next', exact=True),
                      'caption': dialog.get_by_role('textbox', name=re.compile(r'^Write a caption', re.I)),
@@ -412,7 +424,7 @@ class _Chromium:
             chooser.value.set_files(str(path))
             self._one([dialog.get_by_text('Crop', exact=True)])
             stage = 'open_crop'
-            self._one(self._crop_controls(dialog)).click()
+            self._crop_control(dialog).click()
             stage = 'select_crop'
             self._one([page.get_by_text('Original', exact=True)]).click()
             stage = 'open_edit'

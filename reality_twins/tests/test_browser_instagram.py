@@ -341,7 +341,7 @@ function create() {
  document.getElementById('choose-photo').onclick=()=>document.getElementById('photo-upload').click();
 }
 function crop() {
- editor.innerHTML='<h1>Crop</h1><div onclick="original()"><svg aria-label="Select crop" width="24" height="24"></svg></div><button id="next" onclick="next(0)" disabled>Next</button>';
+ editor.innerHTML='<h1>Crop</h1><div role="button" aria-label="Select crop"><div role="button" aria-label="Select crop" onclick="original()"><svg aria-label="Select crop" width="24" height="24"></svg></div></div><button id="next" onclick="next(0)" disabled>Next</button>';
 }
 function original() {
  editor.insertAdjacentHTML('beforeend','<button id="original">Original</button>');
@@ -373,6 +373,7 @@ class ChromiumFixtureTests(unittest.TestCase):
             '<button aria-label="Expand Expand" onclick="choose()">Icon</button>',
             '<div role="button" onclick="choose()"><svg aria-label="Expand" width="24" height="24"></svg></div>',
             '<button aria-label="Select crop" hidden>Hidden</button><button aria-label="Select crop" onclick="choose()">Icon</button>',
+            '<div role="button" aria-label="Select crop"><div role="button" aria-label="Select crop" onclick="choose()"><svg aria-label="Select crop" width="24" height="24"></svg></div></div>',
         ]
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
             runtime = _Chromium(Path(temp) / 'browser')
@@ -382,13 +383,19 @@ class ChromiumFixtureTests(unittest.TestCase):
                         '<div role="dialog"><h1>Crop</h1>' + controls + '</div>'
                         '<script>window.chosen=0;function choose(){window.chosen++;}</script>')
                     dialog = runtime.page.get_by_role('dialog')
-                    runtime._one(runtime._crop_controls(dialog)).click()
+                    runtime._crop_control(dialog).click()
                     self.assertEqual(runtime.page.evaluate('window.chosen'), 1)
                     self.assertIsNone(runtime.page.evaluate('window.outside'))
                 runtime.page.set_content('<div role="dialog"><h1>Crop</h1>'
                     '<button aria-label="Select crop">One</button><button aria-label="Select crop">Two</button></div>')
                 with self.assertRaises(BrowserNotSent):
-                    runtime._one(runtime._crop_controls(runtime.page.get_by_role('dialog')))
+                    runtime._crop_control(runtime.page.get_by_role('dialog'))
+                for controls in (
+                        '<button aria-label="Select crop"><svg aria-label="Select crop" width="24" height="24"></svg></button>' * 2,
+                        '<button aria-label="Select crop">' + '<svg aria-label="Select crop" width="24" height="24"></svg>' * 2 + '</button>'):
+                    runtime.page.set_content('<div role="dialog"><h1>Crop</h1>' + controls + '</div>')
+                    with self.assertRaises(BrowserNotSent):
+                        runtime._crop_control(runtime.page.get_by_role('dialog'))
             finally:
                 runtime.close()
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.5.3
+
+- Prefer the unique crop icon's nearest clickable parent so nested button wrappers do not falsely block the Instagram crop step.
+- Add regression coverage for nested clickable crop controls while keeping ambiguous controls blocked before Share.
+
 ## 0.5.2
 
 - Recognize repeated crop control labels and crop/expand icons within the active Instagram crop dialog, while preserving the original image proportions.
