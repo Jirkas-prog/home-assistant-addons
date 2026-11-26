@@ -30,7 +30,7 @@ function fixture({ hold = {}, fail = {} } = {}) {
     });
     return nodes.get(selector);
   }
-  const browserStatus = { active: true, width: 1100, height: 760, connected: false, url: 'https://www.instagram.com/accounts/login/' };
+  const browserStatus = { active: true, mode: 'desktop', width: 1100, height: 760, connected: false, url: 'https://www.instagram.com/accounts/login/' };
   const context = {
     document: { hidden: false, documentElement: {}, querySelector: node, querySelectorAll: () => [], addEventListener: (type, callback) => documentEvents.set(type, callback) },
     window: { addEventListener: (type, callback) => windowEvents.set(type, callback) },
@@ -46,6 +46,10 @@ function fixture({ hold = {}, fail = {} } = {}) {
       try {
         if (hold[endpoint]) await hold[endpoint].promise;
         const message = concurrent ? 'Browser is busy.' : fail[endpoint];
+        if (!message && endpoint === 'browser/mode') {
+          const mode = JSON.parse(options.body).mode;
+          Object.assign(browserStatus, { mode, width: mode === 'mobile' ? 390 : 1100, height: mode === 'mobile' ? 844 : 760 });
+        }
         return { ok: !message, json: async () => message ? { error: message } : endpoint === 'browser/finish' ? { connected: true, username: 'example' } : endpoint === 'browser/close' ? { active: false } : browserStatus, blob: async () => ({ type: 'image/jpeg' }) };
       } finally { inFlight--; }
     }
@@ -126,4 +130,37 @@ test('a failed input is shown once and is never retried', async () => {
   assert.equal(ui.node('#browser-error').textContent, 'Connection interrupted.');
   assert.equal(ui.node('#browser-error').hidden, false);
   assert.equal(ui.node('#browser-screen').hidden, true);
+});
+
+test('mobile switch serializes accepted input and uses the returned screenshot dimensions', async () => {
+  const frame = deferred();
+  const ui = fixture({ hold: { 'browser/frame': frame } });
+  await flush();
+  ui.event('#browser-screen', 'keydown', { key: 'x' });
+  const changed = ui.event('#browser-mobile', 'click');
+  await flush();
+  assert.equal(ui.requests.some(r => r.endpoint === 'browser/mode'), false);
+  frame.resolve();
+  await changed; await flush();
+  assert.equal(ui.maxInFlight, 1);
+  assert.deepEqual(ui.requests.filter(r => /browser\/(input|mode)$/.test(r.endpoint)).map(r => r.endpoint), ['browser/input', 'browser/mode']);
+  assert.equal(ui.node('.browser-viewport').dataset.mode, 'mobile');
+  assert.equal(ui.node('#browser-screen').getAttribute('width'), '390');
+  assert.equal(ui.node('#browser-screen').getAttribute('height'), '844');
+  assert.equal(ui.node('#browser-mobile').getAttribute('aria-pressed'), 'true');
+  ui.event('#browser-screen', 'click', { clientX: 550, clientY: 380 });
+  await flush();
+  assert.deepEqual(ui.requests.filter(r => r.endpoint === 'browser/input').at(-1).body, { type: 'click', x: 195, y: 422 });
+  await ui.event('#browser-desktop', 'click'); await flush();
+  assert.equal(ui.node('.browser-viewport').dataset.mode, 'desktop');
+  assert.equal(ui.node('#browser-screen').getAttribute('width'), '1100');
+});
+
+test('a failed mode switch clears the stale clickable screenshot and never retries', async () => {
+  const ui = fixture({ fail: { 'browser/mode': 'Emulation unavailable.' } });
+  await flush();
+  await ui.event('#browser-mobile', 'click'); await flush();
+  assert.equal(ui.requests.filter(r => r.endpoint === 'browser/mode').length, 1);
+  assert.equal(ui.node('#browser-screen').hidden, true);
+  assert.equal(ui.node('#browser-error').textContent, 'Emulation unavailable.');
 });

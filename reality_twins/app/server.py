@@ -218,6 +218,14 @@ def create_apps(service, ingress=False):
         with service.connection_guard:
             return jsonify(browser_client().finish())
 
+    @admin.post('/api/browser/mode')
+    def browser_mode():
+        data = request.get_json()
+        if not isinstance(data, dict) or set(data) != {'mode'}:
+            raise ValueError('Invalid browser input.')
+        with service.connection_guard:
+            return jsonify(browser_client().set_mode(data['mode']))
+
     @admin.post('/api/browser/close')
     def browser_close():
         with service.connection_guard:

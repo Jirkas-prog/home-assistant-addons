@@ -7,6 +7,8 @@
     cs: { title: 'Přihlášení k Instagramu', return: 'Zpět do nastavení', intro: 'Tady ovládáš skutečný Instagram v prohlížeči doplňku. Přihlas se a dokonči případné ověření. Potom zvol Hotovo, ověřit účet.', starting: 'Spouštím prohlížeč…', controls: 'Klikni do stránky a piš klávesnicí. Na telefonu můžeš vložit text do vybraného pole pomocí formuláře níže.', textLabel: 'Text pro vybrané pole Instagramu', textNote: 'Nejdřív klikni do cílového pole ve stránce. Text se po vložení ihned vymaže.', insert: 'Vložit text', selectAll: 'Vybrat vše', up: 'Posunout nahoru', down: 'Posunout dolů', finish: 'Hotovo, ověřit účet', close: 'Zavřít bez ověření', reopen: 'Znovu otevřít prohlížeč', active: 'Prohlížeč je připravený', closed: 'Okno prohlížeče je zavřené', expired: 'Přístup k oknu vypršel. Otevři ho znovu.', busy: 'Probíhá publikování', failed: 'Akci se nepodařilo dokončit.', timeout: 'Prohlížeč neodpověděl včas. Zkontroluj stránku před opakováním.', account: 'Účet je ověřený', ready: 'Připojení je uložené. V nastavení můžeš zapnout publikování.', screen: 'Instagram v prohlížeči doplňku', notConfirmed: 'Přihlášení ještě nebylo potvrzeno. Dokonči ho na Instagramu.' },
     en: { title: 'Sign in to Instagram', return: 'Back to Settings', intro: 'You are controlling the real Instagram website in the add-on browser. Sign in and complete any verification. Then choose Done, verify account.', starting: 'Starting browser…', controls: 'Click the page and type with your keyboard. On a phone, use the form below to insert text into the selected field.', textLabel: 'Text for the selected Instagram field', textNote: 'First click the target field on the page. The text is cleared immediately after insertion.', insert: 'Insert text', selectAll: 'Select all', up: 'Scroll up', down: 'Scroll down', finish: 'Done, verify account', close: 'Close without verification', reopen: 'Reopen browser', active: 'Browser ready', closed: 'Browser window closed', expired: 'The browser view expired. Open it again.', busy: 'Publishing in progress', failed: 'The action could not be completed.', timeout: 'The browser did not respond in time. Check the page before repeating the action.', account: 'Account verified', ready: 'Your connection is saved. You can enable publishing in Settings.', screen: 'Instagram in the add-on browser', notConfirmed: 'Sign-in has not been confirmed yet. Complete it on Instagram.' }
   };
+  Object.assign(copy.cs, { desktop: 'Počítač', mobile: 'Mobil', modeNote: 'Změna zobrazení otevře úvodní stránku Instagramu. Přihlášení zůstane stejné.', switching: 'Měním zobrazení…' });
+  Object.assign(copy.en, { desktop: 'Desktop', mobile: 'Mobile', modeNote: 'Switching view opens the Instagram home page. Your sign-in stays the same.', switching: 'Switching view…' });
   const t = key => copy[language][key];
   document.documentElement.lang = language;
   document.querySelectorAll('[data-text]').forEach(node => { node.textContent = t(node.dataset.text); });
@@ -15,7 +17,7 @@
   screen.setAttribute('aria-label', t('screen'));
   $('#browser-text').setAttribute('aria-label', t('textLabel'));
   let active = false, finishing = false, polling = false, timer = null, imageURL = '', generation = 0, inputChain = Promise.resolve(), requestChain = Promise.resolve();
-  let width = 1100, height = 760;
+  let width = 1100, height = 760, mode = 'desktop';
 
   function request(path, body, binary = false, options = {}) {
     const revision = generation;
@@ -47,6 +49,10 @@
 
   function showError(error) { $('#browser-error').textContent = error.message || String(error); $('#browser-error').hidden = false; }
   function setControls() {
+    for (const item of ['desktop', 'mobile']) {
+      $(`#browser-${item}`).disabled = !active || finishing || mode === item;
+      $(`#browser-${item}`).setAttribute('aria-pressed', String(mode === item));
+    }
     $('#browser-finish').disabled = !active || finishing;
     $('#browser-text-form').querySelectorAll('input,button').forEach(node => { node.disabled = !active || finishing; });
     document.querySelectorAll('[data-key],[data-scroll]').forEach(node => { node.disabled = !active || finishing; });
@@ -68,6 +74,9 @@
   }
   function status(data) {
     width = Number(data.width) || 1100; height = Number(data.height) || 760;
+    mode = data.mode === 'mobile' ? 'mobile' : 'desktop';
+    screen.setAttribute('width', String(width)); screen.setAttribute('height', String(height));
+    $('.browser-viewport').dataset.mode = mode;
     if (data.url) $('#browser-url').textContent = data.url;
     if (!data.active) { stopView(data.busy ? t('busy') : t('expired')); return; }
     active = true;
@@ -103,6 +112,21 @@
     catch (error) { if (revision === generation) { stopView(t('closed')); showError(error); } }
     finally { finishing = false; $('#browser-restart').disabled = false; setControls(); if (active) poll(); }
   }
+  async function changeMode(next) {
+    if (!active || finishing || mode === next) return;
+    finishing = true; clearTimeout(timer); setControls(); $('#browser-error').hidden = true;
+    try {
+      await inputChain;
+      if (!active) return;
+      generation++;
+      revokeFrame(); $('#browser-loading').hidden = false; $('#browser-loading').textContent = t('switching');
+      const result = await request('browser/mode', { mode: next });
+      if (result) status(result);
+    } catch (error) { stopView(t('closed')); showError(error); }
+    finally { finishing = false; setControls(); if (active) poll(); }
+  }
+  $('#browser-desktop').addEventListener('click', () => changeMode('desktop'));
+  $('#browser-mobile').addEventListener('click', () => changeMode('mobile'));
   function input(payload) {
     if (!active || finishing) return;
     const revision = generation;

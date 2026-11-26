@@ -1,0 +1,4 @@
+.browser-modes{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:12px 16px;border:1px solid var(--line);border-bottom:0;background:var(--surface)}
+.browser-modes small{flex:1;min-width:200px;color:var(--muted);font-size:13px;line-height:1.5}
+.browser-modes [aria-pressed=true]{border-color:var(--blue);color:var(--blue)}
+.browser-viewport[data-mode=mobile] #browser-screen{width:390px;max-width:100%;margin:auto}

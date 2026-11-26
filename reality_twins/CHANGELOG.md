@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.4
+
+- Add a mobile view to the private Instagram browser for inspecting available account features.
+- Keep the same private session and restore the desktop view before verified feed publishing.
+- Match viewer clicks to the active screen size and cover the transition with Chromium tests.
+
 ## 0.5.3
 
 - Prefer the unique crop icon's nearest clickable parent so nested button wrappers do not falsely block the Instagram crop step.

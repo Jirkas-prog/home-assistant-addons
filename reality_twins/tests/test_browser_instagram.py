@@ -28,6 +28,8 @@ class FakeRuntime:
                                     mouse=Mock(), keyboard=Mock(),
                                     screenshot=Mock(return_value=b'jpeg-bytes'))
         self.home = Mock()
+        self.set_mode = Mock()
+        self.tap = Mock()
         self.resume_failed_editor = Mock(return_value=False)
         self.account = Mock(return_value={'connected': True, 'id': 'browser:example_account',
                                          'username': 'example_account', 'connection_method': 'browser'})
@@ -94,6 +96,63 @@ class BrowserInstagramTests(unittest.TestCase):
         self.assertTrue(self.browser.status()['active'])
         self.now += 850
         self.assertFalse(self.browser.status()['active'])
+
+    def test_mobile_mode_requires_lease_fixed_modes_and_matching_input_bounds(self):
+        with self.assertRaisesRegex(BrowserInstagramError, EXPIRED):
+            self.browser.set_mode('mobile')
+        self.browser.start()
+        for invalid in ('tablet', 'https://example.com', None, {}, ['mobile']):
+            with self.subTest(mode=invalid), self.assertRaises(BrowserInstagramError):
+                self.browser.set_mode(invalid)
+        result = self.browser.set_mode('mobile')
+        self.assertEqual((result['mode'], result['width'], result['height']), ('mobile', 390, 844))
+        self.runtime.set_mode.assert_called_once_with('mobile')
+        self.browser.input({'type': 'click', 'x': 389, 'y': 843})
+        self.runtime.tap.assert_called_once_with(389, 843)
+        self.runtime.page.mouse.click.assert_not_called()
+        for x, y in ((390, 200), (200, 844), (1099, 759)):
+            with self.assertRaises(BrowserInstagramError):
+                self.browser.input({'type': 'click', 'x': x, 'y': y})
+        self.now += 901
+        with self.assertRaisesRegex(BrowserInstagramError, EXPIRED):
+            self.browser.set_mode('desktop')
+
+    def test_mobile_mode_restores_desktop_on_finish_close_and_expired_check(self):
+        for action in ('finish', 'close_view', 'check', 'start'):
+            with self.subTest(action=action):
+                self.browser.start()
+                self.browser.set_mode('mobile')
+                self.runtime.set_mode.reset_mock()
+                if action in ('check', 'start'):
+                    self.now += 901
+                getattr(self.browser, action)()
+                self.runtime.set_mode.assert_called_once_with('desktop')
+                self.assertEqual(self.browser.status()['mode'], 'desktop')
+                self.assertEqual(self.browser.status()['width'], 1100)
+                self.browser.close_view()
+
+    def test_failed_emulation_discards_runtime_and_cannot_leave_mobile_publication(self):
+        self.browser.start()
+        runtime = self.runtime
+        runtime.set_mode.side_effect = RuntimeError('PRIVATE_DETAIL')
+        with self.assertRaises(BrowserInstagramError) as error:
+            self.browser.set_mode('mobile')
+        self.assertNotIn('PRIVATE_DETAIL', str(error.exception))
+        runtime.close.assert_called_once()
+        self.assertIsNone(self.browser._runtime)
+        self.assertFalse(self.browser.status()['active'])
+        self.assertEqual(self.browser.status()['mode'], 'desktop')
+
+    def test_expired_mobile_view_restores_desktop_before_upload(self):
+        self.connected()
+        self.browser.start()
+        self.browser.set_mode('mobile')
+        self.now += 901
+        path = self.root / 'sample.jpg'
+        path.write_bytes(b'fixture')
+        self.runtime.upload.side_effect = lambda *_: self.assertEqual(self.browser.status()['mode'], 'desktop')
+        self.browser.upload(path, 'Caption')
+        self.runtime.set_mode.assert_called_with('desktop')
 
     def test_login_not_complete_does_not_mark_account_connected_or_close_view(self):
         self.browser.start()
@@ -365,6 +424,50 @@ if (document.cookie.includes('fixture_login=1')) home();
 
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
+    def test_mobile_emulation_keeps_private_session_dimensions_input_and_desktop_restore(self):
+        from io import BytesIO
+        from PIL import Image
+        fixture = '''<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+        <nav><a href="/example_account/" aria-label="Profile • example_account">Profile</a></nav>
+        <button style="position:fixed;left:320px;top:780px;width:60px;height:40px"
+          onclick="localStorage.setItem('fixture_clicked','yes')">Touch</button>'''
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
+            state = State(Path(temp) / 'private')
+            state.data['connection_method'] = 'browser'
+            def factory(profile):
+                runtime = _Chromium(profile)
+                runtime.context.unroute('**/*')
+                runtime.context.route('**/*', lambda route: route.fulfill(
+                    status=200, content_type='text/html', body=fixture))
+                return runtime
+            browser = BrowserInstagram(state, runtime_factory=factory)
+            def snapshot():
+                return browser._runtime.page.evaluate('''() => ({ua:navigator.userAgent,
+                  width:innerWidth,height:innerHeight,touch:navigator.maxTouchPoints,
+                  session:localStorage.getItem('fixture_session'),clicked:localStorage.getItem('fixture_clicked')})''')
+            try:
+                browser.start()
+                baseline = browser._call(snapshot)
+                browser._call(lambda: browser._runtime.page.evaluate("localStorage.setItem('fixture_session','synthetic')"))
+                browser.set_mode('mobile')
+                mobile = browser._call(snapshot)
+                self.assertEqual((mobile['width'], mobile['height']), (390, 844))
+                self.assertIn('Mobile', mobile['ua'])
+                self.assertEqual(mobile['touch'], 1)
+                self.assertEqual(mobile['session'], 'synthetic')
+                self.assertEqual(Image.open(BytesIO(browser.frame())).size, (390, 844))
+                browser.input({'type': 'click', 'x': 350, 'y': 800})
+                self.assertEqual(browser._call(snapshot)['clicked'], 'yes')
+                self.assertEqual(browser.finish()['username'], 'example_account')
+                restored = browser._call(snapshot)
+                self.assertEqual((restored['width'], restored['height']), (1100, 760))
+                self.assertEqual(restored['ua'], baseline['ua'])
+                self.assertEqual(restored['touch'], baseline['touch'])
+                self.assertEqual(restored['session'], 'synthetic')
+                self.assertEqual(browser.status()['mode'], 'desktop')
+            finally:
+                browser.shutdown()
+
     def test_crop_icon_is_scoped_unique_and_supports_duplicate_names_and_svg_labels(self):
         cases = [
             '<button aria-label="Select crop Select crop" onclick="choose()">Icon</button>',

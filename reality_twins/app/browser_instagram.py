@@ -21,6 +21,7 @@ from .state import atomic_json
 
 HOME = 'https://www.instagram.com/'
 WIDTH, HEIGHT = 1100, 760
+VIEWPORTS = {'desktop': (WIDTH, HEIGHT), 'mobile': (390, 844)}
 VIEW_SECONDS = 15 * 60
 IDENTITY_TIMEOUT = 12
 COMPOSER_TIMEOUT = 12
@@ -211,6 +212,7 @@ class _Chromium:
         self.page = None
         self.expected_username = None
         self._failed_editor_account = None
+        self._emulation = None
         profile.mkdir(parents=True, exist_ok=True, mode=0o700)
         profile.chmod(0o700)
         preferences = profile / 'Default' / 'Preferences'
@@ -273,6 +275,27 @@ class _Chromium:
     def home(self):
         self._failed_editor_account = None
         self.page.goto(HOME, wait_until='domcontentloaded')
+
+    def set_mode(self, mode):
+        """Emulate this page only; the private persistent session never moves."""
+        width, height = VIEWPORTS[mode]
+        if self._emulation is None:
+            self._emulation = self.context.new_cdp_session(self.page)
+        mobile = mode == 'mobile'
+        self.page.set_viewport_size({'width': width, 'height': height})
+        self._emulation.send('Emulation.setUserAgentOverride', {
+            'userAgent': self.playwright.devices['Pixel 7']['user_agent'] if mobile else '',
+            'platform': 'Android' if mobile else ''})
+        self._emulation.send('Emulation.setDeviceMetricsOverride', {
+            'width': width, 'height': height, 'deviceScaleFactor': 1, 'mobile': mobile,
+            'screenWidth': width, 'screenHeight': height})
+        self._emulation.send('Emulation.setTouchEmulationEnabled', {
+            'enabled': mobile, 'maxTouchPoints': 1})
+
+    def tap(self, x, y):
+        self._emulation.send('Input.dispatchTouchEvent', {
+            'type': 'touchStart', 'touchPoints': [{'x': x, 'y': y}]})
+        self._emulation.send('Input.dispatchTouchEvent', {'type': 'touchEnd', 'touchPoints': []})
 
     def resume_failed_editor(self):
         """Keep a known pre-Share failure visible for the user's next inspection."""
@@ -522,11 +545,13 @@ class BrowserInstagram:
         self._busy = False
         self._url = HOME
         self._closed = False
+        self._mode = 'desktop'
 
     def status(self):
         with self._metadata, self.state.lock:
+            width, height = VIEWPORTS[self._mode]
             return {'active': self._expires > self._clock(), 'busy': self._busy,
-                    'width': WIDTH, 'height': HEIGHT, 'url': self._url,
+                    'width': width, 'height': height, 'mode': self._mode, 'url': self._url,
                     'connected': bool(self.state.data.get('browser_session') and
                                       self.state.data['account'].get('connected') and
                                       self.state.data['connection_method'] == 'browser')}
@@ -563,6 +588,36 @@ class BrowserInstagram:
         if self.state.data['connection_method'] != 'browser':
             raise BrowserInstagramError('Select browser sign-in in the connection settings first.')
 
+    def _change_mode(self, mode):
+        if self._mode == mode:
+            return False
+        runtime = self._ensure()
+        try:
+            runtime.set_mode(mode)
+        except Exception:
+            # Never leave a partially emulated page available to publication.
+            runtime.close()
+            self._runtime = None
+            with self._metadata:
+                self._mode, self._expires = 'desktop', 0
+            raise
+        with self._metadata:
+            self._mode = mode
+        return True
+
+    def set_mode(self, mode):
+        def work():
+            self._require_view()
+            if not isinstance(mode, str) or mode not in VIEWPORTS:
+                raise BrowserInstagramError('Invalid browser input.')
+            if self._change_mode(mode):
+                self._ensure().home()
+            with self._metadata:
+                self._expires = self._clock() + VIEW_SECONDS
+            self._remember_url()
+            return self.status()
+        return self._call(work)
+
     def start(self):
         def work():
             if self.state.data['connection_method'] != 'browser':
@@ -571,8 +626,10 @@ class BrowserInstagram:
                 self.state.data['enabled'] = False
                 self.state.save()
             runtime = self._ensure()
-            if not self.status()['active'] and not runtime.resume_failed_editor():
-                runtime.home()
+            if not self.status()['active']:
+                changed = self._change_mode('desktop')
+                if changed or not runtime.resume_failed_editor():
+                    runtime.home()
             with self._metadata:
                 self._expires = self._clock() + VIEW_SECONDS
             self._remember_url()
@@ -596,10 +653,14 @@ class BrowserInstagram:
             kind = payload.get('type')
             if kind == 'click' and set(payload) == {'type', 'x', 'y'}:
                 x, y = payload['x'], payload['y']
+                width, height = VIEWPORTS[self._mode]
                 if (type(x) not in (int, float) or type(y) not in (int, float)
-                        or not math.isfinite(x) or not math.isfinite(y) or not 0 <= x < WIDTH or not 0 <= y < HEIGHT):
+                        or not math.isfinite(x) or not math.isfinite(y) or not 0 <= x < width or not 0 <= y < height):
                     raise BrowserInstagramError('Invalid browser input.')
-                page.mouse.click(x, y)
+                if self._mode == 'mobile':
+                    self._ensure().tap(x, y)
+                else:
+                    page.mouse.click(x, y)
             elif kind == 'text' and set(payload) == {'type', 'text'}:
                 text = payload['text']
                 if not isinstance(text, str) or not 1 <= len(text) <= 1024 or '\x00' in text:
@@ -624,7 +685,8 @@ class BrowserInstagram:
         if self.state.data['connection_method'] != 'browser':
             raise BrowserInstagramError('Select browser sign-in in the connection settings first.')
         runtime = self._ensure()
-        if navigate:
+        changed = self._change_mode('desktop')
+        if navigate or changed:
             runtime.home()
         try:
             expected = None if allow_account_change else self.state.data['account'].get('username')
@@ -663,6 +725,7 @@ class BrowserInstagram:
                 self._expires = 0
             # Reset any partially entered form or unfinished composer in memory.
             if self._runtime:
+                self._change_mode('desktop')
                 self._runtime.home()
                 self._remember_url()
             return self.status()
@@ -721,6 +784,7 @@ class BrowserInstagram:
                 shutil.rmtree(profile)
             with self._metadata:
                 self._expires, self._url = 0, HOME
+                self._mode = 'desktop'
             with self.state.lock:
                 self.state.data.update(enabled=False, browser_session=False, account={'connected': False})
                 self.state.save()
