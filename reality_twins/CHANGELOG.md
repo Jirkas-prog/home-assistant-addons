@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.1
+
+- Select the upload belonging to the active Instagram post editor instead of requiring a single file input on the whole page.
+- Wait for each crop, edit and caption step before advancing, including delayed editor transitions.
+- Read contenteditable caption lines without the extra blank lines introduced by browser `innerText`, while requiring all text and internal paragraphs to match.
+- Report the exact failed preparation step without exposing page contents or credentials.
+- Keep a failed pre-publication editor available in the private browser view for inspection.
+- Preserve original image proportions, account checks and the single final Share action; uncertain outcomes still require review.
+- Cover asynchronous editors, unrelated upload inputs and contenteditable captions with isolated Chromium fixtures.
+
 ## 0.5.0
 
 - Add **Publish next now** to publish the first queued post immediately, in addition to scheduled posts.

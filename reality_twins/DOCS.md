@@ -82,6 +82,8 @@ The app browser and your computer's ordinary browser have separate sessions. Sim
 
 Opening sign-in pauses publishing. The interactive view expires after fifteen minutes without input; finish or close it before resuming the scheduler. The same browser session opens Instagram's post editor, preserves the original image proportions, enters the caption and submits Share once. If Instagram changes its interface or does not provide a verified publication receipt, the app reports the failure rather than assuming success or submitting again. A login cannot be guaranteed until verified on the intended account.
 
+If preparation fails before Share, history identifies the failed step. Opening the browser view immediately afterwards preserves that editor for inspection. Close the browser view before returning the failed item to the queue. A result marked uncertain must first be checked on the Instagram profile; do not blindly send it again. Resume scheduling after closing the diagnostic browser view if it was previously enabled.
+
 New installs and disconnected direct connections without a saved session use browser sign-in. Working direct and official API connections are preserved during updates. **Disconnect** removes the app's private browser profile and pauses publishing.
 
 ## Optional direct client connection

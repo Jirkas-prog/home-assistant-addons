@@ -13,7 +13,8 @@ from unittest.mock import Mock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.browser_instagram import (BrowserInstagram, BrowserInstagramError, BrowserNotSent, _Chromium,
                                    _instagram_url, _public_url, _receipt,
-                                   _username_from_profile, _profile_candidates, EXPIRED, SIGN_IN)
+                                   _username_from_profile, _profile_candidates, CAPTION_TEXT,
+                                   _normalized_caption, COMPOSER_STEPS, EXPIRED, SIGN_IN)
 from app.state import State
 
 
@@ -27,6 +28,7 @@ class FakeRuntime:
                                     mouse=Mock(), keyboard=Mock(),
                                     screenshot=Mock(return_value=b'jpeg-bytes'))
         self.home = Mock()
+        self.resume_failed_editor = Mock(return_value=False)
         self.account = Mock(return_value={'connected': True, 'id': 'browser:example_account',
                                          'username': 'example_account', 'connection_method': 'browser'})
         self.upload = Mock(return_value={'id': '123456', 'permalink': 'https://www.instagram.com/p/ExampleCode/'})
@@ -129,6 +131,15 @@ class BrowserInstagramTests(unittest.TestCase):
         self.assertTrue(self.state.data['browser_session'])
         with self.assertRaises(BrowserInstagramError):
             self.browser.input({'type': 'key', 'key': 'Enter'})
+
+    def test_start_keeps_only_a_runtime_verified_failed_editor_for_inspection(self):
+        self.connected()
+        self.runtime.home.reset_mock()
+        self.runtime.resume_failed_editor.return_value = True
+        self.browser.start()
+        self.runtime.home.assert_not_called()
+        self.assertTrue(self.browser.status()['active'])
+        self.assertFalse(self.state.data['enabled'])
 
     def test_inputs_reject_navigation_shortcuts_invalid_bounds_and_extra_fields(self):
         self.browser.start()
@@ -285,6 +296,16 @@ class BrowserValidationTests(unittest.TestCase):
         self.assertIsNone(_receipt(response, 'other_account', 'Exact caption'))
         self.assertIsNone(_receipt(response, 'example_account', 'Changed caption'))
 
+    def test_caption_normalization_preserves_words_spacing_and_internal_blank_lines(self):
+        self.assertEqual(_normalized_caption('First\r\n\r\nLast\r\n'), 'First\n\nLast')
+        self.assertEqual(_normalized_caption(''), '')
+        response = self.response(json=lambda: {'status': 'ok', 'media': {
+            'pk': '123', 'code': 'Example', 'user': {'username': 'example_account'},
+            'caption': {'text': 'First\n\nLast'}}})
+        self.assertIsNotNone(_receipt(response, 'example_account', 'First\r\n\r\nLast\r\n'))
+        for expected in ('First\nLast', 'First\n\nLast missing', 'First \n\nLast'):
+            self.assertIsNone(_receipt(response, 'example_account', expected))
+
     def test_request_policy_rejects_local_network_and_non_instagram_navigation(self):
         for url in ('http://supervisor/core/api/', 'file:///data/settings.json', 'https://127.0.0.1/',
                     'https://www.instagram.com.evil.example/', 'https://facebook.com/'):
@@ -312,24 +333,31 @@ _FIXTURE = '''<!doctype html><html lang="en"><body><nav id="navigation"></nav>
 <script>
 function home() {
  document.getElementById('navigation').innerHTML='<a href="/example_account/" aria-label="Profile • example_account"><img alt="example_account profile picture"></a><a href="/create/select/" onclick="create();return false"><svg aria-label="Post" width="12" height="12"></svg><span>Post</span></a>';
- app.innerHTML='';
+ app.innerHTML='<input type="file" accept="image/jpeg" id="avatar-upload" hidden><button>Next</button><button>Share</button><textarea aria-label="Write a caption..."></textarea>';
+ window.fixtureNextClicks=[];
 }
 function create() {
- app.innerHTML='<input type="file" accept="image/jpeg" onchange="crop()">';
+ app.insertAdjacentHTML('beforeend','<div role="dialog" id="editor"><h1>Create new post</h1><input id="photo-upload" type="file" accept="image/jpeg" hidden onchange="setTimeout(crop,100)"><button id="choose-photo">Select from computer</button></div>');
+ document.getElementById('choose-photo').onclick=()=>document.getElementById('photo-upload').click();
 }
 function crop() {
- app.innerHTML='<button aria-label="Select crop" onclick="original()">Crop</button>';
+ editor.innerHTML='<h1>Crop</h1><button aria-label="Select crop" onclick="original()">Aspect ratio</button><button id="next" onclick="next(0)" disabled>Next</button>';
 }
 function original() {
- app.innerHTML='<button onclick="next(0)">Original</button>';
+ editor.insertAdjacentHTML('beforeend','<button id="original">Original</button>');
+ document.getElementById('original').onclick=()=>{window.fixtureCrop='original';document.getElementById('original').remove();document.getElementById('next').disabled=false};
 }
 function next(step) {
- if (step < 2) app.innerHTML='<button onclick="next('+(step+1)+')">Next</button>';
- else app.innerHTML='<textarea aria-label="Write a caption..."></textarea><button onclick="share()">Share</button>';
+ window.fixtureNextClicks.push(step);
+ // Keep the previous Next visible during the asynchronous stage transition.
+ setTimeout(()=>{
+  if (step===0) editor.innerHTML='<h1>Edit</h1><button onclick="next(1)">Next</button>';
+  else {window.fixtureCaption='';editor.innerHTML='<h1>Create new post</h1><div contenteditable="true" role="textbox" aria-label="Write a caption..."></div><button onclick="share()">Share</button>';editor.querySelector('[contenteditable]').oninput=event=>{if(event.inputType!=='insertText') throw new Error('Unexpected fixture input');window.fixtureCaption+=event.data ?? String.fromCharCode(10)};}
+ },250);
 }
 async function share() {
- await fetch('/api/v1/media/configure/', {method:'POST', body:'fixture'});
- app.innerHTML='<h1>Your post has been shared.</h1>';
+ await fetch('/api/v1/media/configure/', {method:'POST', body:JSON.stringify({caption:window.fixtureCaption,crop:window.fixtureCrop,next:window.fixtureNextClicks})});
+ editor.innerHTML='<h1>Your post has been shared.</h1>';
 }
 if (document.cookie.includes('fixture_login=1')) home();
 </script></body></html>'''
@@ -337,6 +365,77 @@ if (document.cookie.includes('fixture_login=1')) home();
 
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
+    def test_caption_reader_preserves_blank_lines_spans_breaks_and_input_text(self):
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
+            runtime = _Chromium(Path(temp) / 'browser')
+            try:
+                runtime.page.set_content('<div contenteditable="true" role="textbox"></div>')
+                field = runtime.page.get_by_role('textbox')
+                for caption in ('First\n\nLast\n', 'First\r\n\r\nLast\r\n', '', '\n\nLast\n', 'First\n\n\nLast\n'):
+                    with self.subTest(caption=caption):
+                        field.fill(caption)
+                        self.assertEqual(_normalized_caption(field.evaluate(CAPTION_TEXT)), _normalized_caption(caption))
+                for markup, expected in (
+                        ('First<div><br></div><div>Last</div>', 'First\n\nLast'),
+                        ('<span>First</span><br><br><span>Last</span>', 'First\n\nLast'),
+                        ('<p><span>First</span></p><p><br></p><p><span>Last</span></p>', 'First\n\nLast'),
+                        ('First<div>Last</div>', 'First\nLast')):
+                    field.evaluate('(element, markup) => element.innerHTML=markup', markup)
+                    self.assertEqual(field.evaluate(CAPTION_TEXT), expected)
+                self.assertNotEqual(field.evaluate(CAPTION_TEXT), 'First\n\nLast')
+                field.evaluate("element => element.innerHTML='<strong>Unknown markup</strong>'")
+                with self.assertRaisesRegex(Exception, 'Unsupported caption markup'):
+                    field.evaluate(CAPTION_TEXT)
+            finally:
+                runtime.close()
+
+    def test_pre_share_failure_names_the_stage_and_preserves_only_verified_editor(self):
+        from PIL import Image
+        current = {}
+        fixture = _FIXTURE.replace("if (document.cookie.includes('fixture_login=1')) home();", 'home();')
+        cases = [
+            ('upload_photo', fixture.replace('<h1>Crop</h1>', '<h1>Preparing photo</h1>')),
+            ('select_crop', fixture.replace('>Original</button>', '>Custom</button>')),
+            ('open_edit', fixture.replace('<h1>Edit</h1>', '<h1>Preparing edits</h1>')),
+            ('open_caption', fixture.replace('role="textbox"', 'role="note"')),
+            ('write_caption', fixture.replace('window.fixtureCaption+=event.data ?? String.fromCharCode(10)', 'window.fixtureCaption+=event.data ?? String.fromCharCode(10);event.target.textContent=String.fromCharCode(120)')),
+            ('prepare_share', fixture.replace('onclick="share()">Share', 'onclick="share()">Publish')),
+            ('verify_account', fixture.replace("window.fixtureNextClicks.push(step);", "window.fixtureNextClicks.push(step); if(step===1) document.getElementById('navigation').innerHTML='<a href=\"/other_account/\" aria-label=\"Profile • other_account\">Profile</a>';")),
+        ]
+        def route(request_route):
+            self.assertEqual(request_route.request.method, 'GET', 'No publication request is allowed before Share')
+            request_route.fulfill(status=200, content_type='text/html; charset=utf-8', body=current['html'])
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}), \
+                patch('app.browser_instagram.COMPOSER_TIMEOUT', 1.2):
+            image = Path(temp) / 'photo.jpg'
+            Image.new('RGB', (1080, 1350), 'navy').save(image)
+            runtime = _Chromium(Path(temp) / 'browser')
+            runtime.expected_username = 'example_account'
+            try:
+                runtime.context.unroute('**/*')
+                runtime.context.route('**/*', route)
+                for stage, html in cases:
+                    current['html'] = html
+                    marker = Mock()
+                    with self.subTest(stage=stage):
+                        with self.assertRaises(BrowserNotSent) as caught:
+                            runtime.upload(image, 'First line.\n\nLast line.', before_share=marker)
+                        self.assertEqual(str(caught.exception), COMPOSER_STEPS[stage])
+                        marker.assert_not_called()
+                        self.assertEqual(runtime.page.get_by_role('dialog').count(), 1)
+                        self.assertEqual(runtime.resume_failed_editor(), stage != 'verify_account')
+                        self.assertFalse(runtime.resume_failed_editor(), 'Inspection marker must be consumed')
+                        if stage != 'verify_account':
+                            self.assertTrue(runtime.page.screenshot(type='jpeg').startswith(b'\xff\xd8'))
+                # A saved failure is no permission to inspect a different account.
+                runtime._failed_editor_account = 'example_account'
+                self.assertFalse(runtime.resume_failed_editor())
+                runtime._failed_editor_account = 'example_account'
+                runtime.home()
+                self.assertIsNone(runtime._failed_editor_account)
+            finally:
+                runtime.close()
+
     def test_rendered_account_navigation_variants_and_owner_evidence(self):
         cases = [
             ('tooltip_en', '/', '<a href="/example_account/" aria-label="Profile • example_account"><img alt="Avatar"></a>', True),
@@ -421,15 +520,21 @@ class ChromiumFixtureTests(unittest.TestCase):
         from PIL import Image
         shares = []
         markers = []
+        runtimes = []
+        caption = 'Synthetic caption.\r\n\r\nSecond line.\r\n'
         def route(request_route):
             request = request_route.request
             if request.url == 'https://www.instagram.com/api/v1/media/configure/':
                 self.assertEqual(markers, ['before_share'])
+                data = request.post_data_json
+                self.assertEqual(_normalized_caption(data['caption']), _normalized_caption(caption))
+                self.assertEqual(data['crop'], 'original')
+                self.assertEqual(data['next'], [0, 1])
                 shares.append(request.method)
                 request_route.fulfill(status=200, content_type='application/json', body=json.dumps(
                     {'status': 'ok', 'media': {'pk': '123456789', 'code': 'FixturePost',
                      'user': {'username': 'example_account'},
-                     'caption': {'text': 'Synthetic caption.\nSecond line.'}}}))
+                      'caption': {'text': 'Synthetic caption.\n\nSecond line.'}}}))
             elif request.url == 'https://www.instagram.com/':
                 request_route.fulfill(status=200, content_type='text/html; charset=utf-8', body=_FIXTURE)
             else:
@@ -441,6 +546,7 @@ class ChromiumFixtureTests(unittest.TestCase):
                 runtime = _Chromium(profile)
                 runtime.context.unroute('**/*')
                 runtime.context.route('**/*', route)
+                runtimes.append(runtime)
                 return runtime
             browser = BrowserInstagram(state, runtime_factory=factory)
             try:
@@ -462,10 +568,16 @@ class ChromiumFixtureTests(unittest.TestCase):
                 def failed_marker():
                     raise RuntimeError('Synthetic queue write failure')
                 with self.assertRaises(BrowserNotSent):
-                    browser.upload(image, 'Synthetic caption.\nSecond line.', before_share=failed_marker)
+                    browser.upload(image, caption, before_share=failed_marker)
                 self.assertEqual(shares, [])
-                receipt = browser.upload(image, 'Synthetic caption.\nSecond line.',
-                                         before_share=lambda: markers.append('before_share'))
+                def mark_share():
+                    # The fixture has an independent input-event text model;
+                    # it does not reuse the production DOM caption reader.
+                    # Chromium emits insertText(null) for each pasted newline.
+                    self.assertEqual(_normalized_caption(runtimes[-1].page.evaluate('window.fixtureCaption')),
+                                     _normalized_caption(caption))
+                    markers.append('before_share')
+                receipt = browser.upload(image, caption, before_share=mark_share)
                 self.assertEqual(receipt, {'id': '123456789', 'permalink': 'https://www.instagram.com/p/FixturePost/'})
                 self.assertEqual(shares, ['POST'])
                 self.assertEqual(markers, ['before_share'])

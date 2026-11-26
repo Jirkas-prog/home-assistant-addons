@@ -22,6 +22,7 @@ HOME = 'https://www.instagram.com/'
 WIDTH, HEIGHT = 1100, 760
 VIEW_SECONDS = 15 * 60
 IDENTITY_TIMEOUT = 12
+COMPOSER_TIMEOUT = 12
 USERNAME = re.compile(r'[A-Za-z0-9_.]{1,30}')
 SHORTCODE = re.compile(r'[A-Za-z0-9_-]{1,64}')
 KEYS = {'Enter', 'Tab', 'Shift+Tab', 'Backspace', 'Delete', 'Escape',
@@ -33,6 +34,16 @@ SIGN_IN = 'Complete Instagram sign-in in the browser, then verify the connection
 ACCOUNT_UNRECOGNIZED = 'The signed-in Instagram account could not be identified. Open your own profile in this browser and verify again.'
 UNCERTAIN = 'Instagram did not confirm the uploaded post. Check your profile before retrying.'
 COMPOSER = 'The Instagram post editor changed or could not be opened. No post was sent.'
+COMPOSER_STEPS = {
+    'open_editor': 'Instagram could not open the post editor. No post was sent.',
+    'upload_photo': 'Instagram could not load the photo into the post editor. No post was sent.',
+    'select_crop': 'Instagram could not keep the original photo crop. No post was sent.',
+    'open_edit': 'Instagram did not open the photo editing step. No post was sent.',
+    'open_caption': 'Instagram did not open the caption step. No post was sent.',
+    'write_caption': 'Instagram could not verify the full caption. No post was sent.',
+    'verify_account': 'The Instagram account could not be verified in the post editor. No post was sent.',
+    'prepare_share': 'Instagram did not make the final Share action available. No post was sent.',
+}
 PROFILE_LABEL = re.compile(r'^(?:Profile|Profil)(?:\s*[•·|:–—-]\s*@?([A-Za-z0-9_.]{1,30}))?$', re.I)
 
 # Read only rendered navigation metadata. Never return page HTML, form values,
@@ -72,6 +83,28 @@ PROFILE_NAVIGATION = r'''() => {
       /^\/accounts\/login\/?(?:[?#]|$)/.test(element.getAttribute('href')) &&
       labels(element).some(value => /^(Log in|Log In|Přihlásit se)$/i.test(value)));
   return {links, edit, signedOut};
+}'''
+
+# Chromium represents pasted blank lines as <div><br></div>. innerText adds
+# another implicit block newline, while textContent drops line boundaries.
+# Read only the simple caption markup; unfamiliar editor markup fails closed.
+CAPTION_TEXT = r'''element => {
+  const block = node => node.nodeType === 1 && ['DIV', 'P'].includes(node.tagName);
+  const read = node => {
+    if (node.nodeType === 3) return node.data;
+    if (node.nodeType !== 1 || !['DIV', 'P', 'SPAN', 'BR'].includes(node.tagName))
+      throw new Error('Unsupported caption markup');
+    if (node.tagName === 'BR') return '\n';
+    if (node !== element && block(node) && node.childNodes.length === 1 && node.firstChild.nodeName === 'BR') return '';
+    let result = '', previous = null;
+    for (const child of node.childNodes) {
+      if (previous && (block(previous) || block(child))) result += '\n';
+      result += read(child);
+      previous = child;
+    }
+    return result;
+  };
+  return read(element);
 }'''
 
 
@@ -132,6 +165,10 @@ def _profile_candidates(snapshot):
     return strong, weak - strong
 
 
+def _normalized_caption(value):
+    return value.replace('\r\n', '\n').rstrip('\n')
+
+
 def _receipt(response, expected_username=None, expected_caption=None):
     """Accept only the actual successful configure response, never a feed item."""
     try:
@@ -153,7 +190,7 @@ def _receipt(response, expected_username=None, expected_caption=None):
         if expected_caption is not None:
             caption = media.get('caption')
             text = caption.get('text') if isinstance(caption, dict) else '' if caption is None else None
-            if text != expected_caption:
+            if not isinstance(text, str) or _normalized_caption(text) != _normalized_caption(expected_caption):
                 return None
         return {'id': identity, 'permalink': HOME + f'p/{code}/'}
     except Exception:
@@ -168,6 +205,7 @@ class _Chromium:
         self.context = None
         self.page = None
         self.expected_username = None
+        self._failed_editor_account = None
         profile.mkdir(parents=True, exist_ok=True, mode=0o700)
         profile.chmod(0o700)
         preferences = profile / 'Default' / 'Preferences'
@@ -228,7 +266,18 @@ class _Chromium:
             route.abort()
 
     def home(self):
+        self._failed_editor_account = None
         self.page.goto(HOME, wait_until='domcontentloaded')
+
+    def resume_failed_editor(self):
+        """Keep a known pre-Share failure visible for the user's next inspection."""
+        expected, self._failed_editor_account = self._failed_editor_account, None
+        if not expected or not _instagram_url(self.page.url):
+            return False
+        try:
+            return self._same_account(expected)
+        except Exception:
+            return False
 
     def account(self, expected_username=None):
         if not _instagram_url(self.page.url):
@@ -295,7 +344,7 @@ class _Chromium:
 
     @staticmethod
     def _one(locators):
-        deadline = time.monotonic() + 12
+        deadline = time.monotonic() + COMPOSER_TIMEOUT
         while time.monotonic() < deadline:
             for locator in locators:
                 visible = [node for node in locator.all() if node.is_visible()]
@@ -308,46 +357,64 @@ class _Chromium:
 
     def upload(self, path, caption, before_share=None):
         page = self.page
+        account = None
+        stage = None
         try:
             self.home()
             account = self.account(self.expected_username)
             if self.expected_username and account['username'] != self.expected_username:
                 raise BrowserNotSent('The Instagram account changed. Verify the selected account before resuming publishing.')
+            stage = 'open_editor'
             self._one(self._post_controls()).click()
             post = page.get_by_role('menuitem', name=re.compile(r'^(Post|Příspěvek)$', re.I))
             if post.count() == 1 and post.is_visible():
                 post.click()
-            file_input = page.locator('input[type="file"][accept*="image"]')
-            file_input.first.wait_for(state='attached')
-            if file_input.count() != 1:
-                raise BrowserNotSent(COMPOSER)
-            file_input.set_input_files(str(path))
+            dialog = self._one([page.get_by_role('dialog')])
+            upload = self._one([dialog.get_by_role('button', name='Select from computer', exact=True)])
+            stage = 'upload_photo'
+            # Bind to this dialog's chooser, not unrelated hidden file inputs
+            # (for example the profile avatar upload elsewhere on the page).
+            with page.expect_file_chooser() as chooser:
+                upload.click()
+            chooser.value.set_files(str(path))
+            self._one([dialog.get_by_text('Crop', exact=True)])
+            stage = 'select_crop'
             self._one([
-                page.get_by_role('button', name=re.compile(r'^Select crop$', re.I)),
-                page.get_by_label('Select crop', exact=True)
+                dialog.get_by_role('button', name=re.compile(r'^Select crop$', re.I)),
+                dialog.get_by_label('Select crop', exact=True)
             ]).click()
             self._one([page.get_by_text('Original', exact=True)]).click()
-            for _ in range(2):
-                self._one([page.get_by_role('button', name='Next', exact=True)]).click()
+            stage = 'open_edit'
+            self._one([dialog.get_by_role('button', name='Next', exact=True)]).click()
+            # The first Next can stay visible while Instagram processes the
+            # photo. Wait for the distinct Edit stage before clicking its Next.
+            self._one([dialog.get_by_text('Edit', exact=True)])
+            stage = 'open_caption'
+            self._one([dialog.get_by_role('button', name='Next', exact=True)]).click()
             field = self._one([
-                page.get_by_role('textbox', name=re.compile(r'^Write a caption', re.I)),
-                page.locator('[contenteditable="true"][role="textbox"]'),
-                page.locator('textarea[aria-label="Write a caption…"]')
+                dialog.get_by_role('textbox', name=re.compile(r'^Write a caption', re.I)),
+                dialog.locator('[contenteditable="true"][role="textbox"]'),
+                dialog.locator('textarea[aria-label="Write a caption…"]')
             ])
+            stage = 'write_caption'
             field.fill(caption)
             tag = field.evaluate('(element) => element.tagName')
-            actual = field.input_value() if tag in ('TEXTAREA', 'INPUT') else field.inner_text()
-            if actual.replace('\r\n', '\n') != caption.replace('\r\n', '\n'):
+            actual = field.input_value() if tag in ('TEXTAREA', 'INPUT') else field.evaluate(CAPTION_TEXT)
+            if _normalized_caption(actual) != _normalized_caption(caption):
                 raise BrowserNotSent(COMPOSER)
-            share = self._one([page.get_by_role('button', name='Share', exact=True)])
+            stage = 'prepare_share'
+            share = self._one([dialog.get_by_role('button', name='Share', exact=True)])
             # The interaction lease is closed, and the owner thread serializes
             # all input. Recheck the self-profile link even behind the modal.
+            stage = 'verify_account'
             if not self._same_account(account['username']):
                 raise BrowserNotSent(COMPOSER)
         except BrowserInstagramError as error:
-            raise BrowserNotSent(str(error)) from None
+            self._preserve_failed_editor(account, stage)
+            raise BrowserNotSent(COMPOSER_STEPS.get(stage, str(error))) from None
         except Exception:
-            raise BrowserNotSent(COMPOSER) from None
+            self._preserve_failed_editor(account, stage)
+            raise BrowserNotSent(COMPOSER_STEPS.get(stage, COMPOSER)) from None
 
         receipt = []
         def capture(response):
@@ -375,6 +442,16 @@ class _Chromium:
             raise BrowserInstagramError(UNCERTAIN) from None
         finally:
             page.remove_listener('response', capture)
+
+    def _preserve_failed_editor(self, account, stage):
+        self._failed_editor_account = None
+        if not account or not stage or stage == 'verify_account' or not _instagram_url(self.page.url):
+            return
+        try:
+            if self._same_account(account['username']):
+                self._failed_editor_account = account['username']
+        except Exception:
+            pass
 
     def close(self):
         try:
@@ -449,7 +526,7 @@ class BrowserInstagram:
                 self.state.data['enabled'] = False
                 self.state.save()
             runtime = self._ensure()
-            if not self.status()['active']:
+            if not self.status()['active'] and not runtime.resume_failed_editor():
                 runtime.home()
             with self._metadata:
                 self._expires = self._clock() + VIEW_SECONDS
