@@ -15,7 +15,7 @@ from app.browser_instagram import (BrowserInstagram, BrowserInstagramError, Brow
                                    _instagram_url, _public_url, _receipt,
                                    _username_from_profile, _profile_candidates, CAPTION_TEXT,
                                    _normalized_caption, COMPOSER_STEPS, EXPIRED, SIGN_IN)
-from app.browser_instagram import _story_receipt, STORY_STEPS, STORY_UNCERTAIN
+from app.browser_instagram import _story_receipt, _story_receipt_diagnostic, _story_response_shape, STORY_STEPS, STORY_UNCERTAIN
 from app.state import State
 
 
@@ -360,10 +360,50 @@ class BrowserInstagramTests(unittest.TestCase):
 
 
 class BrowserValidationTests(unittest.TestCase):
+    def test_story_receipt_diagnostic_reports_only_whitelisted_schema_and_rejection_reason(self):
+        body = {'status': 'ok', 'media': {'pk': '123456789', 'user': {'username': 'example_account'},
+                                       'PRIVATE_KEY': 'PRIVATE_VALUE'}, 'PRIVATE_TOP_KEY': 'PRIVATE_TOKEN'}
+        response = self.response(url='https://www.instagram.com/api/v1/media/configure_to_story/?secret=PRIVATE_QUERY', json=lambda: body)
+        diagnostic = _story_receipt_diagnostic(response, 'example_account')
+        self.assertEqual(diagnostic['reason'], 'accepted')
+        self.assertEqual(diagnostic['kind'], 'story_api')
+        output = json.dumps(diagnostic)
+        for private in ('123456789', 'example_account', 'PRIVATE', 'https://'):
+            self.assertNotIn(private, output)
+        self.assertIn('"username": "string"', output)
+        self.assertIn('"other_keys": 1', output)
+        for changed, reason in (
+            ({'status': 500}, 'http_status'),
+            ({'json': lambda: {'status': 'fail'}}, 'status_not_ok'),
+            ({'json': lambda: {'status': 'ok', 'media_id': '123'}}, 'media_missing'),
+            ({'json': lambda: {'status': 'ok', 'media': {'pk': 'invalid'}}}, 'id_invalid'),
+            ({'json': lambda: {'status': 'ok', 'media': {'pk': '123'}}}, 'owner_missing'),
+            ({'json': lambda: {'status': 'ok', 'media': {'pk': '123', 'user': {'pk': '456'}}}}, 'username_missing'),
+            ({'json': lambda: {'status': 'ok', 'media': {'pk': '123', 'user': {'username': 'other_account'}}}}, 'username_mismatch'),
+            ({'json': Mock(side_effect=ValueError('PRIVATE_BODY'))}, 'json_unreadable'),
+        ):
+            args = {'url': response.url, 'json': lambda: body};args.update(changed)
+            item = self.response(**args)
+            self.assertEqual(_story_receipt_diagnostic(item, 'example_account')['reason'], reason)
+            self.assertIsNone(_story_receipt(item, 'example_account'))
+        unrelated = self.response(url='https://elsewhere.example/PRIVATE_PATH', json=Mock())
+        self.assertIsNone(_story_receipt_diagnostic(unrelated, 'example_account'))
+        unrelated.json.assert_not_called()
+        self.assertIsNone(_story_receipt_diagnostic(self.response(request=SimpleNamespace(method='GET')), 'example_account'))
+
+    def test_story_diagnostic_shape_is_bounded_without_unknown_key_or_value_leaks(self):
+        payload = 'PRIVATE_VALUE'
+        for _ in range(8):
+            payload = {key: payload for key in ('media','user','owner','data','item','items','errors','status')}
+            payload['PRIVATE_KEY'] = 'PRIVATE_TOKEN'
+        shape = json.dumps(_story_response_shape(payload))
+        self.assertLess(len(shape), 4000)
+        self.assertNotIn('PRIVATE', shape)
+
     def test_story_receipt_accepts_only_story_configure_for_the_original_account(self):
         body = {'status': 'ok', 'media': {'pk': '123456789', 'media_product_type': 'story',
                                         'user': {'username': 'example_account'}}}
-        for endpoint in ('/create/configure_to_story/', '/api/v1/media/configure_to_story/'):
+        for endpoint in ('/create/configure_to_story/', '/api/v1/media/configure_to_story/', '/api/v1/media/configure_to_story?example=1'):
             response = self.response(url='https://www.instagram.com' + endpoint, json=lambda: body)
             self.assertEqual(_story_receipt(response, 'example_account'), {
                 'id': '123456789', 'permalink': 'https://www.instagram.com/stories/example_account/123456789/'})
@@ -553,6 +593,7 @@ function preview(){
 }
 async function share(){
  window.storyShares++;
+ if(window.fixtureNoise)for(let i=0;i<12;i++)await fetch('/graphql/query/?secret=PRIVATE_QUERY',{method:'POST',body:'PRIVATE_REQUEST'});
  await fetch('/api/v1/media/configure_to_story/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({upload_id:'123',photo:window.fixturePhoto,rendered:window.fixturePhotoRendered})});
 }
 </script>'''
@@ -565,7 +606,9 @@ class ChromiumFixtureTests(unittest.TestCase):
         events = []
         def route(request_route):
             request = request_route.request
-            if request.url == 'https://www.instagram.com/api/v1/media/configure_to_story/':
+            if '/graphql/query/' in request.url:
+                request_route.fulfill(status=200, content_type='application/json', body=json.dumps({'data': {'PRIVATE_KEY':'PRIVATE_VALUE'}}))
+            elif request.url == 'https://www.instagram.com/api/v1/media/configure_to_story/':
                 self.assertEqual(events, ['marker'])
                 self.assertEqual(request.post_data_json['photo']['name'], 'story.jpg')
                 self.assertTrue(request.post_data_json['rendered'])
@@ -575,7 +618,7 @@ class ChromiumFixtureTests(unittest.TestCase):
                                             'user': {'username': 'example_account'}}}))
             else:
                 self.assertEqual(request.method, 'GET')
-                request_route.fulfill(status=200, content_type='text/html', body=_STORY_FIXTURE.replace('__FAILURE__', '"canvas_delayed"'))
+                request_route.fulfill(status=200, content_type='text/html', body=_STORY_FIXTURE.replace('__FAILURE__', '"canvas_delayed"').replace('window.storyShares=0;', 'window.storyShares=0;window.fixtureNoise=true;'))
         with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
             state = State(Path(temp) / 'private')
             state.data.update(connection_method='browser', browser_session=True,
@@ -598,7 +641,14 @@ class ChromiumFixtureTests(unittest.TestCase):
                 self.assertTrue(browser.status()['url'].endswith('/create/story/'))
                 self.assertTrue(browser.frame().startswith(b'\xff\xd8'))
                 browser.close_view()
-                result = browser.upload_story(path, expected_username='example_account', before_share=lambda: events.append('marker'))
+                with self.assertLogs('app.browser_instagram', level='INFO') as logged:
+                    result = browser.upload_story(path, expected_username='example_account', before_share=lambda: events.append('marker'))
+                details = json.loads(logged.output[-1].split('receipt diagnostics: ', 1)[1])
+                self.assertEqual(details['responses'], {'graphql':12, 'story_api':1})
+                self.assertEqual(len(details['samples']), 3)
+                self.assertEqual(details['samples'][-1]['reason'], 'accepted')
+                self.assertNotIn('PRIVATE', logged.output[-1])
+                self.assertNotIn('example_account', logged.output[-1])
                 self.assertEqual(result, {'id':'987654321','permalink':'https://www.instagram.com/stories/example_account/987654321/'})
                 self.assertEqual(events, ['marker','share'])
                 self.assertEqual(browser._call(lambda: browser._runtime.page.evaluate('window.storyShares')), 1)

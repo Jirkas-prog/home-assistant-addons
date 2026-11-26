@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.4
+
+- Add bounded, value-free diagnostics for Story publication receipts so changed Instagram response formats can be diagnosed without exposing account or session data.
+- Keep publication confirmation strict and uncertain deliveries blocked from automatic retry.
+
 ## 0.6.3
 
 - Recognize the mobile Story editor's layered canvases at the phone's viewport proportions, while retaining validation of the selected image and final Story action.

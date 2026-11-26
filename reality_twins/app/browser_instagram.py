@@ -321,6 +321,86 @@ def _story_receipt(response, expected_username):
         return None
 
 
+def _story_response_kind(response):
+    """Fixed categories only: paths and query strings never enter diagnostics."""
+    if not _instagram_url(response.url) or response.request.method != 'POST':
+        return None
+    path = urlsplit(response.url).path.rstrip('/')
+    if path == '/create/configure_to_story':
+        return 'story_legacy'
+    if path == '/api/v1/media/configure_to_story':
+        return 'story_api'
+    if path.endswith('/configure_to_story'):
+        return 'story_other'
+    if path.startswith('/api/v1/media/'):
+        return 'media_other'
+    if path in ('/graphql/query', '/api/graphql', '/graphql'):
+        return 'graphql'
+    return 'other'
+
+
+def _story_response_shape(value, depth=0, budget=None):
+    """Only known field names and JSON types; unknown keys may contain user IDs."""
+    budget = [48] if budget is None else budget
+    budget[0] -= 1
+    if isinstance(value, dict):
+        if depth >= 3:
+            return 'object'
+        keys = ('status', 'media', 'user', 'owner', 'username', 'pk', 'id', 'media_id',
+                'media_product_type', 'data', 'item', 'items', 'errors', 'error_type', 'success')
+        fields = {key: _story_response_shape(value[key], depth + 1, budget)
+                  for key in keys if key in value and budget[0] > 0}
+        return {'type': 'object', 'fields': fields, 'other_keys': len(value) - len(fields)}
+    if isinstance(value, list):
+        return {'type': 'array', 'first': _story_response_shape(value[0], depth + 1, budget)} if value and depth < 3 and budget[0] > 0 else 'array'
+    if value is None:
+        return 'null'
+    if isinstance(value, bool):
+        return 'boolean'
+    if isinstance(value, (int, float)):
+        return 'number'
+    return 'string' if isinstance(value, str) else 'unknown'
+
+
+def _story_receipt_diagnostic(response, expected_username):
+    kind = _story_response_kind(response)
+    if kind is None:
+        return None
+    result = {'kind': kind, 'http_status': response.status, 'reason': 'endpoint'}
+    if kind not in ('story_legacy', 'story_api', 'story_other', 'graphql'):
+        return result
+    try:
+        payload = response.json()
+    except Exception:
+        result['reason'] = 'json_unreadable'
+        return result
+    result['schema'] = _story_response_shape(payload)
+    if kind not in ('story_legacy', 'story_api'):
+        return result
+    if response.status != 200:
+        result['reason'] = 'http_status'
+    elif not isinstance(payload, dict) or payload.get('status') != 'ok':
+        result['reason'] = 'status_not_ok'
+    elif not isinstance(payload.get('media'), dict):
+        result['reason'] = 'media_missing'
+    else:
+        media = payload['media']
+        owner = media.get('user')
+        if not re.fullmatch(r'[0-9]+', str(media.get('pk') or media.get('id') or '').split('_', 1)[0]):
+            result['reason'] = 'id_invalid'
+        elif not isinstance(owner, dict):
+            result['reason'] = 'owner_missing'
+        elif not isinstance(owner.get('username'), str):
+            result['reason'] = 'username_missing'
+        elif owner['username'].casefold() != expected_username.casefold():
+            result['reason'] = 'username_mismatch'
+        elif media.get('media_product_type') not in (None, 'story', 'STORY'):
+            result['reason'] = 'product_type'
+        else:
+            result['reason'] = 'accepted'
+    return result
+
+
 class _Chromium:
     """Used only by the owning executor thread; no Playwright object escapes it."""
     def __init__(self, profile):
@@ -819,9 +899,20 @@ class _Chromium:
                 pass
             raise BrowserNotSent(STORY_STEPS[stage]) from None
 
-        receipt = []
+        receipt, diagnostics, response_counts = [], [], {}
         def capture(response):
             result = _story_receipt(response, expected_username)
+            try:
+                kind = _story_response_kind(response)
+                if kind is None:
+                    return
+                response_counts[kind] = min(response_counts.get(kind, 0) + 1, 999)
+                # Reserve room for configure responses after background GraphQL.
+                relevant = kind in ('story_legacy', 'story_api', 'story_other')
+                if len(diagnostics) < (12 if relevant else 8) and response_counts[kind] <= (4 if relevant else 2):
+                    diagnostics.append(_story_receipt_diagnostic(response, expected_username))
+            except Exception:
+                pass  # Diagnostic failure never changes publication semantics.
             if result:
                 receipt.append(result)
         page.on('response', capture)
@@ -846,6 +937,11 @@ class _Chromium:
             raise BrowserInstagramError(STORY_UNCERTAIN) from None
         finally:
             page.remove_listener('response', capture)
+            try:
+                LOGGER.info('Instagram Story receipt diagnostics: %s', json.dumps({
+                    'responses': response_counts, 'samples': diagnostics}, sort_keys=True))
+            except Exception:
+                pass
 
     def close(self):
         try:
