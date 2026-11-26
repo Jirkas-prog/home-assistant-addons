@@ -44,6 +44,9 @@ class State:
             'api_version': 'v26.0', 'access_token': '', 'calendar_entity': '',
             'connection_method': 'browser', 'direct_session': {}, 'browser_session': False,
             'import_dir': '', 'import_enabled': False,
+            'story_enabled': True, 'story_template': 'contrast_v1',
+            'story_brand_name': 'Czech This View', 'story_headline': 'NEW POST',
+            'story_footer': 'YOUR TAKE? JOIN THE CONVERSATION.', 'story_background': '',
             'schedule_source': 'home_assistant', 'installation_id': secrets.token_hex(16),
             'account': {'connected': False}, 'oauth_states': {}, 'grants': {},
             'schedule': {'timezone': timezone, 'weekly': [
@@ -69,7 +72,8 @@ class State:
         with self.lock:
             return {k: self.data[k] for k in ('enabled', 'public_media_base_url', 'app_id',
                                              'api_version', 'calendar_entity', 'schedule_source', 'connection_method',
-                                             'import_dir', 'import_enabled')} | {
+                                             'import_dir', 'import_enabled', 'story_enabled', 'story_template',
+                                             'story_brand_name', 'story_headline', 'story_footer', 'story_background')} | {
                 'has_app_secret': bool(self.data['app_secret']),
                 'has_token': bool(self.data['access_token']),
                 'has_direct_session': bool(self.data['direct_session']),
@@ -79,13 +83,14 @@ class State:
     def update(self, changes):
         allowed = {'enabled', 'public_media_base_url', 'app_id', 'app_secret', 'api_version',
                    'access_token', 'calendar_entity', 'schedule_source', 'connection_method',
-                   'import_dir', 'import_enabled'}
+                   'import_dir', 'import_enabled', 'story_enabled', 'story_template',
+                   'story_brand_name', 'story_headline', 'story_footer', 'story_background'}
         if set(changes) - allowed:
             raise ValueError('Unknown setting.')
         with self.lock:
             proposed = dict(self.data)
             for key, value in changes.items():
-                if key in ('enabled', 'import_enabled'):
+                if key in ('enabled', 'import_enabled', 'story_enabled'):
                     if not isinstance(value, bool):
                         raise ValueError('enabled must be true/false.')
                 elif not isinstance(value, str) or len(value) > 8192:
@@ -102,6 +107,18 @@ class State:
                     raise ValueError('Choose an entity named calendar.name.')
                 if key == 'app_id' and value and not value.isdigit():
                     raise ValueError('The Instagram App ID must be numeric.')
+                if key == 'story_template' and value != 'contrast_v1':
+                    raise ValueError('Choose an available story template.')
+                limits = {'story_brand_name': 80, 'story_headline': 80, 'story_footer': 160}
+                if key in limits and (not value.strip() or len(value) > limits[key] or any(ord(c) < 32 for c in value)):
+                    raise ValueError('Story labels must be short, non-empty single-line text.')
+                if key == 'story_background' and value:
+                    path = Path(value)
+                    if (not path.is_absolute() or path.is_symlink() or not path.is_file()
+                            or not path.resolve().is_relative_to(self.directory.resolve())
+                            or path.suffix.lower() not in ('.jpg', '.jpeg', '.png')):
+                        raise ValueError('The story background must be a JPEG or PNG inside the app private data folder.')
+                    value = str(path.resolve())
                 proposed[key] = value
             if proposed['import_enabled'] and not proposed['import_dir']:
                 raise ValueError('Choose an import folder before enabling automatic import.')

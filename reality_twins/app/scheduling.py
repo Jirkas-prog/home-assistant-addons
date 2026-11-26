@@ -8,6 +8,16 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 UTC = timezone.utc
 _ID = re.compile(r"^[A-Za-z0-9_-]{1,80}$")
 _CLOCK = re.compile(r"^(?:[01][0-9]|2[0-3]):[0-5][0-9]$")
+_NO_STORY = re.compile(r"(?<!\S)/nostory(?!\S)", re.I)
+
+
+def story_requested(description):
+    """Only a complete /nostory command in the event description opts out.
+
+    A command is separated by whitespace or the start/end of the description.
+    Titles, URLs and longer commands are deliberately not interpreted.
+    """
+    return not (isinstance(description, str) and _NO_STORY.search(description))
 
 
 def _local_time(day, clock: str, zone: ZoneInfo) -> datetime | None:

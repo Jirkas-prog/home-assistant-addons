@@ -153,6 +153,18 @@ Check upcoming events, time zone, account and queue before enabling publication.
 
 The scheduler checks a short due-time window. It does not replay a day's backlog after a long outage. Keep the app running for scheduled starts; inspect history before adding replacement events after an interruption.
 
+## Companion Stories
+
+With **Browser sign-in**, enable **Settings → Stories for your posts** to publish one companion Story after each confirmed feed post. The card uses a 1080 × 1920 gradient template, preserves the complete feed composition and includes editable brand, headline and footer text. The preview uses saved settings and never publishes. Stories use the mobile view of the same private Chromium session; feed publishing restores the desktop view.
+
+Put `/nostory` on its own line, or as a separate whitespace-delimited word, in a Home Assistant event's **description/notes** to skip that event's Story. The command is case-insensitive. Event titles and strings such as `/nostory_extra` do not disable Stories. The feed post and all calendar times remain unchanged. A recurring event's description applies to the occurrences returned by Home Assistant; edit an individual occurrence when the exception should apply only once.
+
+The manual **Publish next now** preview also offers a Story checkbox. Its choice is fixed when submitting that request. A Story failure does not repeat, unpublish or return its feed post to the queue. The Story has an independent status in History. Retry only a confirmed pre-send failure; if the result is uncertain, inspect Instagram and record what happened before retrying. Stories normally expire on Instagram, so an expired link does not prove that a Story was never sent.
+
+Existing history is not automatically backfilled. Use **History → Add Story**, review the archived post and destination account, then explicitly confirm the single Story. This action can create a missing Story even when automatic Stories are disabled. It never sends a new feed post, and repeating the same creation request does not create a second Story. Direct/API feed connections do not currently provide this browser Story workflow.
+
+The exported card points viewers to the profile. It is an image announcement, not a native clickable feed-share sticker. The app only reports a confirmed Story after receiving its own publication receipt; a preview or successful feed post alone is not proof of a Story.
+
 ## Optional internal schedule
 
 The internal weekly and one-off scheduler is an explicit alternative. Select it only if you want this app to manage times itself. Its initial rule is daily at 16:00 in Europe/Prague; it is not a second concurrent source while Home Assistant is selected.

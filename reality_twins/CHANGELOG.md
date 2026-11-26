@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.0
+
+- Add companion Stories after confirmed feed posts, using the same private Instagram browser session.
+- Render a full-image branded Story on a warm-to-blue/teal gradient, with editable text and a saved-template preview.
+- Support `/nostory` in calendar event descriptions and a per-post Story choice for manual publishing.
+- Track Story delivery separately from feed delivery; retry only confirmed pre-send failures and require review of uncertain results.
+- Add **Add Story** to published items in history, with an image preview and destination account confirmation; historical posts are never sent automatically.
+- Replace the beige interface with navy, teal and cyan, with distinct success, warning and destructive-action colors.
+- Cover scheduling, migration, Story rendering, archived-image integrity, independent delivery, UI confirmation and browser editor transitions with regression tests.
+
 ## 0.5.4
 
 - Add a mobile view to the private Instagram browser for inspecting available account features.

@@ -15,6 +15,7 @@ from app.browser_instagram import (BrowserInstagram, BrowserInstagramError, Brow
                                    _instagram_url, _public_url, _receipt,
                                    _username_from_profile, _profile_candidates, CAPTION_TEXT,
                                    _normalized_caption, COMPOSER_STEPS, EXPIRED, SIGN_IN)
+from app.browser_instagram import _story_receipt, STORY_STEPS, STORY_UNCERTAIN
 from app.state import State
 
 
@@ -34,6 +35,7 @@ class FakeRuntime:
         self.account = Mock(return_value={'connected': True, 'id': 'browser:example_account',
                                          'username': 'example_account', 'connection_method': 'browser'})
         self.upload = Mock(return_value={'id': '123456', 'permalink': 'https://www.instagram.com/p/ExampleCode/'})
+        self.upload_story = Mock(return_value={'id': '123456', 'permalink': 'https://www.instagram.com/stories/example_account/123456/'})
         self.close = Mock()
 
 
@@ -153,6 +155,56 @@ class BrowserInstagramTests(unittest.TestCase):
         self.runtime.upload.side_effect = lambda *_: self.assertEqual(self.browser.status()['mode'], 'desktop')
         self.browser.upload(path, 'Caption')
         self.runtime.set_mode.assert_called_with('desktop')
+
+    def story_photo(self):
+        from PIL import Image
+        path = self.root / 'story.jpg'
+        Image.new('RGB', (1080, 1920), 'navy').save(path)
+        return path
+
+    def test_story_uses_same_browser_with_explicit_feed_account_and_own_callback(self):
+        self.connected()
+        path, marker = self.story_photo(), Mock()
+        result = self.browser.upload_story(path, expected_username='example_account', before_share=marker)
+        self.assertEqual(result['permalink'], 'https://www.instagram.com/stories/example_account/123456/')
+        self.runtime.upload_story.assert_called_once_with(path, 'example_account', before_share=marker)
+        self.runtime.upload.assert_not_called()
+        marker.assert_not_called()
+        self.assertEqual(self.browser.status()['mode'], 'mobile')
+        self.browser.check()
+        self.assertEqual(self.browser.status()['mode'], 'desktop')
+
+    def test_story_rejects_wrong_account_active_view_and_non_story_image_before_upload(self):
+        self.connected()
+        path = self.story_photo()
+        with self.assertRaises(BrowserNotSent):
+            self.browser.upload_story(path, expected_username='other_account')
+        self.runtime.upload_story.assert_not_called()
+        self.browser.start()
+        with self.assertRaises(BrowserNotSent):
+            self.browser.upload_story(path, expected_username='example_account')
+        self.browser.close_view()
+        self.runtime.account.return_value = {'connected': True, 'username': 'other_account'}
+        with self.assertRaises(BrowserNotSent):
+            self.browser.upload_story(path, expected_username='example_account')
+        self.runtime.upload_story.assert_not_called()
+        from PIL import Image
+        Image.new('RGB', (1080, 1350), 'navy').save(path)
+        with self.assertRaisesRegex(BrowserNotSent, '1080 by 1920'):
+            self.browser.upload_story(path, expected_username='example_account')
+
+    def test_story_failed_editor_keeps_mobile_view_and_never_retries_upload(self):
+        self.connected()
+        path = self.story_photo()
+        self.runtime.upload_story.side_effect = BrowserNotSent(STORY_STEPS['story_share'])
+        with self.assertRaises(BrowserNotSent):
+            self.browser.upload_story(path, expected_username='example_account')
+        self.runtime.resume_failed_editor.return_value = True
+        self.runtime.home.reset_mock()
+        self.browser.start()
+        self.assertEqual(self.browser.status()['mode'], 'mobile')
+        self.runtime.home.assert_not_called()
+        self.runtime.upload_story.assert_called_once()
 
     def test_login_not_complete_does_not_mark_account_connected_or_close_view(self):
         self.browser.start()
@@ -308,6 +360,26 @@ class BrowserInstagramTests(unittest.TestCase):
 
 
 class BrowserValidationTests(unittest.TestCase):
+    def test_story_receipt_accepts_only_story_configure_for_the_original_account(self):
+        body = {'status': 'ok', 'media': {'pk': '123456789', 'media_product_type': 'story',
+                                        'user': {'username': 'example_account'}}}
+        for endpoint in ('/create/configure_to_story/', '/api/v1/media/configure_to_story/'):
+            response = self.response(url='https://www.instagram.com' + endpoint, json=lambda: body)
+            self.assertEqual(_story_receipt(response, 'example_account'), {
+                'id': '123456789', 'permalink': 'https://www.instagram.com/stories/example_account/123456789/'})
+            self.assertIsNone(_receipt(response))
+            self.assertIsNone(_story_receipt(response, 'other_account'))
+        self.assertIsNone(_story_receipt(self.response(json=lambda: body), 'example_account'))
+        for changed in ({'status': 500}, {'request': SimpleNamespace(method='GET')},
+                        {'url': 'https://elsewhere.example/create/configure_to_story/'},
+                        {'json': lambda: {'status': 'fail', 'media': {'pk': '123'}}},
+                        {'json': lambda: {'status': 'ok', 'media': {'pk': '123'}}},
+                        {'json': lambda: {'status': 'ok', 'media': {'pk': 'not-an-id'}}},
+                        {'json': lambda: {'status': 'ok', 'media': {'pk': '123', 'media_product_type': 'feed'}}}):
+            args = {'url': 'https://www.instagram.com/create/configure_to_story/', 'json': lambda: body}
+            args.update(changed)
+            self.assertIsNone(_story_receipt(self.response(**args), 'example_account'))
+
     def test_profile_tooltip_name_must_match_destination_and_avatar_is_only_a_candidate(self):
         strong, weak = _profile_candidates({'links': [
             {'href': '/example_account/', 'labels': ['Profile • example_account']},
@@ -422,8 +494,124 @@ if (document.cookie.includes('fixture_login=1')) home();
 </script></body></html>'''
 
 
+_STORY_FIXTURE = r'''<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>@media(max-width:500px){#desktop-nav{display:none}}body{margin:0}</style>
+<nav id="desktop-nav"><a href="/example_account/" aria-label="Profile • example_account">Profile</a></nav>
+<div id="mobile-nav" style="position:fixed;bottom:0;height:48px;width:100%;background:white">
+ <a href="/example_account/" style="position:absolute;right:20px;bottom:10px"><img width="24" height="24" alt="Profile" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'/%3E"></a>
+</div>
+<div role="button" id="new-post" style="position:fixed;left:300px;top:8px;width:40px;height:40px" onclick="openMenu()">
+ <div role="button" aria-label="New post"><svg aria-label="New post" width="32" height="32"></svg></div>
+</div>
+<div id="app"><button style="position:absolute;top:90px">Your story</button></div>
+<input type="file" id="avatar-input" hidden>
+<input type="file" id="story-input" accept="image/jpeg" hidden onchange="setTimeout(preview,120)">
+<script>
+const failure=__FAILURE__;window.storyShares=0;
+function openMenu(){setTimeout(()=>app.innerHTML='<div role="menu" style="position:fixed;top:50px;right:10px;background:white"><button>Post</button><div role="button" onclick="document.getElementById(\'story-input\').click()"><span>Story</span></div></div>',80)}
+function preview(){
+ const file=document.getElementById('story-input').files[0];
+ window.fixturePhoto={size:file.size,name:file.name};
+ document.getElementById('new-post').remove();document.getElementById('mobile-nav').style.display='none';
+ document.getElementById('desktop-nav').style.display='none';
+ history.pushState({},'',failure==='challenge'?'/challenge/check/':'/create/story/');
+ let src=URL.createObjectURL(file);
+ if(failure==='preview'){const canvas=document.createElement('canvas');canvas.width=canvas.height=100;src=canvas.toDataURL()}
+ app.innerHTML='<img id="preview" style="position:fixed;top:0;width:100%;height:calc(100% - 64px);object-fit:contain" src="'+src+'">';
+ if(failure!=='share')app.insertAdjacentHTML('beforeend','<div role="button" aria-label="Add to your story" style="position:fixed;bottom:8px;left:30px"><button id="story-share" style="width:150px;height:40px" onclick="share()">Add to your story</button></div>');
+ if(failure==='ambiguous')app.insertAdjacentHTML('beforeend','<button style="position:fixed;bottom:8px;right:10px;width:120px;height:40px" onclick="share()">Share</button>');
+ if(failure==='account')app.insertAdjacentHTML('beforeend','<nav style="position:fixed;bottom:60px"><a href="/other_account/" aria-label="Profile • other_account">Profile</a></nav>');
+}
+async function share(){
+ window.storyShares++;
+ await fetch('/api/v1/media/configure_to_story/',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({upload_id:'123',photo:window.fixturePhoto})});
+}
+</script>'''
+
+
 @unittest.skipUnless(_TEST_BROWSER, 'A local Chromium executable is required for the isolated browser fixture.')
 class ChromiumFixtureTests(unittest.TestCase):
+    def test_story_mobile_menu_chooser_preview_callback_and_single_share(self):
+        from PIL import Image
+        events = []
+        def route(request_route):
+            request = request_route.request
+            if request.url == 'https://www.instagram.com/api/v1/media/configure_to_story/':
+                self.assertEqual(events, ['marker'])
+                self.assertEqual(request.post_data_json['photo']['name'], 'story.jpg')
+                events.append('share')
+                request_route.fulfill(status=200, content_type='application/json', body=json.dumps({
+                    'status': 'ok', 'media': {'pk': '987654321', 'media_product_type': 'story',
+                                            'user': {'username': 'example_account'}}}))
+            else:
+                self.assertEqual(request.method, 'GET')
+                request_route.fulfill(status=200, content_type='text/html', body=_STORY_FIXTURE.replace('__FAILURE__', '""'))
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}):
+            state = State(Path(temp) / 'private')
+            state.data.update(connection_method='browser', browser_session=True,
+                              account={'connected': True, 'username': 'example_account'})
+            def factory(profile):
+                runtime = _Chromium(profile)
+                runtime.context.unroute('**/*');runtime.context.route('**/*', route)
+                runtime.upload = Mock(side_effect=AssertionError('A Story must never publish feed'))
+                return runtime
+            browser = BrowserInstagram(state, runtime_factory=factory)
+            path = Path(temp) / 'story.jpg'
+            Image.new('RGB', (1080,1920), 'navy').save(path)
+            try:
+                with self.assertRaises(BrowserNotSent):
+                    browser.upload_story(path, expected_username='example_account', before_share=lambda: (_ for _ in ()).throw(RuntimeError()))
+                self.assertEqual(events, [])
+                self.assertEqual(browser.start()['mode'], 'mobile')
+                self.assertTrue(browser.status()['url'].endswith('/create/story/'))
+                self.assertTrue(browser.frame().startswith(b'\xff\xd8'))
+                browser.close_view()
+                result = browser.upload_story(path, expected_username='example_account', before_share=lambda: events.append('marker'))
+                self.assertEqual(result, {'id':'987654321','permalink':'https://www.instagram.com/stories/example_account/987654321/'})
+                self.assertEqual(events, ['marker','share'])
+                self.assertEqual(browser._call(lambda: browser._runtime.page.evaluate('window.storyShares')), 1)
+                browser.check()
+                self.assertEqual(browser.status()['mode'], 'desktop')
+                browser._runtime.upload.assert_not_called()
+            finally:
+                browser.shutdown()
+
+    def test_story_preview_identity_ambiguity_and_uncertain_receipt_stop_without_retry(self):
+        from PIL import Image
+        scenario = {'failure': ''}
+        sent = []
+        def route(request_route):
+            if request_route.request.method == 'POST':
+                sent.append(request_route.request.url)
+                request_route.fulfill(status=200, content_type='application/json', body=json.dumps({
+                    'status':'ok','media':{'pk':'123','user':{'username':'other_account'}}}))
+            else:
+                request_route.fulfill(status=200, content_type='text/html', body=_STORY_FIXTURE.replace('__FAILURE__', json.dumps(scenario['failure'])))
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'RT_CHROMIUM_EXECUTABLE': _TEST_BROWSER}), \
+             patch('app.browser_instagram.COMPOSER_TIMEOUT', .6), patch('app.browser_instagram.STORY_RECEIPT_TIMEOUT', .3):
+            runtime = _Chromium(Path(temp) / 'profile')
+            path = Path(temp) / 'story.jpg'
+            Image.new('RGB',(1080,1920),'navy').save(path)
+            try:
+                runtime.context.unroute('**/*');runtime.context.route('**/*', route)
+                runtime.set_mode('mobile')
+                for failure, stage in [('preview','story_preview'),('share','story_share'),('ambiguous','story_share'),('account','story_account'),('challenge','story_account')]:
+                    with self.subTest(failure=failure):
+                        scenario['failure']=failure;runtime.home();marker=Mock()
+                        with self.assertRaisesRegex(BrowserNotSent, STORY_STEPS[stage]):
+                            runtime.upload_story(path,'example_account',before_share=marker)
+                        marker.assert_not_called()
+                        self.assertEqual(sent,[])
+                        self.assertEqual(runtime.resume_failed_editor(), stage != 'story_account')
+                scenario['failure']='';runtime.home();marker=Mock()
+                with self.assertRaisesRegex(BrowserInstagramError, STORY_UNCERTAIN):
+                    runtime.upload_story(path,'example_account',before_share=marker)
+                marker.assert_called_once()
+                self.assertEqual(sent,['https://www.instagram.com/api/v1/media/configure_to_story/'])
+                self.assertFalse(runtime.resume_failed_editor())
+            finally:
+                runtime.close()
+
     def test_mobile_emulation_keeps_private_session_dimensions_input_and_desktop_restore(self):
         from io import BytesIO
         from PIL import Image

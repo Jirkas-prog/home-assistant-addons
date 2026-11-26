@@ -71,6 +71,10 @@ def create_apps(service, ingress=False):
                 obj['error'] = translate_error(obj['error'], 'en')
             if obj.get('note'):
                 obj['note_cs'] = translate_error(obj['note'], 'cs')
+            if obj.get('story_error'):
+                obj['story_error_cs'] = translate_error(obj['story_error'], 'cs')
+            if obj.get('story_note'):
+                obj['story_note_cs'] = translate_error(obj['story_note'], 'cs')
         return jsonify(result)
 
     @admin.get('/api/calendars')
@@ -96,6 +100,9 @@ def create_apps(service, ingress=False):
         if result['attempt'].get('error'):
             from .i18n import translate_error
             result['attempt']['error_cs'] = translate_error(result['attempt']['error'], 'cs')
+        if result['attempt'].get('story_error'):
+            from .i18n import translate_error
+            result['attempt']['story_error_cs'] = translate_error(result['attempt']['story_error'], 'cs')
         return jsonify(result)
 
     @admin.get('/api/import/folders')
@@ -132,6 +139,29 @@ def create_apps(service, ingress=False):
     @admin.get('/api/queue/<item_id>/image')
     def image(item_id):
         return send_file(service.queue.image_path(item_id))
+
+    @admin.get('/api/story/preview')
+    def story_preview():
+        from io import BytesIO
+        from tempfile import TemporaryDirectory
+        from .story_cards import render_story
+        item_id = request.args.get('post_id', '')
+        if not item_id:
+            raise ValueError('Choose a queued post for the story preview.')
+        # No journal or publishing side effects. Unique temporary output keeps
+        # concurrent previews separate and is removed after reading the bytes.
+        with service.queue_guard, TemporaryDirectory() as temporary:
+            source = service.queue.image_path(item_id)
+            settings = service.state.settings()
+            background = settings.get('story_background')
+            if background:
+                path = Path(background)
+                if (path.is_symlink() or not path.is_file()
+                        or not path.resolve().is_relative_to(service.state.directory.resolve())):
+                    raise ValueError('The story background must be a JPEG or PNG inside the app private data folder.')
+            output = render_story(source, Path(temporary) / 'preview.jpg', settings)
+            content = output.read_bytes()
+        return send_file(BytesIO(content), mimetype='image/jpeg')
 
     @admin.post('/api/upload')
     def upload():
@@ -250,6 +280,36 @@ def create_apps(service, ingress=False):
     @admin.post('/api/attempts/<attempt_id>/resolve')
     def resolve(attempt_id):
         return jsonify(service.resolve(attempt_id, request.get_json()))
+
+    def story_response(result):
+        from .i18n import translate_error
+        for field in ('story_error', 'story_note'):
+            if result['attempt'].get(field):
+                result['attempt'][field + '_cs'] = translate_error(result['attempt'][field], 'cs')
+        return jsonify(result)
+
+    @admin.post('/api/attempts/<attempt_id>/story/retry')
+    def retry_story(attempt_id):
+        if request.get_json() != {}:
+            raise ValueError('Invalid request.')
+        try:
+            return story_response(service.retry_story(attempt_id))
+        except QueueConflict as conflict:
+            return error(conflict)[0], 409
+
+    @admin.post('/api/attempts/<attempt_id>/story/create')
+    def create_story(attempt_id):
+        try:
+            return story_response(service.create_story(attempt_id, request.get_json()))
+        except QueueConflict as conflict:
+            return error(conflict)[0], 409
+
+    @admin.post('/api/attempts/<attempt_id>/story/resolve')
+    def resolve_story(attempt_id):
+        try:
+            return story_response(service.resolve_story(attempt_id, request.get_json()))
+        except QueueConflict as conflict:
+            return error(conflict)[0], 409
 
     @public.get('/healthz')
     def health():

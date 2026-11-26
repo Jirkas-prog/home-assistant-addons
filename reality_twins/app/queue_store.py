@@ -12,6 +12,7 @@ import sqlite3
 import threading
 import unicodedata
 import uuid
+from urllib.parse import urlsplit
 
 
 class QueueError(ValueError):
@@ -81,7 +82,24 @@ class QueueStore:
         );
         """)
         with self._transaction():
-            pass
+            # Existing publications never gain a story retroactively. New claims
+            # explicitly snapshot their story choice and its rendering settings.
+            columns = {row['name'] for row in self.db.execute('PRAGMA table_info(attempts)')}
+            story_columns = {
+                'story_requested': 'INTEGER NOT NULL DEFAULT 0',
+                'story_state': "TEXT NOT NULL DEFAULT 'skipped'",
+                'story_settings': "TEXT NOT NULL DEFAULT '{}'",
+                'story_media_id': "TEXT NOT NULL DEFAULT ''",
+                'story_permalink': "TEXT NOT NULL DEFAULT ''",
+                'story_error': "TEXT NOT NULL DEFAULT ''",
+                'story_started_at': 'TEXT',
+                'story_updated_at': 'TEXT',
+                'story_note': "TEXT NOT NULL DEFAULT ''",
+                'story_history': "TEXT NOT NULL DEFAULT '[]'",
+            }
+            for name, definition in story_columns.items():
+                if name not in columns:
+                    self.db.execute(f'ALTER TABLE attempts ADD COLUMN {name} {definition}')
 
     def close(self):
         with self.lock:
@@ -248,11 +266,19 @@ class QueueStore:
         row = self.db.execute("SELECT * FROM attempts WHERE attempt_id=?", (attempt_id,)).fetchone()
         if row is None:
             raise QueueError("Publishing attempt not found.")
-        return dict(row)
+        return self._attempt_record(row)
+
+    @staticmethod
+    def _attempt_record(row):
+        result = dict(row)
+        result['story_requested'] = bool(result['story_requested'])
+        result['story_settings'] = json.loads(result['story_settings'])
+        result['story_history'] = json.loads(result['story_history'])
+        return result
 
     def _latest(self, item_id):
         row = self.db.execute("SELECT * FROM attempts WHERE item_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1", (item_id,)).fetchone()
-        return dict(row) if row else None
+        return self._attempt_record(row) if row else None
 
     def _check_mutable(self):
         if self.db.execute("SELECT 1 FROM items WHERE status='publishing' LIMIT 1").fetchone():
@@ -486,11 +512,16 @@ class QueueStore:
         """Return the durable receipt for a scheduling slot or manual request."""
         with self._transaction():
             row = self.db.execute('SELECT * FROM attempts WHERE event_key=?', (event_key,)).fetchone()
-            return dict(row) if row else None
+            return self._attempt_record(row) if row else None
 
-    def claim(self, event_key, expected_item_id=None):
+    def claim(self, event_key, expected_item_id=None, story_settings=None):
         if not isinstance(event_key, str) or not 1 <= len(event_key) <= 500:
             raise QueueError("Invalid publishing slot identifier.")
+        if story_settings is not None and not isinstance(story_settings, dict):
+            raise QueueError('Invalid story publication settings.')
+        story_json = json.dumps(story_settings or {}, ensure_ascii=False)
+        if len(story_json) > 16384:
+            raise QueueError('Invalid story publication settings.')
         with self._transaction():
             if self.db.execute("SELECT 1 FROM attempts WHERE event_key=?", (event_key,)).fetchone():
                 return None
@@ -514,9 +545,11 @@ class QueueStore:
                 raise QueueError("The caption exceeds 2200 characters.")
             attempt_id, now = uuid.uuid4().hex, _now()
             self.db.execute("""INSERT INTO attempts
-                (attempt_id,item_id,event_key,state,filename,caption,created_at,updated_at)
-                VALUES (?,?,?,'claimed',?,?,?,?)""",
-                (attempt_id, item["id"], event_key, item["filename"], text, now, now))
+                (attempt_id,item_id,event_key,state,filename,caption,created_at,updated_at,
+                 story_requested,story_state,story_settings,story_updated_at)
+                VALUES (?,?,?,'claimed',?,?,?,?,?,?,?,?)""",
+                (attempt_id, item["id"], event_key, item["filename"], text, now, now,
+                 int(story_settings is not None), 'pending' if story_settings is not None else 'skipped', story_json, now))
             self.db.execute("UPDATE items SET status='publishing',caption=?,error='',updated_at=? WHERE id=?", (text, now, item["id"]))
             return self._attempt(attempt_id)
 
@@ -543,11 +576,131 @@ class QueueStore:
 
     def open_attempts(self):
         with self._transaction():
-            return [dict(row) for row in self.db.execute("SELECT * FROM attempts WHERE state IN ('claimed','container_created','publishing','uncertain') ORDER BY created_at")]
+            return [self._attempt_record(row) for row in self.db.execute("SELECT * FROM attempts WHERE state IN ('claimed','container_created','publishing','uncertain') ORDER BY created_at")]
 
     def history(self):
         with self._transaction():
-            return [dict(row) for row in self.db.execute("SELECT * FROM attempts ORDER BY created_at DESC,rowid DESC LIMIT 500")]
+            return [self._attempt_record(row) for row in self.db.execute("SELECT * FROM attempts ORDER BY created_at DESC,rowid DESC LIMIT 500")]
+
+    def open_stories(self):
+        with self._transaction():
+            return [self._attempt_record(row) for row in self.db.execute(
+                "SELECT * FROM attempts WHERE story_state IN ('pending','preparing','publishing','uncertain') ORDER BY created_at")]
+
+    def create_story(self, attempt_id, settings):
+        """Explicitly backfill one skipped story; never infer work from history."""
+        if not isinstance(settings, dict) or not settings:
+            raise QueueError('Invalid story publication settings.')
+        snapshot = json.dumps(settings, ensure_ascii=False)
+        if len(snapshot) > 16384:
+            raise QueueError('Invalid story publication settings.')
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if attempt['state'] != 'published':
+                raise QueueConflict('A story can only be created for a confirmed published feed post.')
+            if attempt['story_state'] != 'skipped':
+                return attempt, False
+            if attempt['story_started_at'] or attempt['story_media_id'] or attempt['story_permalink']:
+                raise QueueConflict('This story already has a publication result. Check its history before continuing.')
+            item = self._row(attempt['item_id'])
+            if item['status'] != 'published' or not item['archive_path']:
+                raise QueueConflict('The published post archive is not available. Restore its original image first.')
+            source = self._file(item['filename'], item['archive_path'])
+            if not source.is_file() or _hash(source) != item['sha256']:
+                raise QueueConflict('The published post archive is not available. Restore its original image first.')
+            self._story_audit(attempt, 'manual_create', 'Story creation explicitly requested for this already-published feed post.')
+            self.db.execute("""UPDATE attempts SET story_requested=1,story_state='pending',story_settings=?,
+                story_error='',story_updated_at=? WHERE attempt_id=?""", (snapshot, _now(), attempt_id))
+            return self._attempt(attempt_id), True
+
+    def claim_story(self, attempt_id):
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if attempt['state'] != 'published' or attempt['story_state'] != 'pending':
+                return None
+            self.db.execute("UPDATE attempts SET story_state='preparing',story_error='',story_updated_at=? WHERE attempt_id=?",
+                            (_now(), attempt_id))
+            return self._attempt(attempt_id)
+
+    def start_story(self, attempt_id):
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if attempt['state'] != 'published' or attempt['story_state'] != 'preparing' or attempt['story_started_at']:
+                raise QueueConflict('This story has already been sent or is not ready to publish.')
+            now = _now()
+            self.db.execute("UPDATE attempts SET story_state='publishing',story_started_at=?,story_updated_at=? WHERE attempt_id=?",
+                            (now, now, attempt_id))
+
+    def finish_story(self, attempt_id, media_id, permalink, confirmed=False):
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if attempt['story_state'] == 'published':
+                return attempt
+            expected = attempt['story_settings'].get('expected_username', '')
+            try:
+                parsed = urlsplit(permalink)
+                match = re.fullmatch(r'/stories/([A-Za-z0-9_.]{1,30})/([0-9]+)/?', parsed.path)
+                valid = (isinstance(media_id, str) and media_id.isdigit() and match
+                         and match[1].casefold() == expected.casefold() and match[2] == media_id
+                         and parsed.scheme == 'https' and parsed.hostname in ('instagram.com', 'www.instagram.com')
+                         and parsed.port in (None, 443) and not parsed.username and not parsed.password)
+            except (ValueError, TypeError):
+                valid = False
+            if not valid:
+                raise QueueError('Provide the verified Instagram story URL for the original feed account.')
+            allowed = ('uncertain',) if confirmed else ('publishing',)
+            if attempt['state'] != 'published' or attempt['story_state'] not in allowed:
+                raise QueueConflict('This story has no active publication to confirm.')
+            permalink = f'https://www.instagram.com/stories/{expected}/{media_id}/'
+            if confirmed:
+                self._story_audit(attempt, 'confirmed_published', 'Verified story URL supplied by the user.')
+            self.db.execute("""UPDATE attempts SET story_state='published',story_media_id=?,story_permalink=?,
+                story_error='',story_updated_at=? WHERE attempt_id=?""", (media_id, permalink, _now(), attempt_id))
+            return self._attempt(attempt_id)
+
+    def fail_story(self, attempt_id, message):
+        if not isinstance(message, str):
+            raise QueueError('The story error must be text.')
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if attempt['story_state'] in ('published', 'skipped'):
+                raise QueueConflict('A closed story cannot be marked as failed.')
+            state = 'uncertain' if attempt['story_started_at'] else 'error'
+            self.db.execute('UPDATE attempts SET story_state=?,story_error=?,story_updated_at=? WHERE attempt_id=?',
+                            (state, message, _now(), attempt_id))
+            return self._attempt(attempt_id)
+
+    def _story_audit(self, attempt, action, note):
+        history = list(attempt['story_history'])
+        history.append({key: attempt[key] for key in (
+            'story_state', 'story_error', 'story_media_id', 'story_permalink', 'story_started_at', 'story_updated_at')}
+            | {'action': action, 'note': note, 'at': _now()})
+        self.db.execute('UPDATE attempts SET story_history=?,story_note=? WHERE attempt_id=?',
+                        (json.dumps(history, ensure_ascii=False), note, attempt['attempt_id']))
+
+    def retry_story(self, attempt_id):
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if (attempt['state'] != 'published' or not attempt['story_requested'] or attempt['story_state'] != 'error'
+                    or attempt['story_started_at'] or attempt['story_media_id'] or attempt['story_permalink']):
+                raise QueueConflict('Only a story failure before sending can be retried. Verify an uncertain story first.')
+            self._story_audit(attempt, 'retry', 'Story retry requested by the user.')
+            self.db.execute("UPDATE attempts SET story_state='pending',story_error='',story_updated_at=? WHERE attempt_id=?",
+                            (_now(), attempt_id))
+            return self._attempt(attempt_id)
+
+    def resolve_story_not_published(self, attempt_id, note):
+        if not isinstance(note, str) or len(note.strip()) < 8 or len(note) > 2000:
+            raise QueueError('Describe how you verified that the story was not published.')
+        with self._transaction():
+            attempt = self._attempt(attempt_id)
+            if attempt['state'] != 'published' or attempt['story_state'] != 'uncertain':
+                raise QueueConflict('Manual confirmation is only available for an uncertain story.')
+            self._story_audit(attempt, 'confirmed_not_published', note.strip())
+            self.db.execute("""UPDATE attempts SET story_state='error',story_started_at=NULL,story_media_id='',
+                story_permalink='',story_error='The story was verified as not published. You may retry only the story.',
+                story_updated_at=? WHERE attempt_id=?""", (_now(), attempt_id))
+            return self._attempt(attempt_id)
 
     def finish(self, attempt_id, media_id, permalink):
         if media_id is None:
@@ -588,6 +741,9 @@ class QueueStore:
             uncertain = uncertain or bool(attempt["publish_started_at"] or attempt["media_id"] or attempt["permalink"])
             state, now = ("uncertain" if uncertain else "error"), _now()
             self.db.execute("UPDATE attempts SET state=?,error=?,updated_at=? WHERE attempt_id=?", (state, message, now, attempt_id))
+            if state == 'error':
+                self.db.execute("""UPDATE attempts SET story_state='skipped',story_error='The feed post was not published.',
+                    story_updated_at=? WHERE attempt_id=? AND story_state='pending'""", (now, attempt_id))
             self.db.execute("UPDATE items SET status=?,error=?,updated_at=? WHERE id=?", (state, message, now, attempt["item_id"]))
             return self._attempt(attempt_id)
 
@@ -613,5 +769,7 @@ class QueueStore:
                 raise QueueConflict("Manual confirmation is only available for an uncertain publishing result.")
             now = _now()
             self.db.execute("UPDATE attempts SET state='confirmed_not_published',note=?,updated_at=? WHERE attempt_id=?", (note.strip(), now, attempt["attempt_id"]))
+            self.db.execute("""UPDATE attempts SET story_state='skipped',story_error='The feed post was not published.',
+                story_updated_at=? WHERE attempt_id=? AND story_state='pending'""", (now, attempt['attempt_id']))
             self.db.execute("UPDATE items SET status='queued',error='',updated_at=? WHERE id=?", (now, item_id))
             return self._row(item_id)

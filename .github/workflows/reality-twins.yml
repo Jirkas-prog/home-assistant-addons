@@ -29,6 +29,7 @@ jobs:
       - run: node --test reality_twins/tests/test_browser_view.cjs
       - run: node --test reality_twins/tests/test_calendar_settings.cjs
       - run: node --test reality_twins/tests/test_manual_publish.cjs
+      - run: node --test reality_twins/tests/test_story_ui.cjs
       - run: python -m compileall -q reality_twins/app
   image:
     needs: test

@@ -9,6 +9,10 @@ state.folderRequest = 0;
 state.folderSelection = '';
 state.manualPublish = null;
 state.manualOpening = false;
+state.storyDirty = false;
+state.storyResolving = null;
+state.storyCreating = null;
+state.storyPreviewGeneration = 0;
 const days = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 const english = {
   'Přejít na obsah': 'Skip to content', 'Czech This View — fronta': 'Czech This View — queue', 'PRACOVNÍ PROSTOR': 'WORKSPACE', 'Hlavní navigace': 'Main navigation', 'Fronta': 'Queue', 'FRONTA': 'QUEUE', 'fronta': 'queue', 'Kalendář': 'Calendar', 'KALENDÁŘ': 'CALENDAR', 'kalendář': 'calendar', 'Historie': 'History', 'HISTORIE': 'HISTORY', 'historie': 'history', 'Nastavení': 'Settings', 'NASTAVENÍ': 'SETTINGS', 'nastavení': 'settings', 'Připojuji rozhraní': 'Connecting to server', 'VAŠE FOTKY. VÁŠ RYTMUS.': 'YOUR PHOTOS. YOUR RHYTHM.', 'Instagram nepřipojen': 'Instagram not connected', 'Jazyk rozhraní': 'Interface language',
@@ -161,6 +165,70 @@ Object.assign(english, {
 Object.assign(english, {
   'Zopakovat původní odeslání': 'Retry the original request',
   'Použije se tentýž požadavek. Již přijatý příspěvek se znovu neodešle.': 'The same request will be used. A post already accepted will not be sent again.'
+});
+Object.assign(english, {
+  'Stories k příspěvkům': 'Stories for your posts',
+  'Po zveřejnění příspěvku přidej samostatnou Story.': 'Add a separate Story after the post is published.',
+  'Automaticky přidávat Story': 'Automatically add a Story',
+  'Story se odešle až po potvrzeném zveřejnění příspěvku. Její chyba nezpůsobí opakování příspěvku.': 'The Story is sent only after the post is confirmed published. A Story error does not resend the post.',
+  'Název značky ve Story': 'Brand name in the Story',
+  'Nadpis ve Story': 'Story headline',
+  'Výzva ve spodní části': 'Footer call to action',
+  'Texty ve výsledné Story jsou anglicky.': 'Text in the published Story is in English.',
+  'Šablona Contrast · 1080 × 1920': 'Contrast template · 1080 × 1920',
+  'Oranžová, modrá a tyrkysová. Fotografie se zobrazí celá.': 'Orange, blue and teal. The complete photo is visible.',
+  'Uložit nastavení Stories': 'Save Story settings',
+  'Náhled Story dalšího příspěvku': 'Preview the next post’s Story',
+  'Náhled používá uložené nastavení. Nejdřív ulož provedené změny.': 'The preview uses saved settings. Save your changes first.',
+  'Nastavení Stories uložené.': 'Story settings saved.',
+  'Nejdřív ulož nastavení Stories.': 'Save the Story settings first.',
+  'Pro náhled Story přidej příspěvek do fronty.': 'Add a post to the queue to preview its Story.',
+  'Texty Story vyplň na jednom řádku v povolené délce.': 'Enter each Story text on one line within its length limit.',
+  'Přidat Story po zveřejnění': 'Add a Story after publishing',
+  'Náhled Story': 'Story preview',
+  'Stories jsou vypnuté v nastavení.': 'Stories are turned off in Settings.',
+  'Volba Story je součástí odeslaného požadavku a při opakování se nemění.': 'The Story choice is part of the submitted request and does not change on retry.',
+  'Nastavení Stories se změnilo. Zavři náhled a zkontroluj novou volbu.': 'Story settings changed. Close the preview and review the new choice.',
+  'Načítám náhled Story…': 'Loading the Story preview…',
+  'Náhled Story se nepodařilo načíst. Zavři náhled a zkus ho otevřít znovu.': 'Unable to load the Story preview. Close it and try opening it again.',
+  'Uložená šablona. Tento náhled nic nepublikuje.': 'Saved template. This preview does not publish anything.',
+  'STORY · VYPNUTO': 'STORY · SKIPPED',
+  'STORY · ČEKÁ': 'STORY · PENDING',
+  'STORY · PŘIPRAVUJE SE': 'STORY · PREPARING',
+  'STORY · PUBLIKUJE SE': 'STORY · PUBLISHING',
+  'STORY · ZVEŘEJNĚNO': 'STORY · PUBLISHED',
+  'STORY · CHYBA': 'STORY · ERROR',
+  'STORY · OVĚŘIT VÝSLEDEK': 'STORY · CHECK RESULT',
+  'Příspěvek je zveřejněný. Tato oprava se týká pouze Story.': 'The post is published. This action affects only its Story.',
+  'Znovu odeslat pouze Story': 'Retry Story only',
+  'Ověřit výsledek Story': 'Check Story result',
+  'Otevřít Story na Instagramu ↗': 'Open Story on Instagram ↗',
+  'Story nyní nelze opakovat. Obnov stav a zkontroluj historii.': 'This Story cannot be retried now. Refresh and check History.',
+  'Story byla zveřejněna.': 'The Story was published.',
+  'Odeslání Story má vlastní výsledek v historii. Příspěvek se neopakoval.': 'The Story has its own result in History. The post was not resent.',
+  'OVĚŘENÍ STORY': 'VERIFY STORY',
+  'Co se stalo se Story?': 'What happened to the Story?',
+  'Zkontroluj Stories na svém profilu. Samotné uložení výsledku nic neodešle.': 'Check the Stories on your profile. Saving this result does not send anything.',
+  'Story je zveřejněná': 'The Story is published',
+  'Story se určitě nezveřejnila': 'The Story was definitely not published',
+  'Odkaz na zveřejněnou Story': 'Link to the published Story',
+  'Jak jsi ověřil, že Story není zveřejněná?': 'How did you verify that the Story was not published?',
+  'Stories na profilu jsem zkontroloval a výsledek potvrzuji.': 'I checked the Stories on my profile and confirm this result.',
+  'Vlož HTTPS odkaz na Story na Instagramu.': 'Enter an HTTPS Instagram Story link.',
+  'Popiš ověření alespoň 8 znaky.': 'Describe your verification using at least 8 characters.',
+  'Ověřený výsledek Story uložen.': 'Verified Story result saved.',
+  'Výsledek Story se změnil. Zavři dialog a obnov historii.': 'The Story result changed. Close the dialog and refresh History.'
+});
+Object.assign(english, {
+  'Přidat Story': 'Add Story',
+  'Zveřejnit pouze tuto Story': 'Publish this Story only',
+  'Příspěvek už je zveřejněný. Přidá se pouze tato Story; fronta a kalendář se nemění.': 'The post is already published. Only this Story will be added; the queue and calendar stay unchanged.',
+  'Potvrzuji zobrazenou Story a uvedený Instagram účet.': 'I confirm the displayed Story and Instagram account.',
+  'Pro přidání Story připoj a ověř účet v prohlížeči doplňku.': 'Connect and verify the account in the add-on browser before adding a Story.',
+  'Tento příspěvek už má vlastní výsledek Story. Zkontroluj historii.': 'This post already has a Story result. Check History.',
+  'Účet nebo šablona Story se změnily. Zavři náhled a zkontroluj jej znovu.': 'The account or Story template changed. Close the preview and review it again.',
+  'Publikuji pouze Story…': 'Publishing the Story only…',
+  'Výsledek Story zatím není potvrzený. Obnov stav a zkontroluj historii.': 'The Story result is not confirmed yet. Refresh and check History.'
 });
 const sourceTexts = new WeakMap();
 const sourceAttributes = new WeakMap();
@@ -407,6 +475,7 @@ function render() {
   renderSettings();
   renderOnboarding();
   renderManualPublish();
+  renderStoryCreate();
 }
 
 function onboardingSteps(data) {
@@ -620,7 +689,7 @@ function manualPublishReason(data = state.data) {
 
 function rememberManualPublish(manual) {
   try {
-    if (manual && !manual.terminal) sessionStorage.setItem('reality-twins-manual-publish', JSON.stringify({ postId: manual.postId, requestId: manual.requestId }));
+    if (manual && !manual.terminal) sessionStorage.setItem('reality-twins-manual-publish', JSON.stringify({ postId: manual.postId, requestId: manual.requestId, storyRequested: manual.storyRequested }));
     else sessionStorage.removeItem('reality-twins-manual-publish');
   } catch { /* The in-memory request still remains stable for this page. */ }
 }
@@ -629,7 +698,7 @@ function restoreManualPublish() {
   try {
     const saved = JSON.parse(sessionStorage.getItem('reality-twins-manual-publish') || 'null');
     if (saved && /^[a-f0-9]{32}$/.test(saved.postId) && /^[A-Za-z0-9_-]{16,80}$/.test(saved.requestId)) {
-      state.manualPublish = { ...saved, submitted: true, unknown: true, sending: false, terminal: false, attempt: null, item: null };
+      state.manualPublish = { postId: saved.postId, requestId: saved.requestId, storyRequested: typeof saved.storyRequested === 'boolean' ? saved.storyRequested : undefined, submitted: true, unknown: true, sending: false, terminal: false, attempt: null, item: null };
     }
   } catch { /* A missing or invalid saved request never creates a new post. */ }
 }
@@ -646,7 +715,7 @@ function acceptManualAttempt(manual, attempt) {
 
 function renderManualPublish() {
   const manual = state.manualPublish;
-  if (manual && !manual.terminal) {
+  if (manual) {
     const attempt = (state.data?.history || []).find(row => row.event_key === `manual:${manual.requestId}` && row.item_id === manual.postId);
     if (attempt) acceptManualAttempt(manual, attempt);
     if (!manual.item) manual.item = state.data?.queue?.find(item => item.id === manual.postId) || null;
@@ -697,6 +766,7 @@ function renderManualPublish() {
   $('#manual-publish-retry').hidden = !manual.unknown || manual.terminal || Boolean(manual.attempt);
   $('#manual-publish-retry').disabled = manual.sending || state.busy > 0 || !state.connected;
   $('#manual-publish-retry-note').hidden = $('#manual-publish-retry').hidden;
+  renderManualStory(manual);
 }
 
 async function openManualPublish() {
@@ -709,7 +779,7 @@ async function openManualPublish() {
       const reason = manualPublishReason();
       if (reason) { toast(reason, true); return; }
       const item = state.data.queue[0];
-      state.manualPublish = { postId: item.id, requestId: newId(), item: { ...item }, account: `@${state.data.account.username || state.data.account.id}`, accountId: state.data.account.id || state.data.account.username, submitted: false, sending: false, unknown: false, terminal: false, attempt: null };
+      state.manualPublish = { postId: item.id, requestId: newId(), item: { ...item }, account: `@${state.data.account.username || state.data.account.id}`, accountId: state.data.account.id || state.data.account.username, storyRequested: state.data.settings?.story_enabled !== false, submitted: false, sending: false, unknown: false, terminal: false, attempt: null };
     }
     $('#manual-publish-dialog').showModal(); renderManualPublish();
     $('#manual-publish-cancel').focus();
@@ -739,8 +809,14 @@ async function submitManualPublish(retry = false) {
       const reason = manualPublishReason();
       if (reason) throw new Error(reason);
     }
+    if (manual.storyRequested && state.data.settings?.story_enabled === false) {
+      if (!retry) manual.terminal = true;
+      throw new Error('Nastavení Stories se změnilo. Zavři náhled a zkontroluj novou volbu.');
+    }
     manual.submitted = true; manual.unknown = true; rememberManualPublish(manual); renderManualPublish();
-    const result = await api('publish-next', { method: 'POST', body: JSON.stringify({ expected_post_id: manual.postId, request_id: manual.requestId }) }, 180000);
+    const payload = { expected_post_id: manual.postId, request_id: manual.requestId };
+    if (typeof manual.storyRequested === 'boolean') payload.story_requested = manual.storyRequested;
+    const result = await api('publish-next', { method: 'POST', body: JSON.stringify(payload) }, 180000);
     if (!acceptManualAttempt(manual, result.attempt)) throw new Error('Výsledek zatím není potvrzený. Obnov stav a zkontroluj historii; další odeslání se nespustí.');
   } catch (error) {
     if (!retry && manual.submitted && [400, 409].includes(error.status)) {
@@ -868,6 +944,7 @@ function renderHistory() {
     info.append(element('h3', '', record.filename || record.item_id || 'Příspěvek'), badge(status));
     if (record.error) info.append(element('p', '', state.language === 'cs' ? record.error_cs || record.error : record.error));
     if (record.note) info.append(element('p', '', state.language === 'cs' ? record.note_cs || record.note : record.note));
+    appendStoryResult(info, record);
     const right = element('div', 'history-right');
     right.append(element('span', 'history-date', formatDate(record.published_at || record.updated_at || record.created_at)));
     if (record.permalink) {
@@ -916,6 +993,7 @@ function renderSettings() {
   $('#account-error').textContent = state.loginError || (state.language === 'cs' ? account.error_cs || account.error : account.error) || '';
   $('#disconnect-account').hidden = !(method === 'browser' ? settings.has_browser_session : method === 'direct' ? settings.has_direct_session : settings.has_token) && !account.connected;
   renderImportSettings();
+  renderStorySettings();
   updateCallback();
 }
 
@@ -1277,6 +1355,226 @@ function updateClock() {
 
 
 
+function storyStateLabel(value) {
+  const labels = { skipped: 'STORY · VYPNUTO', pending: 'STORY · ČEKÁ', preparing: 'STORY · PŘIPRAVUJE SE', publishing: 'STORY · PUBLIKUJE SE', published: 'STORY · ZVEŘEJNĚNO', error: 'STORY · CHYBA', uncertain: 'STORY · OVĚŘIT VÝSLEDEK' };
+  return translate(labels[value] || 'STORY · ČEKÁ');
+}
+
+function storyLink(value) {
+  try {
+    const url = new URL(value);
+    if (url.protocol === 'https:' && (url.hostname === 'instagram.com' || url.hostname.endsWith('.instagram.com')) && /^\/stories\/[^/]+\/\d+\/?$/.test(url.pathname) && !url.username && !url.password) return url.href;
+  } catch { /* Unverified URLs are never inserted into the document. */ }
+  return '';
+}
+
+function storyActionBlocked() {
+  return !state.connected || state.busy > 0 || !state.data?.account?.connected || state.data?.browser_status?.active || state.data?.browser_status?.busy;
+}
+
+function appendStoryResult(container, record, actions = true) {
+  if (!record.story_state && !record.story_requested) return;
+  const status = record.story_state || 'pending';
+  const section = element('div', 'story-result');
+  section.append(element('span', `status-badge story-badge ${['published', 'error', 'uncertain'].includes(status) ? status : status === 'skipped' ? '' : 'publishing'}`, storyStateLabel(status)));
+  if (['error', 'uncertain'].includes(status)) {
+    if (record.story_error) section.append(element('p', 'story-error no-translate', state.language === 'cs' ? record.story_error_cs || record.story_error : record.story_error));
+    if (record.story_note) section.append(element('p', 'no-translate', state.language === 'cs' ? record.story_note_cs || record.story_note : record.story_note));
+  }
+  const link = storyLink(record.story_permalink);
+  if (status === 'published' && link) {
+    const anchor = element('a', '', translate('Otevřít Story na Instagramu ↗'));
+    anchor.href = link; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; section.append(anchor);
+  }
+  if (actions && record.state === 'published' && (record.attempt_id || record.id)) {
+    if (status === 'skipped') {
+      const create = button('Přidat Story', 'button secondary compact', () => openStoryCreate(record));
+      create.disabled = storyActionBlocked(); section.append(create);
+    } else if (status === 'error' && !record.story_started_at) {
+      const retry = button('Znovu odeslat pouze Story', 'button secondary compact', event => retryStory(record, event.currentTarget));
+      retry.disabled = storyActionBlocked(); section.append(retry);
+    } else if (status === 'uncertain') {
+      const resolve = button('Ověřit výsledek Story', 'button secondary compact', () => openStoryResolve(record));
+      resolve.disabled = state.busy > 0; section.append(resolve);
+    }
+    if (['error', 'uncertain'].includes(status)) section.append(element('p', 'calendar-hint', translate('Příspěvek je zveřejněný. Tato oprava se týká pouze Story.')));
+  }
+  container.append(section);
+}
+
+function renderManualStory(manual) {
+  const enabled = state.data?.settings?.story_enabled !== false;
+  const checkbox = $('#manual-story-requested');
+  checkbox.checked = typeof manual.storyRequested === 'boolean' ? manual.storyRequested : Boolean(manual.attempt?.story_requested);
+  checkbox.disabled = !enabled || manual.submitted || manual.sending || manual.terminal || state.busy > 0;
+  $('#manual-story-preview').disabled = manual.submitted || manual.sending || !manual.item || state.storyDirty || state.busy > 0;
+  $('#manual-story-hint').textContent = translate(manual.submitted ? 'Volba Story je součástí odeslaného požadavku a při opakování se nemění.' : enabled ? 'Story se odešle až po potvrzeném zveřejnění příspěvku. Její chyba nezpůsobí opakování příspěvku.' : 'Stories jsou vypnuté v nastavení.');
+  const result = $('#manual-story-result');
+  result.replaceChildren();
+  result.hidden = !manual.attempt?.story_state && !manual.attempt?.story_requested;
+  if (!result.hidden) appendStoryResult(result, manual.attempt, false);
+}
+
+function renderStorySettings() {
+  const settings = state.data?.settings || {};
+  if (!state.storyDirty && state.connected && !$('#story-settings-form').contains(document.activeElement)) {
+    $('#story-enabled').checked = settings.story_enabled !== false;
+    $('#story-brand').value = settings.story_brand_name || 'Czech This View';
+    $('#story-headline').value = settings.story_headline || 'NEW POST';
+    $('#story-footer').value = settings.story_footer || 'YOUR TAKE? JOIN THE CONVERSATION.';
+  }
+  $('#story-preview-next').disabled = !state.connected || !state.data?.queue?.length || state.storyDirty || state.busy > 0;
+}
+
+async function saveStorySettings(event) {
+  event.preventDefault();
+  if (!state.connected || !state.data) { toast('Čekám na data', true); return; }
+  const values = [['story_brand_name', '#story-brand', 80], ['story_headline', '#story-headline', 80], ['story_footer', '#story-footer', 160]];
+  const payload = { story_enabled: $('#story-enabled').checked, story_template: 'contrast_v1' };
+  for (const [key, selector, limit] of values) {
+    const value = $(selector).value.trim();
+    if (!value || value.length > limit || /[\u0000-\u001f\u007f]/.test(value)) { toast('Texty Story vyplň na jednom řádku v povolené délce.', true); return; }
+    payload[key] = value;
+  }
+  const result = await run(async () => { await api('settings', { method: 'PUT', body: JSON.stringify(payload) }); return { saved: true }; }, $('button[type=submit]', event.target), 'Nastavení Stories uložené.');
+  if (result?.saved) { state.storyDirty = false; renderStorySettings(); }
+}
+
+function openStoryPreview(postId, creation = null) {
+  if (state.storyDirty) { toast('Nejdřív ulož nastavení Stories.', true); return; }
+  const item = state.data?.queue?.find(row => row.id === postId) || state.data?.history?.find(row => row.item_id === postId && row.state === 'published');
+  if (!item) { toast('Pro náhled Story přidej příspěvek do fronty.', true); return; }
+  const dialog = $('#story-preview-dialog'), image = $('#story-preview-image'), status = $('#story-preview-status');
+  const generation = ++state.storyPreviewGeneration;
+  state.storyCreating = creation;
+  $('#story-create-confirmation').hidden = !creation;
+  $('#story-create-confirm').checked = false;
+  image.hidden = true;
+  status.textContent = translate('Načítám náhled Story…'); status.hidden = false;
+  image.onload = () => { if (dialog.open && generation === state.storyPreviewGeneration) { image.hidden = false; status.hidden = true; if (creation) creation.loaded = true; renderStoryCreate(); } };
+  image.onerror = () => { if (dialog.open && generation === state.storyPreviewGeneration) { image.hidden = true; status.hidden = false; status.textContent = translate('Náhled Story se nepodařilo načíst. Zavři náhled a zkus ho otevřít znovu.'); if (creation) creation.loaded = false; renderStoryCreate(); } };
+  dialog.showModal();
+  image.src = `api/story/preview?post_id=${encodeURIComponent(postId)}&v=${Date.now()}`;
+  renderStoryCreate();
+}
+
+function storyTemplateKey() {
+  const settings = state.data?.settings || {};
+  return JSON.stringify(['story_template', 'story_brand_name', 'story_headline', 'story_footer', 'story_background'].map(key => settings[key] || ''));
+}
+
+async function openStoryCreate(record) {
+  if (state.storyDirty) { toast('Nejdřív ulož nastavení Stories.', true); return; }
+  if (storyActionBlocked()) return;
+  await loadState(true);
+  if (storyActionBlocked()) return;
+  if (state.data?.settings?.connection_method !== 'browser' || !state.data?.account?.username) { toast('Pro přidání Story připoj a ověř účet v prohlížeči doplňku.', true); return; }
+  const id = record.attempt_id || record.id;
+  const current = state.data?.history?.find(row => (row.attempt_id || row.id) === id);
+  if (current?.state !== 'published' || current?.story_state !== 'skipped') { toast('Tento příspěvek už má vlastní výsledek Story. Zkontroluj historii.', true); return; }
+  openStoryPreview(current.item_id, {
+    attemptId: id, postId: current.item_id, filename: current.filename || current.item_id,
+    username: state.data.account.username, templateKey: storyTemplateKey(),
+    loaded: false, sending: false, submitted: false, error: ''
+  });
+}
+
+function renderStoryCreate() {
+  const creation = state.storyCreating;
+  if (!creation || !$('#story-preview-dialog').open) return;
+  const current = state.data?.history?.find(row => (row.attempt_id || row.id) === creation.attemptId);
+  const accepted = current?.story_state && current.story_state !== 'skipped';
+  if (accepted && !creation.sending) creation.error = '';
+  $('#story-create-account').textContent = `@${creation.username}`;
+  $('#story-create-filename').textContent = creation.filename;
+  $('#story-create-confirm').disabled = creation.sending || creation.submitted || Boolean(accepted) || !creation.loaded;
+  $('#story-create-submit').hidden = creation.submitted || Boolean(accepted);
+  $('#story-create-submit').disabled = storyActionBlocked() || !creation.loaded || !$('#story-create-confirm').checked || creation.sending;
+  $('#story-create-refresh').hidden = !creation.submitted && !accepted;
+  $('#story-create-refresh').disabled = creation.sending || state.loading;
+  const result = $('#story-create-result');
+  result.hidden = !creation.sending && !creation.submitted && !accepted && !creation.error;
+  result.textContent = translate(creation.sending ? 'Publikuji pouze Story…' : creation.error || (accepted ? storyStateLabel(current.story_state) : 'Výsledek Story zatím není potvrzený. Obnov stav a zkontroluj historii.'));
+  result.classList.toggle('error', Boolean(creation.error) || ['error', 'uncertain'].includes(current?.story_state));
+}
+
+async function submitStoryCreate(event) {
+  event.preventDefault();
+  const creation = state.storyCreating;
+  if (!creation || creation.sending || creation.submitted || !creation.loaded || !$('#story-create-confirm').checked || storyActionBlocked()) return;
+  creation.sending = true; creation.error = ''; state.busy++; renderStoryCreate();
+  try {
+    await loadState(true);
+    const current = state.data?.history?.find(row => (row.attempt_id || row.id) === creation.attemptId);
+    if (!state.connected) throw new Error('Čekám na data');
+    if (current?.state !== 'published' || current.item_id !== creation.postId || current.story_state !== 'skipped') throw new Error('Tento příspěvek už má vlastní výsledek Story. Zkontroluj historii.');
+    if (!state.data.account?.connected || state.data.settings?.connection_method !== 'browser' || state.data.account.username !== creation.username || storyTemplateKey() !== creation.templateKey || state.storyDirty) {
+      $('#story-create-confirm').checked = false;
+      throw new Error('Účet nebo šablona Story se změnily. Zavři náhled a zkontroluj jej znovu.');
+    }
+    if (state.data.browser_status?.active || state.data.browser_status?.busy) throw new Error('Nejdřív dokonči a zavři přihlašovací okno Instagramu.');
+    creation.submitted = true; renderStoryCreate();
+    const result = await api(`attempts/${encodeURIComponent(creation.attemptId)}/story/create`, { method: 'POST', body: JSON.stringify({ expected_username: creation.username }) }, 180000);
+    if (result.attempt?.item_id !== creation.postId || (result.attempt.attempt_id || result.attempt.id) !== creation.attemptId) throw new Error('Výsledek Story zatím není potvrzený. Obnov stav a zkontroluj historii.');
+    toast(result.attempt.story_state === 'published' ? 'Story byla zveřejněna.' : 'Odeslání Story má vlastní výsledek v historii. Příspěvek se neopakoval.', ['error', 'uncertain'].includes(result.attempt.story_state));
+  } catch (error) {
+    creation.error = error.message || 'Výsledek Story zatím není potvrzený. Obnov stav a zkontroluj historii.';
+  } finally {
+    creation.sending = false; state.busy--;
+    await loadState(true); renderStoryCreate();
+  }
+}
+
+async function retryStory(record, trigger) {
+  if (storyActionBlocked()) return;
+  const id = record.attempt_id || record.id;
+  const result = await run(async () => {
+    await loadState(true);
+    const current = state.data?.history?.find(row => (row.attempt_id || row.id) === id);
+    if (!state.connected || !current || current.state !== 'published' || current.story_state !== 'error' || current.story_started_at) throw new Error('Story nyní nelze opakovat. Obnov stav a zkontroluj historii.');
+    return api(`attempts/${encodeURIComponent(id)}/story/retry`, { method: 'POST', body: '{}' }, 180000);
+  }, trigger);
+  if (result) toast(result.attempt?.story_state === 'published' ? 'Story byla zveřejněna.' : 'Odeslání Story má vlastní výsledek v historii. Příspěvek se neopakoval.', result.attempt?.story_state !== 'published');
+  renderHistory();
+}
+
+function openStoryResolve(record) {
+  if (state.busy || record.story_state !== 'uncertain' || record.state !== 'published') return;
+  state.storyResolving = record.attempt_id || record.id;
+  $('#story-resolve-filename').textContent = record.filename || record.item_id;
+  $('#story-resolve-published').value = 'true';
+  $('#story-resolve-permalink').value = '';
+  $('#story-resolve-note').value = '';
+  $('#story-resolve-confirm').checked = false;
+  toggleStoryResolveFields();
+  $('#story-resolve-dialog').showModal();
+}
+
+function toggleStoryResolveFields() {
+  const published = $('#story-resolve-published').value === 'true';
+  $('#story-resolve-link-label').hidden = !published;
+  $('#story-resolve-permalink').required = published;
+  $('#story-resolve-note-label').hidden = published;
+  $('#story-resolve-note').required = !published;
+  $('#story-resolve-confirm').checked = false;
+}
+
+async function submitStoryResolve(event) {
+  event.preventDefault();
+  if (!state.storyResolving || !$('#story-resolve-confirm').checked) return;
+  const id = state.storyResolving, published = $('#story-resolve-published').value === 'true';
+  const payload = published ? { published: true, permalink: $('#story-resolve-permalink').value.trim() } : { published: false, note: $('#story-resolve-note').value.trim() };
+  if (published && !storyLink(payload.permalink)) { toast('Vlož HTTPS odkaz na Story na Instagramu.', true); return; }
+  if (!published && (payload.note.length < 8 || payload.note.length > 2000)) { toast('Popiš ověření alespoň 8 znaky.', true); return; }
+  const result = await run(async () => {
+    await loadState(true);
+    const current = state.data?.history?.find(row => (row.attempt_id || row.id) === id);
+    if (!state.connected || current?.state !== 'published' || current?.story_state !== 'uncertain') throw new Error('Výsledek Story se změnil. Zavři dialog a obnov historii.');
+    return api(`attempts/${encodeURIComponent(id)}/story/resolve`, { method: 'POST', body: JSON.stringify(payload) });
+  }, $('button[type=submit]', event.target), 'Ověřený výsledek Story uložen.');
+  if (result?.ok) $('#story-resolve-dialog').close();
+}
+
 function renderImportSettings() {
   const settings = state.data?.settings || {};
   if (!state.importDirty && !$('#import-settings-form').contains(document.activeElement)) {
@@ -1376,6 +1674,32 @@ $('#folder-choose').addEventListener('click', () => {
 for (const id of ['#folder-close', '#folder-cancel']) $(id).addEventListener('click', () => $('#folder-dialog').close());
 $('#folder-dialog').addEventListener('close', () => { state.folderRequest++; });
 
+
+$('#story-settings-form').addEventListener('input', () => { state.storyDirty = true; renderStorySettings(); });
+$('#story-settings-form').addEventListener('change', () => { state.storyDirty = true; renderStorySettings(); });
+$('#story-settings-form').addEventListener('submit', saveStorySettings);
+$('#story-preview-next').addEventListener('click', () => openStoryPreview(state.data?.queue?.[0]?.id));
+$('#manual-story-preview').addEventListener('click', () => openStoryPreview(state.manualPublish?.postId));
+$('#manual-story-requested').addEventListener('change', event => {
+  const manual = state.manualPublish;
+  if (manual && !manual.submitted && !manual.sending && !manual.terminal && state.data?.settings?.story_enabled !== false) manual.storyRequested = event.target.checked;
+  if (manual) renderManualStory(manual);
+});
+$('#story-preview-close').addEventListener('click', () => $('#story-preview-dialog').close());
+$('#story-preview-dialog').addEventListener('close', () => {
+  const image = $('#story-preview-image');
+  state.storyPreviewGeneration++;
+  state.storyCreating = null;
+  image.onload = null; image.onerror = null; image.removeAttribute('src'); image.hidden = true;
+});
+$('#story-create-confirmation').addEventListener('submit', submitStoryCreate);
+$('#story-create-confirm').addEventListener('change', renderStoryCreate);
+$('#story-create-refresh').addEventListener('click', async () => { await loadState(true); renderStoryCreate(); });
+$('#story-create-close').addEventListener('click', () => $('#story-preview-dialog').close());
+for (const id of ['#story-resolve-close', '#story-resolve-cancel']) $(id).addEventListener('click', () => $('#story-resolve-dialog').close());
+$('#story-resolve-dialog').addEventListener('close', () => { state.storyResolving = null; loadState(); });
+$('#story-resolve-published').addEventListener('change', toggleStoryResolveFields);
+$('#story-resolve-form').addEventListener('submit', submitStoryResolve);
 
 const languageObserver = new MutationObserver(records => {
   for (const record of records) {

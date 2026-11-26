@@ -19,7 +19,7 @@ from .direct_instagram import DirectInstagram
 from .browser_instagram import BrowserInstagram, BrowserNotSent
 from .folder_import import FolderImporter
 from .queue_store import QueueConflict, QueueStore
-from .scheduling import _slots, due_slots, next_slots, validate_schedule
+from .scheduling import _slots, due_slots, next_slots, story_requested, validate_schedule
 from .photo_validation import validate_photo_dimensions
 from .state import State
 
@@ -110,7 +110,8 @@ class Service:
                 continue
             identity = json.dumps([entity, event.get('uid', ''), at.isoformat()])
             result['slots'].append({'key': 'ha-' + hashlib.sha256(identity.encode()).hexdigest(),
-                                    'at': at.isoformat(), 'label': event.get('summary') or 'Calendar event'})
+                                    'at': at.isoformat(), 'label': event.get('summary') or 'Calendar event',
+                                    'story_requested': story_requested(event.get('description'))})
         result['slots'].sort(key=lambda slot: (slot['at'], slot['key']))
         return result
 
@@ -172,6 +173,28 @@ class Service:
             raise QueueConflict('The manual request belongs to a different post. Refresh the queue before publishing.')
         return {'ok': attempt['state'] == 'published', 'replayed': replayed, 'attempt': attempt}
 
+    def story_settings(self, requested=True, explicit=False):
+        """Snapshot a future story's choice, destination and rendering inputs."""
+        with self.state.lock:
+            if not requested or (not explicit and not self.state.data['story_enabled']):
+                return None
+            renderer = {key: self.state.data[key] for key in (
+                'story_template', 'story_brand_name', 'story_headline', 'story_footer', 'story_background')}
+            settings = {'expected_username': self.state.data['account'].get('username', ''),
+                        'connection_method': self.state.data['connection_method'], 'renderer': renderer}
+        background = renderer['story_background']
+        if background:
+            path = Path(background)
+            try:
+                if (path.is_symlink() or not path.is_file()
+                        or not path.resolve().is_relative_to(self.data_dir.resolve())):
+                    raise ValueError()
+                settings['background_sha256'] = hashlib.sha256(path.read_bytes()).hexdigest()
+            except (OSError, ValueError):
+                # A missing optional story asset must not suppress its feed post.
+                settings['background_error'] = 'The story background must be a JPEG or PNG inside the app private data folder.'
+        return settings
+
     def publish_next(self, data):
         """Publish one explicitly selected head, without changing its calendar.
 
@@ -180,7 +203,9 @@ class Service:
         instead of consuming the next item. The connection lock rejects concurrent
         manual requests rather than putting several publications into a wait queue.
         """
-        if (not isinstance(data, dict) or set(data) != {'expected_post_id', 'request_id'}
+        if (not isinstance(data, dict) or set(data) - {'expected_post_id', 'request_id', 'story_requested'}
+                or not {'expected_post_id', 'request_id'} <= set(data)
+                or ('story_requested' in data and not isinstance(data['story_requested'], bool))
                 or not isinstance(data.get('expected_post_id'), str)
                 or not re.fullmatch(r'[0-9a-f]{32}', data['expected_post_id'])
                 or not isinstance(data.get('request_id'), str)
@@ -210,7 +235,8 @@ class Service:
                 # Reordering must not bypass an unresolved external result.
                 if self.queue.open_attempts():
                     raise QueueConflict('Resolve the pending or uncertain publication in History before publishing another post.')
-                attempt = self.queue.claim(event_key, expected_item_id=expected)
+                attempt = self.queue.claim(event_key, expected_item_id=expected,
+                                           story_settings=self.story_settings(data.get('story_requested', True)))
                 if attempt is None:
                     previous = self.queue.attempt_for_event(event_key)
                     if previous:
@@ -247,7 +273,8 @@ class Service:
                 identity = json.dumps([entity, event.get('uid', ''), at.astimezone(timezone.utc).isoformat()])
                 slots.append({'key': 'ha-' + hashlib.sha256(identity.encode()).hexdigest(),
                               'at': at.astimezone(timezone.utc).isoformat(),
-                              'label': event.get('summary') or 'Calendar event'})
+                              'label': event.get('summary') or 'Calendar event',
+                              'story_requested': story_requested(event.get('description'))})
             self.calendar_slots = sorted(slots, key=lambda slot: slot['at'])
             self.calendar_error = ''
         except ValueError as e:
@@ -356,6 +383,21 @@ class Service:
                 self.state.save()
 
     def publish(self, attempt):
+        with self.connection_guard:
+            current = self.queue.get_attempt(attempt['attempt_id'])
+            if current['state'] == 'claimed':
+                self._publish_feed(current)
+            elif current['state'] != 'published':
+                return
+            # The story's error path is deliberately outside the feed's handler:
+            # a story failure must never mark a confirmed feed post as failed.
+            if self.queue.get_attempt(attempt['attempt_id'])['state'] == 'published':
+                try:
+                    self.publish_story(attempt['attempt_id'])
+                except Exception:
+                    self.worker_error = 'The feed post is published, but its story could not be recorded. Check History before retrying the story.'
+
+    def _publish_feed(self, attempt):
         attempt_id = attempt['attempt_id']
         publish_started = False
         prepared = None
@@ -418,6 +460,124 @@ class Service:
             if prepared is not None:
                 prepared.unlink(missing_ok=True)
 
+    def publish_story(self, attempt_id):
+        """A separately journaled operation after a confirmed, archived feed post."""
+        with self.connection_guard:
+            attempt = self.queue.claim_story(attempt_id)
+            if attempt is None:
+                return
+            try:
+                settings = attempt['story_settings']
+                expected = settings.get('expected_username')
+                with self.state.lock:
+                    method = self.state.data['connection_method']
+                    account = dict(self.state.data['account'])
+                if settings.get('connection_method') != 'browser' or method != 'browser':
+                    raise ValueError('Story publishing currently requires browser sign-in. The feed post is already published.')
+                if not expected or not account.get('connected') or account.get('username') != expected:
+                    raise ValueError('The story account differs from the published feed account. Verify the original account first.')
+                if self.browser_instagram.status()['active']:
+                    raise ValueError('Finish or close Instagram sign-in before publishing the story.')
+                upload_story = getattr(self.browser_instagram, 'upload_story', None)
+                if not callable(upload_story):
+                    raise ValueError('The connected Instagram browser cannot publish stories yet. The feed post is already published.')
+                renderer = dict(settings['renderer'])
+                background = renderer.get('story_background')
+                if background:
+                    path = Path(background)
+                    if (path.is_symlink() or not path.is_file()
+                            or not path.resolve().is_relative_to(self.data_dir.resolve())):
+                        raise ValueError(settings.get('background_error') or 'The story background changed after the post was queued. Restore the selected background.')
+                    expected_hash = settings.get('background_sha256')
+                    if expected_hash and hashlib.sha256(path.read_bytes()).hexdigest() != expected_hash:
+                        raise ValueError('The story background changed after the post was queued. Restore the selected background.')
+                from .story_cards import render_story
+                directory = self.data_dir / 'stories'
+                if directory.is_symlink():
+                    raise ValueError('The private story output folder is invalid.')
+                directory.mkdir(exist_ok=True, mode=0o700)
+                output = directory / (attempt_id + '.jpg')
+                if output.is_symlink():
+                    raise ValueError('The private story output file is invalid.')
+                source = self.queue.image_path(attempt['item_id'])
+                render_story(source, output, renderer)
+                result = upload_story(output, expected_username=expected,
+                    before_share=lambda: self.queue.start_story(attempt_id))
+                self.queue.finish_story(attempt_id, str(result['id']), result.get('permalink', ''))
+            except Exception as error:
+                safe = str(error) if isinstance(error, (ValueError, InstagramError)) else 'Story publication was interrupted. The feed post is already published; verify the story before retrying.'
+                self.queue.fail_story(attempt_id, safe)
+
+    def retry_story(self, attempt_id):
+        if not self.connection_guard.acquire(blocking=False):
+            raise QueueConflict('Another publication or account operation is in progress. Wait for it to finish.')
+        try:
+            if self.browser_instagram.status()['active']:
+                raise QueueConflict('Finish or close Instagram sign-in before publishing the story.')
+            self.queue.retry_story(attempt_id)
+            self.publish_story(attempt_id)
+            attempt = self.queue.get_attempt(attempt_id)
+            return {'ok': attempt['story_state'] == 'published', 'attempt': attempt}
+        finally:
+            self.connection_guard.release()
+
+    def create_story(self, attempt_id, data):
+        """An explicit one-post backfill, even when automatic stories are off."""
+        if (not isinstance(data, dict) or set(data) != {'expected_username'}
+                or not isinstance(data['expected_username'], str)
+                or not re.fullmatch(r'[A-Za-z0-9_.]{1,30}', data['expected_username'])):
+            raise ValueError('Confirm the currently verified Instagram username before creating the story.')
+        attempt = self.queue.get_attempt(attempt_id)
+        if attempt['state'] != 'published':
+            raise QueueConflict('A story can only be created for a confirmed published feed post.')
+        if attempt['story_state'] != 'skipped':
+            return {'ok': attempt['story_state'] == 'published', 'replayed': True, 'attempt': attempt}
+        if not self.connection_guard.acquire(blocking=False):
+            raise QueueConflict('Another publication or account operation is in progress. Wait for it to finish.')
+        try:
+            attempt = self.queue.get_attempt(attempt_id)
+            if attempt['story_state'] != 'skipped':
+                return {'ok': attempt['story_state'] == 'published', 'replayed': True, 'attempt': attempt}
+            with self.state.lock:
+                account = dict(self.state.data['account'])
+                method = self.state.data['connection_method']
+            if not account.get('connected') or account.get('username') != data['expected_username']:
+                raise QueueConflict('The Instagram account changed. Refresh the post preview and verify the destination account.')
+            if method != 'browser':
+                raise QueueConflict('Story publishing currently requires browser sign-in. The feed post is already published.')
+            if self.browser_instagram.status()['active']:
+                raise QueueConflict('Finish or close Instagram sign-in before publishing the story.')
+            attempt, created = self.queue.create_story(attempt_id, self.story_settings(explicit=True))
+            if created:
+                # Never call publish() here: this action owns only a story.
+                self.publish_story(attempt_id)
+            result = self.queue.get_attempt(attempt_id)
+            return {'ok': result['story_state'] == 'published', 'replayed': not created, 'attempt': result}
+        finally:
+            self.connection_guard.release()
+
+    def resolve_story(self, attempt_id, data):
+        if (not isinstance(data, dict) or set(data) - {'published', 'permalink', 'note'}
+                or not isinstance(data.get('published'), bool)):
+            raise ValueError('Confirm whether the story was published after checking the original account.')
+        if not self.connection_guard.acquire(blocking=False):
+            raise QueueConflict('Another publication or account operation is in progress. Wait for it to finish.')
+        try:
+            if data['published']:
+                link = data.get('permalink')
+                if not isinstance(link, str) or len(link) > 2000:
+                    raise ValueError('Provide the verified Instagram story URL for the original feed account.')
+                try:
+                    media_id = urlsplit(link).path.strip('/').split('/')[-1]
+                except ValueError:
+                    raise ValueError('Provide the verified Instagram story URL for the original feed account.') from None
+                attempt = self.queue.finish_story(attempt_id, media_id, link, confirmed=True)
+            else:
+                attempt = self.queue.resolve_story_not_published(attempt_id, data.get('note'))
+            return {'ok': True, 'attempt': attempt}
+        finally:
+            self.connection_guard.release()
+
     def recover(self):
         for attempt in self.queue.open_attempts():
             if attempt.get('media_id'):
@@ -431,6 +591,13 @@ class Service:
                 self.queue.fail(attempt['attempt_id'], 'The app restarted during publication. Verify the Instagram profile; automatic retry is blocked.', uncertain=True)
             elif attempt.get('state') in ('claimed', 'container_created'):
                 self.queue.fail(attempt['attempt_id'], 'The app restarted before publishing. You can retry this post.')
+        for attempt in self.queue.open_stories():
+            if attempt['story_state'] == 'uncertain':
+                continue
+            if attempt['story_state'] == 'publishing':
+                self.queue.fail_story(attempt['attempt_id'], 'The app restarted during story publication. Verify the Instagram story; automatic retry is blocked.')
+            elif attempt['state'] == 'published':
+                self.queue.fail_story(attempt['attempt_id'], 'The app restarted before sending the story. The feed post is already published.')
 
     def run(self):
         self.recover()
@@ -460,7 +627,7 @@ class Service:
                             if not 0 <= age <= 90:
                                 continue
                             with self.queue_guard:
-                                attempt = self.queue.claim(slot['key'])
+                                attempt = self.queue.claim(slot['key'], story_settings=self.story_settings(slot.get('story_requested', True)))
                             if attempt:
                                 self.publish(attempt)
                 self.worker_error = ''
@@ -477,7 +644,11 @@ class Service:
             parsed = urlsplit(link)
             if parsed.scheme != 'https' or parsed.hostname not in ('www.instagram.com', 'instagram.com') or not parsed.path.startswith(('/p/', '/reel/')):
                 raise ValueError('Provide the verified Instagram post URL.')
-            return self.queue.finish(attempt_id, attempt.get('media_id') or '', link)
+            confirmed = self.queue.finish(attempt_id, attempt.get('media_id') or '', link)
+            # Explicit confirmation can complete the original pending story,
+            # while publish() refuses to send this already-published feed again.
+            self.publish(confirmed)
+            return self.queue.get_attempt(attempt_id)
         if data.get('published') is False and len(data.get('note', '').strip()) >= 8:
             return self.queue.resolve_not_published(attempt['item_id'], data['note'].strip())
         raise ValueError('Confirm that you checked the Instagram profile and provide a note.')

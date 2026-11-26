@@ -6,6 +6,7 @@ const vm = require('node:vm');
 
 const source = fs.readFileSync(path.join(__dirname, '../app/static/app.js'), 'utf8');
 const manualCode = source.slice(source.indexOf('function manualPublishReason('), source.indexOf('function copySchedule('));
+const storyCode = source.slice(source.indexOf('function storyStateLabel('), source.indexOf('function renderStorySettings('));
 const storageKey = 'reality-twins-manual-publish';
 
 function fixture() {
@@ -24,6 +25,7 @@ function fixture() {
     if (!nodes.has(selector)) nodes.set(selector, {
       textContent: '', hidden: false, disabled: false, open: false, dataset: {}, src: '',
       classList: { toggle() {} }, focus() {},
+      replaceChildren() {}, append() {},
       showModal() { this.open = true; }, close() { this.open = false; }
     });
     return nodes.get(selector);
@@ -32,6 +34,7 @@ function fixture() {
   const context = {
     state, $: node, encodeURIComponent,
     translate: text => text,
+    URL, element: (tag, className, textContent) => ({ tag, className, textContent, append() {} }),
     toast: (...args) => notices.push(args),
     newId: () => `manual_request_${String(++counter).padStart(5, '0')}`,
     sessionStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
@@ -52,7 +55,7 @@ function fixture() {
     return { state: status, item_id: manual.postId, event_key: `manual:${manual.requestId}`, filename: manual.item?.filename, caption: manual.item?.caption, ...extra };
   }
   vm.createContext(context);
-  vm.runInContext(manualCode, context, { filename: 'app.js manual publication' });
+  vm.runInContext(storyCode + '\n' + manualCode, context, { filename: 'app.js manual publication' });
   return Object.assign(ui, {
     context, attempt,
     open: () => context.openManualPublish(),
@@ -110,7 +113,7 @@ test('double confirmation sends one selected item and leaves calendar and pause 
   await sent.promise;
   await ui.submit();
   assert.equal(ui.requests.length, 1);
-  assert.deepEqual(ui.requests[0].body, { expected_post_id: 'a'.repeat(32), request_id: requestId });
+  assert.deepEqual(ui.requests[0].body, { expected_post_id: 'a'.repeat(32), request_id: requestId, story_requested: true });
   assert.equal(ui.requests[0].route, 'publish-next');
   assert.equal(ui.requests[0].method, 'POST');
   assert.equal(ui.requests[0].timeout, 180000);
@@ -250,4 +253,46 @@ test('reload restores only a validated request identity, without automatic publi
   invalid.restore();
   assert.equal(invalid.state.manualPublish, null);
   assert.equal(invalid.requests.length, 0);
+});
+
+test('Story choice follows the global default and remains unchanged across a transport retry', async () => {
+  const ui = fixture();
+  await ui.open();
+  assert.equal(ui.state.manualPublish.storyRequested, true);
+  assert.equal(ui.node('#manual-story-requested').checked, true);
+  ui.state.manualPublish.storyRequested = false;
+  ui.onPost = async () => { throw new Error('Transport interrupted'); };
+  await ui.submit();
+  assert.equal(ui.requests[0].body.story_requested, false);
+  assert.equal(ui.node('#manual-story-requested').disabled, true);
+  assert.equal(JSON.parse(ui.storage.get(storageKey)).storyRequested, false);
+  ui.state.manualPublish = null;
+  ui.restore();
+  await ui.open();
+  ui.onPost = async () => ({ ok: true, attempt: ui.attempt('published', { story_requested: false, story_state: 'skipped' }) });
+  await ui.submit(true);
+  assert.deepEqual(ui.requests[1].body, ui.requests[0].body);
+  const disabled = fixture();
+  disabled.state.data.settings.story_enabled = false;
+  await disabled.open();
+  assert.equal(disabled.state.manualPublish.storyRequested, false);
+  assert.equal(disabled.node('#manual-story-requested').disabled, true);
+});
+
+test('disabling Stories after confirmation preview blocks the first POST and Story errors never resend feed', async () => {
+  const changed = fixture(); await changed.open();
+  changed.state.data.settings.story_enabled = false;
+  await changed.submit();
+  assert.equal(changed.requests.length, 0);
+  assert.equal(changed.state.manualPublish.terminal, true);
+  const ui = fixture();
+  ui.onPost = async () => ({ ok: true, attempt: ui.attempt('published', { story_requested: true, story_state: 'uncertain' }) });
+  await ui.open(); await ui.submit(); await ui.submit(true);
+  assert.equal(ui.requests.length, 1);
+  assert.equal(ui.state.manualPublish.attempt.state, 'published');
+  assert.equal(ui.node('#manual-publish-retry').hidden, true);
+  assert.equal(ui.node('#manual-story-result').hidden, false);
+  ui.state.data.history = [ui.attempt('published', { story_requested: true, story_state: 'published' })];
+  await ui.refresh();
+  assert.equal(ui.state.manualPublish.attempt.story_state, 'published', 'a late Story receipt must refresh even though feed is already terminal');
 });

@@ -25,6 +25,7 @@ VIEWPORTS = {'desktop': (WIDTH, HEIGHT), 'mobile': (390, 844)}
 VIEW_SECONDS = 15 * 60
 IDENTITY_TIMEOUT = 12
 COMPOSER_TIMEOUT = 12
+STORY_RECEIPT_TIMEOUT = 60
 USERNAME = re.compile(r'[A-Za-z0-9_.]{1,30}')
 SHORTCODE = re.compile(r'[A-Za-z0-9_-]{1,64}')
 KEYS = {'Enter', 'Tab', 'Shift+Tab', 'Backspace', 'Delete', 'Escape',
@@ -47,6 +48,16 @@ COMPOSER_STEPS = {
     'verify_account': 'The Instagram account could not be verified in the post editor. No post was sent.',
     'prepare_share': 'Instagram did not make the final Share action available. No post was sent.',
 }
+STORY_UNCERTAIN = 'Instagram did not confirm the uploaded story. Check your stories before retrying.'
+STORY_STEPS = {
+    'story_menu': 'Instagram could not open the Story menu. No story was sent.',
+    'story_photo': 'Instagram could not load the photo into the Story editor. No story was sent.',
+    'story_preview': 'Instagram could not verify the Story preview. No story was sent.',
+    'story_account': 'The Instagram account could not be verified in the Story editor. No story was sent.',
+    'story_share': 'Instagram did not make the final Story share action available. No story was sent.',
+}
+STORY_CREATE_NAME = re.compile(r'^(?:(?:New post|Create|New)(?:\s+(?:New post|Create|New))*)$', re.I)
+STORY_SHARE_NAME = re.compile(r'^(?:Add to your story|Your story|Share)(?:\s+(?:Add to your story|Your story|Share))*$', re.I)
 LOGGER = logging.getLogger(__name__)
 CROP_NAME = re.compile(r'^(?:Select crop(?:\s+Select crop)*|Expand(?:\s+Expand)*)$', re.I)
 CROP_SVG = 'svg[aria-label="Select crop" i], svg[aria-label="Expand" i]'
@@ -90,6 +101,36 @@ PROFILE_NAVIGATION = r'''() => {
       labels(element).some(value => /^(Log in|Log In|Přihlásit se)$/i.test(value)));
   return {links, edit, signedOut};
 }'''
+
+# The mobile bottom bar may have no semantic nav tag. Recognize only visible
+# profile links inside a fixed/sticky bottom bar, never feed avatars.
+MOBILE_PROFILE_LINKS = r'''() => [...document.querySelectorAll('a[href]')].filter(anchor => {
+  const box = anchor.getBoundingClientRect();
+  if (!anchor.querySelector('img') || box.width <= 0 || box.height <= 0 ||
+      box.top < innerHeight - 100 || box.bottom > innerHeight + 2) return false;
+  for (let node = anchor; node && node !== document.body; node = node.parentElement) {
+    const style = getComputedStyle(node), rect = node.getBoundingClientRect();
+    if (style.visibility === 'hidden' || style.display === 'none') return false;
+    if (['fixed', 'sticky'].includes(style.position) && rect.bottom >= innerHeight - 2) return true;
+    if (node.matches('nav,[role="navigation"]')) return true;
+  }
+  return false;
+}).map(anchor => anchor.getAttribute('href'))'''
+
+STORY_PREVIEW = r'''() => [...document.querySelectorAll('img,canvas')].some(node => {
+  const rect = node.getBoundingClientRect(), style = getComputedStyle(node);
+  if (style.display === 'none' || style.visibility === 'hidden' || rect.width < 180 ||
+      rect.height < 300 || rect.top >= innerHeight || rect.bottom <= 0) return false;
+  if (node.tagName === 'IMG' && !/^(blob:|data:image\/)/.test(node.currentSrc || node.src)) return false;
+  if (node.tagName === 'CANVAS' && !node.closest('[role="dialog"]') &&
+      !/^\/create\//.test(location.pathname)) return false;
+  const width = node.naturalWidth || node.width, height = node.naturalHeight || node.height;
+  if (!width || !height || Math.abs(width / height - 9 / 16) > .02) return false;
+  const x = Math.min(innerWidth - 1, Math.max(0, rect.left + rect.width / 2));
+  const y = Math.min(innerHeight - 1, Math.max(0, rect.top + rect.height / 2));
+  const top = document.elementFromPoint(x, y);
+  return top === node || node.contains(top);
+})'''
 
 # Chromium represents pasted blank lines as <div><br></div>. innerText adds
 # another implicit block newline, while textContent drops line boundaries.
@@ -203,6 +244,34 @@ def _receipt(response, expected_username=None, expected_caption=None):
         return None
 
 
+def _story_receipt(response, expected_username):
+    """A Story configure response cannot be confused with the feed receipt."""
+    try:
+        parsed = urlsplit(response.url)
+        if (not _instagram_url(response.url) or response.request.method != 'POST'
+                or parsed.path.rstrip('/') not in ('/create/configure_to_story', '/api/v1/media/configure_to_story')
+                or response.status != 200):
+            return None
+        payload = response.json()
+        media = payload.get('media') if isinstance(payload, dict) and payload.get('status') == 'ok' else None
+        if not isinstance(media, dict):
+            return None
+        identity = str(media.get('pk') or media.get('id') or '').split('_', 1)[0]
+        if not re.fullmatch(r'[0-9]+', identity):
+            return None
+        owner = media.get('user') or {}
+        if not isinstance(owner, dict):
+            return None
+        username = owner.get('username')
+        if not isinstance(username, str) or username.casefold() != expected_username.casefold():
+            return None
+        if media.get('media_product_type') not in (None, 'story', 'STORY'):
+            return None
+        return {'id': identity, 'permalink': HOME + f'stories/{expected_username}/{identity}/'}
+    except Exception:
+        return None
+
+
 class _Chromium:
     """Used only by the owning executor thread; no Playwright object escapes it."""
     def __init__(self, profile):
@@ -212,6 +281,8 @@ class _Chromium:
         self.page = None
         self.expected_username = None
         self._failed_editor_account = None
+        self._failed_editor_story = False
+        self._story_verified_username = None
         self._emulation = None
         profile.mkdir(parents=True, exist_ok=True, mode=0o700)
         profile.chmod(0o700)
@@ -274,6 +345,8 @@ class _Chromium:
 
     def home(self):
         self._failed_editor_account = None
+        self._failed_editor_story = False
+        self._story_verified_username = None
         self.page.goto(HOME, wait_until='domcontentloaded')
 
     def set_mode(self, mode):
@@ -303,6 +376,9 @@ class _Chromium:
         if not expected or not _instagram_url(self.page.url):
             return False
         try:
+            if self._failed_editor_story:
+                self._failed_editor_story = False
+                return self._story_account_matches(expected)
             return self._same_account(expected)
         except Exception:
             return False
@@ -521,6 +597,170 @@ class _Chromium:
         except Exception:
             pass
 
+    def _story_account_matches(self, expected, require_link=False):
+        if (not _instagram_url(self.page.url) or
+                urlsplit(self.page.url).path.startswith(('/accounts/', '/challenge/', '/checkpoint/'))):
+            return False
+        snapshot = self.page.evaluate(PROFILE_NAVIGATION)
+        if snapshot.get('signedOut'):
+            return False
+        strong, weak = _profile_candidates(snapshot)
+        mobile = {_username_from_profile(link) for link in self.page.evaluate(MOBILE_PROFILE_LINKS)} - {None}
+        profiles = strong | weak | mobile
+        if profiles:
+            return profiles == {expected}
+        # A full-screen Story editor can hide all navigation. Its destination
+        # was verified on this same page before opening; the owner thread and
+        # closed viewer lease prevent concurrent account switching.
+        return not require_link and self._story_verified_username == expected
+
+    @staticmethod
+    def _touch_point(control):
+        if not control.is_visible() or not control.is_enabled():
+            raise BrowserNotSent(STORY_STEPS['story_share'])
+        point = control.evaluate('''element => {
+          const r = element.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+          const top = document.elementFromPoint(x,y);
+          return x >= 0 && y >= 0 && x < innerWidth && y < innerHeight &&
+            (top === element || element.contains(top)) ? [x,y] : null;
+        }''')
+        if not point:
+            raise BrowserNotSent(STORY_STEPS['story_share'])
+        return point
+
+    def _story_create_control(self):
+        deadline = time.monotonic() + COMPOSER_TIMEOUT
+        while time.monotonic() < deadline:
+            icons = [node for node in self.page.locator('svg[aria-label="New post" i],svg[aria-label="Create" i]').all()
+                     if node.is_visible() and (node.bounding_box() or {}).get('y', 9999) < 100]
+            if len(icons) > 1:
+                raise BrowserNotSent(STORY_STEPS['story_menu'])
+            if icons:
+                parent = icons[0].locator('xpath=ancestor::*[self::button or self::a or @role="button"][1]')
+                return parent if parent.count() == 1 and parent.is_visible() else icons[0]
+            buttons = [node for node in self.page.get_by_role('button', name=STORY_CREATE_NAME).all()
+                       if node.is_visible() and (node.bounding_box() or {}).get('y', 9999) < 100]
+            if len(buttons) == 1:
+                return buttons[0]
+            if len(buttons) > 1:
+                raise BrowserNotSent(STORY_STEPS['story_menu'])
+            self.page.wait_for_timeout(150)
+        raise BrowserNotSent(STORY_STEPS['story_menu'])
+
+    def _story_share_control(self):
+        deadline = time.monotonic() + COMPOSER_TIMEOUT
+        while time.monotonic() < deadline:
+            candidates = []
+            for node in self.page.get_by_role('button', name=STORY_SHARE_NAME).all():
+                if not node.is_visible():
+                    continue
+                try:
+                    point = self._touch_point(node)
+                except BrowserNotSent:
+                    continue
+                if not node.evaluate('''element => {
+                  const r = element.getBoundingClientRect();
+                  return document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)
+                    ?.closest('button,[role="button"]') === element;
+                }'''):
+                    continue
+                if point[1] >= VIEWPORTS['mobile'][1] * .70:
+                    candidates.append(node)
+            if len(candidates) == 1:
+                return candidates[0]
+            if len(candidates) > 1:
+                raise BrowserNotSent(STORY_STEPS['story_share'])
+            self.page.wait_for_timeout(150)
+        raise BrowserNotSent(STORY_STEPS['story_share'])
+
+    def _diagnose_story(self, stage, error):
+        try:
+            known = {
+                'new_post': self.page.locator('svg[aria-label="New post" i],svg[aria-label="Create" i]'),
+                'story': self.page.get_by_text('Story', exact=True),
+                'share': self.page.get_by_role('button', name=STORY_SHARE_NAME),
+                'preview_image': self.page.locator('img[src^="blob:"],img[src^="data:image/"],canvas'),
+            }
+            counts = {name: sum(node.is_visible() for node in locator.all()) for name, locator in known.items()}
+        except Exception:
+            counts = {'unavailable': True}
+        LOGGER.warning('Instagram Story stopped before Share: stage=%s exception=%s visible=%s',
+                       stage, type(error).__name__, json.dumps(counts, sort_keys=True))
+
+    def upload_story(self, path, expected_username, before_share=None):
+        page = self.page
+        stage = 'story_account'
+        try:
+            deadline = time.monotonic() + IDENTITY_TIMEOUT
+            while not self._story_account_matches(expected_username, require_link=True):
+                if time.monotonic() >= deadline:
+                    raise BrowserNotSent(STORY_STEPS[stage])
+                page.wait_for_timeout(150)
+            self._story_verified_username = expected_username
+            stage = 'story_menu'
+            self.tap(*self._touch_point(self._story_create_control()))
+            story = self._one([
+                page.get_by_text('Story', exact=True),
+                page.get_by_role('menuitem', name='Story', exact=True),
+                page.get_by_role('button', name=re.compile(r'^Story(?:\s+Story)*$', re.I)),
+                page.get_by_role('link', name='Story', exact=True),
+            ])
+            stage = 'story_photo'
+            with page.expect_file_chooser() as chooser:
+                self.tap(*self._touch_point(story))
+            chooser.value.set_files(str(path))
+            stage = 'story_preview'
+            deadline = time.monotonic() + COMPOSER_TIMEOUT
+            while not page.evaluate(STORY_PREVIEW):
+                if time.monotonic() >= deadline:
+                    raise BrowserNotSent(STORY_STEPS[stage])
+                page.wait_for_timeout(150)
+            stage = 'story_share'
+            share = self._story_share_control()
+            point = self._touch_point(share)
+            stage = 'story_account'
+            if not self._story_account_matches(expected_username):
+                raise BrowserNotSent(STORY_STEPS[stage])
+        except Exception as error:
+            self._diagnose_story(stage, error)
+            self._failed_editor_account = None
+            self._failed_editor_story = False
+            try:
+                if stage != 'story_account' and self._story_account_matches(expected_username):
+                    self._failed_editor_account = expected_username
+                    self._failed_editor_story = True
+            except Exception:
+                pass
+            raise BrowserNotSent(STORY_STEPS[stage]) from None
+
+        receipt = []
+        def capture(response):
+            result = _story_receipt(response, expected_username)
+            if result:
+                receipt.append(result)
+        page.on('response', capture)
+        try:
+            if before_share is not None:
+                try:
+                    before_share()
+                except Exception:
+                    self._failed_editor_account = expected_username
+                    self._failed_editor_story = True
+                    raise BrowserNotSent('The story could not be prepared for publication. No story was sent.') from None
+            self.tap(*point)
+            deadline = time.monotonic() + STORY_RECEIPT_TIMEOUT
+            while not receipt and time.monotonic() < deadline:
+                page.wait_for_timeout(250)
+            if not receipt:
+                raise BrowserInstagramError(STORY_UNCERTAIN)
+            return receipt[0]
+        except BrowserNotSent:
+            raise
+        except Exception:
+            raise BrowserInstagramError(STORY_UNCERTAIN) from None
+        finally:
+            page.remove_listener('response', capture)
+
     def close(self):
         try:
             if self.context:
@@ -627,8 +867,8 @@ class BrowserInstagram:
                 self.state.save()
             runtime = self._ensure()
             if not self.status()['active']:
-                changed = self._change_mode('desktop')
-                if changed or not runtime.resume_failed_editor():
+                if not runtime.resume_failed_editor():
+                    self._change_mode('desktop')
                     runtime.home()
             with self._metadata:
                 self._expires = self._clock() + VIEW_SECONDS
@@ -771,6 +1011,51 @@ class BrowserInstagram:
         # A confirmed browser upload already contains its permalink. Recoveries
         # without one must be reviewed, never inferred from the profile feed.
         raise BrowserInstagramError('Verify the published post link on the Instagram profile.')
+
+    def upload_story(self, path, *, expected_username, before_share=None):
+        path = Path(path)
+        invalid_photo = 'Choose a local 1080 by 1920 JPEG photo for the story.'
+        if path.is_symlink() or not path.is_file() or path.suffix.lower() not in ('.jpg', '.jpeg'):
+            raise BrowserNotSent(invalid_photo)
+        try:
+            from PIL import Image
+            with Image.open(path) as image:
+                if image.format != 'JPEG' or image.size != (1080, 1920):
+                    raise ValueError()
+                image.verify()
+        except Exception:
+            raise BrowserNotSent(invalid_photo) from None
+        if not isinstance(expected_username, str) or not USERNAME.fullmatch(expected_username):
+            raise BrowserNotSent('The Story account must match the confirmed feed account.')
+        def work():
+            if self.status()['active']:
+                raise BrowserNotSent('Finish or close Instagram sign-in before enabling publishing.')
+            if self.state.data['connection_method'] != 'browser' or not self.state.data.get('browser_session'):
+                raise BrowserNotSent(SIGN_IN)
+            if self.state.data['account'].get('username') != expected_username:
+                raise BrowserNotSent('The Story account must match the confirmed feed account.')
+            with self._metadata:
+                self._busy = True
+            try:
+                try:
+                    account = self._verify(True)
+                    if account['username'] != expected_username:
+                        raise BrowserNotSent('The Story account must match the confirmed feed account.')
+                    self._change_mode('mobile')
+                    runtime = self._ensure()
+                    runtime.home()
+                except BrowserInstagramError as error:
+                    raise BrowserNotSent(str(error)) from None
+                except Exception:
+                    raise BrowserNotSent(STORY_STEPS['story_account']) from None
+                return runtime.upload_story(path, expected_username, before_share=before_share)
+            finally:
+                # Leave a pre-Share failure visible for inspection. The next
+                # account check or feed upload always restores desktop first.
+                with self._metadata:
+                    self._busy = False
+                self._remember_url()
+        return self._call(work)
 
     def disconnect(self):
         def work():

@@ -28,7 +28,7 @@ function fixture({ saved = 'calendar.example', calendars = null, failure = false
   const context = {
     state, $: node, document: { activeElement: null },
     element: (tag, className, textContent) => ({ tag, className, textContent, value: '' }),
-    renderDirectLogin() {}, renderImportSettings() {}, updateCallback() {},
+    renderDirectLogin() {}, renderImportSettings() {}, renderStorySettings() {}, updateCallback() {},
     FormData: class { entries() { return Object.entries({ calendar_entity: node('#calendar-entity').value, schedule_source: 'home_assistant' }); } },
     api: async (route, options) => {
       if (route === 'calendars') { if (failure) throw new Error('Unavailable.'); return { calendars: calendars || [] }; }

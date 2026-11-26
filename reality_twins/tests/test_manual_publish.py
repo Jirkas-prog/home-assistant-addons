@@ -36,6 +36,8 @@ class ManualPublishTests(unittest.TestCase):
     def attach_mocks(self):
         self.service.browser_instagram.check = Mock(return_value=dict(self.account))
         self.service.browser_instagram.upload = Mock(side_effect=self.upload)
+        self.service.browser_instagram.upload_story = Mock(side_effect=lambda image, expected_username, before_share: (
+            before_share(), {'id': '2001', 'permalink': 'https://www.instagram.com/stories/example_account/2001/'})[1])
         self.service.ha_get = Mock(side_effect=AssertionError('Manual publishing must not consult or edit the calendar'))
         self.admin, self.public = create_apps(self.service)
         self.client = self.admin.test_client()
@@ -148,9 +150,9 @@ class ManualPublishTests(unittest.TestCase):
         first = self.add()
         second = self.add('second.jpg')
         claim = self.service.queue.claim
-        def reordered_before_claim(event_key, expected_item_id=None):
+        def reordered_before_claim(event_key, expected_item_id=None, **kwargs):
             self.service.queue.reorder([second['id'], first['id']])
-            return claim(event_key, expected_item_id=expected_item_id)
+            return claim(event_key, expected_item_id=expected_item_id, **kwargs)
         with patch.object(self.service.queue, 'claim', side_effect=reordered_before_claim):
             response = self.post(self.request_data(first))
         self.assertEqual(response.status_code, 409)
